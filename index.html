@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#86d97a">
+<title>小车大冒险</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9A%97%3C/text%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+  html,body{margin:0;height:100%;height:100dvh;overflow:hidden;background:#4d5470;touch-action:none;
+    font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;}
+  #stage{position:fixed;inset:0;overflow:hidden;}
+  canvas{display:block;width:100%;height:100%;touch-action:none;}
+
+  .hud{position:absolute;left:0;right:0;top:calc(8px + env(safe-area-inset-top));
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 clamp(10px,3vw,24px);pointer-events:none;}
+  .pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.9);border-radius:999px;
+    padding:4px clamp(12px,3vw,18px) 4px 10px;box-shadow:0 4px 0 rgba(0,0,0,.14);}
+  .pill .ico{font-size:clamp(21px,5.4vmin,30px);line-height:1;}
+  .pill .num{font-size:clamp(19px,5vmin,27px);font-weight:900;color:#4a3b1c;min-width:30px;}
+  #mute{pointer-events:auto;width:clamp(40px,9vmin,54px);height:clamp(40px,9vmin,54px);
+    border:none;border-radius:50%;background:rgba(255,255,255,.9);
+    box-shadow:0 4px 0 rgba(0,0,0,.14);font-size:clamp(19px,4.6vmin,26px);
+    display:grid;place-items:center;cursor:pointer;}
+  #mute:active{transform:translateY(2px);}
+
+  .progress{position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(clamp(56px,12vmin,84px) + env(safe-area-inset-top));
+    width:min(64%,520px);height:clamp(11px,2.4vmin,16px);background:rgba(255,255,255,.42);
+    border-radius:999px;box-shadow:inset 0 2px 4px rgba(0,0,0,.15);pointer-events:none;}
+  #progressFill{height:100%;width:0%;border-radius:999px;
+    background:linear-gradient(90deg,#ffe066,#ffb425,#ff8a3d);transition:width .12s linear;}
+  .progress .flag{position:absolute;right:-14px;top:-13px;font-size:clamp(20px,4.6vmin,26px);line-height:1;}
+
+  .controls{position:absolute;left:0;right:0;bottom:calc(12px + env(safe-area-inset-bottom));
+    display:flex;justify-content:space-between;padding:0 clamp(14px,6vw,64px);pointer-events:none;}
+  .ctrl{pointer-events:auto;width:clamp(76px,18vmin,112px);height:clamp(76px,18vmin,112px);
+    border:none;border-radius:50%;background:rgba(255,255,255,.88);color:#4a4a63;
+    font-size:clamp(26px,7vmin,40px);line-height:1;display:grid;place-items:center;cursor:pointer;
+    box-shadow:0 7px 0 rgba(0,0,0,.18),inset 0 -6px 0 rgba(0,0,0,.05);
+    transition:transform .06s,background .06s;touch-action:none;}
+  .ctrl:active{transform:translateY(4px);background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18);}
+
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    padding:clamp(10px,3vmin,26px);background:rgba(38,42,68,.42);
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:10;
+    touch-action:pan-y;overscroll-behavior:contain;}
+  .overlay.hidden{display:none;}
+  .hud.hidden,.progress.hidden{display:none;}
+  .card{width:min(92vw,720px);max-height:calc(100dvh - clamp(20px,6vmin,52px));
+    overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
+    background:#fffaf0;border-radius:clamp(22px,4vmin,36px);
+    padding:clamp(16px,3.2vh,28px) clamp(14px,3.4vw,28px);
+    text-align:center;box-shadow:0 18px 0 rgba(0,0,0,.16),0 24px 50px rgba(0,0,0,.25);
+    animation:pop .3s cubic-bezier(.2,1.5,.5,1);}
+  .card.small{width:min(90vw,420px);}
+  @keyframes pop{from{transform:scale(.82);opacity:0}to{transform:scale(1);opacity:1}}
+  .logo{font-size:clamp(40px,9vmin,64px);line-height:1;filter:drop-shadow(0 6px 0 rgba(0,0,0,.1));}
+  .card h1{margin:6px 0 2px;font-size:clamp(24px,4.4vmin,34px);color:#3a3d5c;letter-spacing:2px;}
+  .card .sub{margin:4px 0 0;font-size:clamp(13px,2.5vmin,17px);color:#7a7f9c;
+    font-weight:600;letter-spacing:1px;}
+
+  .garage{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:clamp(6px,1.4vmin,12px);margin-top:clamp(10px,2.2vh,18px);}
+  .car-card{display:flex;flex-direction:column;align-items:center;gap:1px;
+    border:3px solid transparent;border-radius:clamp(14px,2.6vmin,20px);background:#fff;
+    padding:clamp(6px,1.4vh,10px) 4px;box-shadow:0 3px 0 rgba(0,0,0,.08);
+    cursor:pointer;font-family:inherit;transition:transform .08s,border-color .12s;}
+  .car-card:active{transform:scale(.96);}
+  .car-card.on{border-color:#ffb43d;background:#fff6e2;box-shadow:0 3px 0 #e59b2a;}
+  .car-logo{width:clamp(34px,7.4vmin,48px);height:clamp(34px,7.4vmin,48px);display:block;}
+  .car-logo svg{width:100%;height:100%;display:block;}
+  .car-brand{font-size:clamp(12px,2.4vmin,15px);font-weight:900;color:#3a3d5c;line-height:1.3;}
+  .car-model{font-size:clamp(10px,2vmin,12px);font-weight:600;color:#8a8fa8;line-height:1.2;}
+
+  .big-btn{margin-top:clamp(12px,2.4vh,20px);width:100%;padding:clamp(13px,2.6vh,18px) 0;
+    border:none;border-radius:999px;font-family:inherit;font-size:clamp(22px,5vmin,30px);
+    font-weight:900;letter-spacing:3px;color:#fff;
+    background:linear-gradient(180deg,#ffb43d,#ff8a2b);
+    box-shadow:0 8px 0 #d96b12,0 10px 22px rgba(217,107,18,.35);cursor:pointer;}
+  .big-btn:active{transform:translateY(4px);box-shadow:0 4px 0 #d96b12;}
+  .ghost-btn{margin-top:8px;width:100%;padding:clamp(9px,2vh,13px) 0;border:none;
+    border-radius:999px;background:transparent;color:#9298b0;font-family:inherit;
+    font-size:clamp(13px,2.8vmin,16px);font-weight:700;cursor:pointer;}
+  .ghost-btn:active{color:#5a5f79;}
+  .hint{margin:clamp(8px,2vh,16px) 0 0;font-size:clamp(12px,2.4vmin,14px);
+    line-height:1.7;color:#9a9db2;}
+  .tiny{margin:6px 0 0;font-size:clamp(10px,1.9vmin,12px);color:#b6bacb;line-height:1.5;}
+  .score{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0 2px;
+    font-size:52px;font-weight:900;color:#4a3b1c;line-height:1;}
+  .score span{font-size:44px;}
+  .score b{font-size:56px;}
+  .finish-car{display:flex;justify-content:center;margin-bottom:2px;}
+  .finish-car img{width:clamp(56px,12vmin,80px);height:clamp(56px,12vmin,80px);
+    filter:drop-shadow(0 6px 0 rgba(0,0,0,.1));}
+
+  @media (max-width:560px){
+    .garage{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px;}
+    .card{padding:16px 12px;border-radius:24px;}
+    .logo{font-size:42px;}
+    .car-logo{width:40px;height:40px;}
+    .car-card{padding:7px 3px;border-width:2px;}
+    .car-brand{font-size:13px;}
+    .car-model{font-size:10px;}
+    .big-btn{margin-top:12px;padding:13px 0;font-size:22px;}
+    .hint{margin-top:8px;line-height:1.5;}
+  }
+  @media (min-width:900px){
+    .card{width:min(84vw,780px);}
+  }
+  @media (max-height:540px){
+    .card{padding:12px 16px;border-radius:22px;}
+    .logo{display:none;}
+    .card h1{font-size:22px;margin:0;}
+    .card .sub{font-size:12px;margin-top:2px;}
+    .garage{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px;gap:6px;}
+    .car-card{padding:5px 3px;}
+    .car-logo{width:30px;height:30px;}
+    .car-brand{font-size:11px;}
+    .car-model{display:none;}
+    .big-btn{margin-top:10px;padding:11px 0;font-size:21px;}
+    .hint,.tiny{display:none;}
+    .finish-car img{width:46px;height:46px;}
+    .score{font-size:40px;margin:6px 0 0;}
+    .score b{font-size:44px;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+
+  <div class="hud hidden" id="hud">
+    <div class="pill"><span class="ico">⭐</span><span class="num" id="starCount">0</span></div>
+    <button id="mute" aria-label="声音开关">🔊</button>
+  </div>
+
+  <div class="progress hidden" id="progress"><div id="progressFill"></div><span class="flag">🏁</span></div>
+
+  <div class="controls">
+    <button class="ctrl" id="leftBtn" aria-label="向左">◀</button>
+    <button class="ctrl" id="rightBtn" aria-label="向右">▶</button>
+  </div>
+
+  <div class="overlay" id="startScreen">
+    <div class="card">
+      <div class="logo">🏎️</div>
+      <h1>小车大冒险</h1>
+      <p class="sub">选一辆喜欢的车，收集 ⭐ 出发！</p>
+      <div class="garage" id="garage"></div>
+      <button class="big-btn" id="startBtn">开始 ▶</button>
+      <p class="hint">按住 ◀ ▶ 左右移动 · 也可拖动小车</p>
+      <p class="tiny">车标为简化手绘，仅供小朋友认识车辆</p>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="finishScreen">
+    <div class="card small">
+      <div class="finish-car"><img id="finishLogo" alt=""></div>
+      <h1>到终点啦！</h1>
+      <div class="score"><span>⭐</span><b id="finishStars">0</b></div>
+      <p class="sub" id="finishModel">法拉利 488</p>
+      <button class="big-btn" id="againBtn">再玩一次 ↻</button>
+      <button class="ghost-btn" id="changeBtn">换一辆车</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- 基础工具 ----------
+  const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const starsEl = document.getElementById('starCount');
+  const muteBtn = document.getElementById('mute');
+  const hudEl = document.getElementById('hud');
+  const progressEl = document.getElementById('progress');
+  const barEl = document.getElementById('progressFill');
+  const startScreen = document.getElementById('startScreen');
+  const finishScreen = document.getElementById('finishScreen');
+  const finishStarsEl = document.getElementById('finishStars');
+  const finishLogoEl = document.getElementById('finishLogo');
+  const finishModelEl = document.getElementById('finishModel');
+  const garageEl = document.getElementById('garage');
+
+  const LANES = 4;
+  const GOAL = 6200;
+
+  // 车型与车标（车标为简化手绘示意，商标归各品牌所有）
+  const BRANDS = [
+    {
+      id: 'ferrari', brand: '法拉利', model: '488', style: 'sport',
+      body: '#e63939', body2: '#a81b22', accent: '#ffd23f',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M10 5H38v21c0 10-14 18-14 18S10 36 10 26Z" fill="#ffd400" stroke="#1b1b1b" stroke-width="1.6"/><path d="M10 5h9.3v4.4H10Z" fill="#009246"/><path d="M19.3 5h9.4v4.4h-9.4Z" fill="#f7f7f2"/><path d="M28.7 5H38v4.4h-9.3Z" fill="#ce2b37"/><path d="M26.5 13.5c2-.5 3 1.5 2.3 3.5l-1 1.4c2.2 1.6 2.7 4.6 1 7l1 7.6-2.6.4-2-5.6-2 5.6-2.6-.4 1.8-7c-2.2-1.4-2.8-4.4-1.4-6.6 1.2-1.8 3.6-2 4.2-4 .2-1 .8-1.6 1.3-1.9Z" fill="#161616"/></svg>`
+    },
+    {
+      id: 'lamborghini', brand: '兰博基尼', model: 'Aventador', style: 'sport',
+      body: '#f5c518', body2: '#cf9f08', accent: '#1c1c1c',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M11 6h26l-1 21c-1 8-12 15-12 15S13 35 12 27Z" fill="#171717" stroke="#e3b53c" stroke-width="2"/><path d="M17 18c2-2 3.5-.5 4 1h6c.5-1.5 2-3 4-1-1 4-2.2 6-3 7 .6 4-1.6 6-4 6s-4.6-2-4-6c-.8-1-2-3-3-7Z" fill="#e3b53c"/><circle cx="21" cy="23" r="1.2" fill="#171717"/><circle cx="27" cy="23" r="1.2" fill="#171717"/></svg>`
+    },
+    {
+      id: 'mercedes', brand: '奔驰', model: '大 G', style: 'suv',
+      body: '#3d434c', body2: '#22262d', accent: '#d7dbe0',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#1a1d22"/><circle cx="24" cy="24" r="19" fill="none" stroke="#d9dde3" stroke-width="1.6"/><path d="M24 6l2.3 15.6 13.5 10.2L27.2 26 24 41l-3.2-15L8.2 31.8l13.5-10.2Z" fill="#e6e9ee"/></svg>`
+    },
+    {
+      id: 'bmw', brand: '宝马', model: 'i8', style: 'sport',
+      body: '#eef2f7', body2: '#c2ccda', accent: '#1c69d4',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#15181d"/><circle cx="24" cy="24" r="18.6" fill="#f4f6f8"/><circle cx="24" cy="24" r="15.4" fill="#1c69d4"/><path d="M24 8.6A15.4 15.4 0 0 1 39.4 24H24Z" fill="#f4f6f8"/><path d="M24 39.4A15.4 15.4 0 0 1 8.6 24H24Z" fill="#f4f6f8"/></svg>`
+    },
+    {
+      id: 'audi', brand: '奥迪', model: 'R8', style: 'sport',
+      body: '#b7c0cc', body2: '#7f8a99', accent: '#2a2f38',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g fill="none" stroke="#5b6472" stroke-width="2.4"><circle cx="8" cy="24" r="6.4"/><circle cx="18.7" cy="24" r="6.4"/><circle cx="29.3" cy="24" r="6.4"/><circle cx="40" cy="24" r="6.4"/></g></svg>`
+    },
+    {
+      id: 'vw', brand: '大众', model: '甲壳虫', style: 'beetle',
+      body: '#ffd166', body2: '#eab13f', accent: '#23395b',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#0b1f42"/><circle cx="24" cy="24" r="18.6" fill="none" stroke="#e8ecf2" stroke-width="1.5"/><path d="M13 15l11 17 11-17" fill="none" stroke="#eef2f7" stroke-width="2.8" stroke-linejoin="round"/><path d="M17 15l7 10 7-10" fill="none" stroke="#eef2f7" stroke-width="2.8" stroke-linejoin="round"/></svg>`
+    },
+    {
+      id: 'tesla', brand: '特斯拉', model: 'Cybertruck', style: 'wedge',
+      body: '#b9c1cb', body2: '#7f8895', accent: '#e82127',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#15171b"/><path d="M11 13c4.5-1.6 8.8-2.2 13-2.2s8.5.6 13 2.2v4c-4.8-1.6-8.9-2.2-13-2.2s-8.2.6-13 2.2Z" fill="#e82127"/><path d="M21 16h6l-1 22-2 3.4-2-3.4Z" fill="#e82127"/></svg>`
+    },
+    {
+      id: 'toyota', brand: '丰田', model: '86', style: 'coupe',
+      body: '#fbfbfb', body2: '#d8dde4', accent: '#d0021b',
+      logo: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#f5f6f8"/><g fill="none" stroke="#d0021b" stroke-width="2.4"><ellipse cx="24" cy="24" rx="18" ry="10"/><ellipse cx="24" cy="24" rx="8.5" ry="15.6"/><ellipse cx="24" cy="26" rx="13.5" ry="5.2"/></g></svg>`
+    }
+  ];
+
+  const CAR_STYLES = {
+    sport:  { ratio: 1.48, radius: 0.26 },
+    coupe:  { ratio: 1.55, radius: 0.27 },
+    suv:    { ratio: 1.66, radius: 0.15 },
+    beetle: { ratio: 1.30, radius: 0.43 },
+    wedge:  { ratio: 1.62, radius: 0.10 }
+  };
+
+  const brandById = {};
+  BRANDS.forEach(b => { brandById[b.id] = b; });
+  const logoImgs = {};
+  BRANDS.forEach(b => {
+    const img = new Image();
+    img.onload = () => { logoImgs[b.id] = img; };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(b.logo);
+  });
+
+  function getBrand() {
+    return brandById[state.brandId] || BRANDS[0];
+  }
+
+  let W = 0, H = 0, DPR = 1;
+  let roadLeft = 0, roadRight = 0, roadWidth = 0, laneW = 0;
+  let carY = 0;
+  let prevLeft = 0, prevWidth = 0;
+  let initialized = false;
+
+  const state = {
+    mode: 'ready',        // ready | playing | finish
+    time: 0,
+    stars: 0,
+    distance: 0,
+    speed: 0,
+    carX: 0,
+    carVX: 0,
+    tilt: 0,
+    invuln: 0,
+    shake: 0,
+    spawnAcc: 0,
+    muted: false,
+    brandId: 'ferrari',
+    goal: GOAL,
+    scale: 1
+  };
+
+  try {
+    const savedBrand = localStorage.getItem('car-race-brand');
+    if (savedBrand && brandById[savedBrand]) state.brandId = savedBrand;
+  } catch (e) { /* ignore */ }
+
+  const car = { w: 46, h: 72 };
+  let objects = [];
+  let particles = [];
+  let toasts = [];
+  let decor = [];
+
+  let btnDir = 0;
+  let keyDir = 0;
+  let dragTarget = null;
+  let dragId = null;
+
+  let grassOffset = 0;
+  let dashOffset = 0;
+  let curbOffset = 0;
+  let blinkTimer = 0;
+
+  // ---------- 声音 ----------
+  let actx = null;
+  function ensureAudio() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+  }
+  function tone(freq, dur = 0.15, type = 'sine', delay = 0, vol = 0.16) {
+    if (state.muted) return;
+    ensureAudio();
+    if (!actx) return;
+    const t0 = actx.currentTime + delay;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain);
+    gain.connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.03);
+  }
+  function sfxStar() {
+    [784, 988, 1175].forEach((f, i) => tone(f, 0.14, 'sine', i * 0.055, 0.12));
+  }
+  function sfxBump() {
+    tone(150, 0.18, 'triangle', 0, 0.22);
+    tone(96, 0.22, 'square', 0.03, 0.1);
+  }
+  function sfxStart() {
+    tone(660, 0.11, 'sine', 0, 0.1);
+    tone(880, 0.16, 'sine', 0.09, 0.1);
+  }
+  function sfxWin() {
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.34, 'triangle', i * 0.12, 0.13));
+  }
+
+  try {
+    state.muted = localStorage.getItem('car-race-muted') === '1';
+  } catch (e) { /* ignore */ }
+  updateMuteUI();
+
+  function updateMuteUI() {
+    muteBtn.textContent = state.muted ? '🔇' : '🔊';
+  }
+  muteBtn.addEventListener('click', () => {
+    state.muted = !state.muted;
+    updateMuteUI();
+    try { localStorage.setItem('car-race-muted', state.muted ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (!state.muted) tone(880, 0.12, 'sine', 0, 0.12);
+  });
+
+  // ---------- 尺寸与布局 ----------
+  function viewportSize() {
+    const rect = canvas.getBoundingClientRect();
+    const de = document.documentElement;
+    const vv = window.visualViewport;
+    const w = Math.max(
+      rect.width > 1 ? rect.width : 0,
+      window.innerWidth || 0,
+      de ? de.clientWidth || 0 : 0,
+      vv ? vv.width || 0 : 0
+    );
+    const h = Math.max(
+      rect.height > 1 ? rect.height : 0,
+      window.innerHeight || 0,
+      de ? de.clientHeight || 0 : 0,
+      vv ? vv.height || 0 : 0
+    );
+    return { w, h };
+  }
+
+  function resize() {
+    const size = viewportSize();
+    if (size.w < 2 || size.h < 2) return; // 布局还没就绪，等下一帧再试
+    if (W === Math.round(size.w) && H === Math.round(size.h) && canvas.width > 1) return;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = size.w;
+    H = size.h;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layout();
+  }
+
+  function layout() {
+    const st = CAR_STYLES[getBrand().style] || CAR_STYLES.sport;
+
+    // 竖屏手机 / 平板 / 横屏都保持合理的道路比例
+    roadWidth = Math.min(W * 0.78, 700, H * 1.45);
+    roadLeft = (W - roadWidth) / 2;
+    roadRight = roadLeft + roadWidth;
+    laneW = roadWidth / LANES;
+
+    const ctrl = clamp(Math.min(W, H) * 0.20, 76, 112);
+    car.w = clamp(roadWidth * 0.17, 46, 78);
+    car.h = car.w * st.ratio;
+    carY = Math.max(H * 0.40, Math.min(H * 0.68, H - ctrl - 44 - car.h * 0.55));
+
+    // 屏幕越大，速度越快，单局时长保持一致
+    state.scale = clamp(H / 800, 0.72, 1.18);
+
+    if (!initialized) {
+      state.carX = (roadLeft + roadRight) / 2;
+      initialized = true;
+    } else if (prevWidth > 0) {
+      const rel = (state.carX - prevLeft) / prevWidth;
+      state.carX = roadLeft + rel * roadWidth;
+    }
+    state.carX = clamp(state.carX, roadLeft + car.w * 0.5 + 6, roadRight - car.w * 0.5 - 6);
+    prevLeft = roadLeft;
+    prevWidth = roadWidth;
+    buildDecor();
+  }
+
+  // ---------- 装饰 ----------
+  function decorX(side) {
+    if (side < 0) {
+      const hi = roadLeft - 24;
+      return hi > 12 ? rand(10, hi) : roadLeft - 34;
+    }
+    const lo = roadRight + 24;
+    return lo < W - 10 ? rand(lo, W - 10) : roadRight + 34;
+  }
+
+  function buildDecor() {
+    decor = [];
+    const count = 12;
+    for (let i = 0; i < count; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      decor.push({
+        side,
+        x: decorX(side),
+        y: rand(-H, H),
+        s: rand(0.6, 1.05),
+        type: Math.random() < 0.55 ? 'tree' : 'flower',
+        color: Math.random() < 0.5 ? '#ffffff' : '#ffd1e8',
+        phase: rand(0, Math.PI * 2)
+      });
+    }
+  }
+
+  function drawTree(x, y, s) {
+    ctx.fillStyle = 'rgba(30,60,30,.16)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 10 * s, 16 * s, 6 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#9a6b44';
+    rr(x - 3 * s, y - 8 * s, 6 * s, 22 * s, 3 * s);
+    ctx.fill();
+    const layers = [
+      [0, -14, 17, '#3fa34d'],
+      [-9, -22, 12, '#4cbf5b'],
+      [9, -20, 11, '#4cbf5b'],
+      [0, -30, 10, '#61d56f'],
+      [-3, -35, 7, '#77e284']
+    ];
+    for (const [dx, dy, r, c] of layers) {
+      ctx.beginPath();
+      ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2);
+      ctx.fillStyle = c;
+      ctx.fill();
+    }
+  }
+
+  function drawFlower(x, y, s, color, phase) {
+    const sway = Math.sin(state.time * 2 + phase) * 0.06;
+    const r = 4.2 * s;
+    ctx.fillStyle = color;
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5 + sway;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.88, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffd05a';
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.72, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawDecor() {
+    for (const d of decor) {
+      if (d.type === 'tree') drawTree(d.x, d.y, d.s);
+      else drawFlower(d.x, d.y, d.s, d.color, d.phase);
+    }
+  }
+
+  // ---------- 通用绘制 ----------
+  function rr(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawStar(x, y, r, rot) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rad = i % 2 ? r * 0.46 : r;
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const px = Math.cos(a) * rad;
+      const py = Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    const g = ctx.createRadialGradient(-r * 0.2, -r * 0.3, r * 0.1, 0, 0, r);
+    g.addColorStop(0, '#fff6b8');
+    g.addColorStop(0.55, '#ffd642');
+    g.addColorStop(1, '#f2a51f');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.5, r * 0.12);
+    ctx.strokeStyle = '#e08b1f';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(-r * 0.26, -r * 0.22, r * 0.13, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCone(x, y, s) {
+    const w = s * 0.95, h = s * 1.1;
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + h * 0.43, w * 0.55, h * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#b84a22';
+    rr(x - w * 0.52, y + h * 0.28, w * 1.04, h * 0.18, w * 0.08);
+    ctx.fill();
+
+    const body = () => {
+      ctx.beginPath();
+      ctx.moveTo(x - w * 0.40, y + h * 0.33);
+      ctx.quadraticCurveTo(x - w * 0.26, y - h * 0.05, x, y - h * 0.53);
+      ctx.quadraticCurveTo(x + w * 0.26, y - h * 0.05, x + w * 0.40, y + h * 0.33);
+      ctx.closePath();
+    };
+    body();
+    const g = ctx.createLinearGradient(x - w * 0.4, 0, x + w * 0.4, 0);
+    g.addColorStop(0, '#ffa948');
+    g.addColorStop(0.5, '#ff7a1a');
+    g.addColorStop(1, '#e85f0c');
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.save();
+    body();
+    ctx.clip();
+    ctx.fillStyle = '#fff8ec';
+    rr(x - w, y - h * 0.15, w * 2, h * 0.21, h * 0.04);
+    ctx.fill();
+    ctx.restore();
+
+    body();
+    ctx.strokeStyle = 'rgba(150,55,10,.35)';
+    ctx.lineWidth = Math.max(1.4, s * 0.055);
+    ctx.stroke();
+  }
+
+  const ROCK_R = [1, 0.86, 0.96, 0.8, 1.02, 0.88, 0.94];
+  function drawRock(x, y, s) {
+    const r = s * 0.5;
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + r * 0.8, r * 0.95, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2;
+      const rad = r * ROCK_R[i];
+      const px = x + Math.cos(a) * rad;
+      const py = y + Math.sin(a) * rad * 0.88;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    const g = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    g.addColorStop(0, '#c3cad8');
+    g.addColorStop(1, '#7b8496');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = '#5d6577';
+    ctx.lineWidth = Math.max(1.4, s * 0.06);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(x - r * 0.24, y - r * 0.26, r * 0.30, r * 0.18, -0.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fill();
+  }
+
+  function drawCar() {
+    const b = getBrand();
+    const st = CAR_STYLES[b.style] || CAR_STYLES.sport;
+    const style = b.style;
+    const w = car.w, h = car.h;
+    const bob = Math.sin(state.time * 7) * 1.1 + (state.mode === 'ready' ? Math.sin(state.time * 2) * 2 : 0);
+    ctx.save();
+    ctx.translate(state.carX, carY + bob);
+    ctx.rotate(state.tilt * 0.17);
+    if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+
+    // 影子
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath();
+    ctx.ellipse(0, h * 0.43, w * 0.56, h * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 甲壳虫的圆形翼子板（先画，轮子压在上面才看得见）
+    if (style === 'beetle') {
+      ctx.fillStyle = b.body2;
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          ctx.beginPath();
+          ctx.ellipse(sx * w * 0.44, sy * h * 0.21, w * 0.19, h * 0.16, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 轮子
+    ctx.fillStyle = '#262a35';
+    const ww = w * 0.18, wh = h * (style === 'suv' ? 0.29 : 0.26);
+    const wy1 = -h * 0.30, wy2 = h * (style === 'suv' ? 0.10 : 0.06);
+    rr(-w * 0.61, wy1, ww, wh, ww * 0.42); ctx.fill();
+    rr(w * 0.43, wy1, ww, wh, ww * 0.42); ctx.fill();
+    rr(-w * 0.61, wy2, ww, wh, ww * 0.42); ctx.fill();
+    rr(w * 0.43, wy2, ww, wh, ww * 0.42); ctx.fill();
+
+    // 车身
+    if (style === 'wedge') {
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.30, -h * 0.50);
+      ctx.lineTo(w * 0.30, -h * 0.50);
+      ctx.lineTo(w * 0.50, -h * 0.16);
+      ctx.lineTo(w * 0.47, h * 0.40);
+      ctx.lineTo(w * 0.34, h * 0.50);
+      ctx.lineTo(-w * 0.34, h * 0.50);
+      ctx.lineTo(-w * 0.47, h * 0.40);
+      ctx.lineTo(-w * 0.50, -h * 0.16);
+      ctx.closePath();
+    } else {
+      rr(-w * 0.5, -h / 2, w, h, w * st.radius);
+    }
+    const g = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
+    g.addColorStop(0, b.body);
+    g.addColorStop(0.55, b.body);
+    g.addColorStop(1, b.body2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.14)';
+    ctx.lineWidth = Math.max(1.4, w * 0.03);
+    ctx.stroke();
+
+    // 赛车条纹
+    if (style === 'sport' || style === 'coupe') {
+      ctx.fillStyle = b.accent;
+      ctx.globalAlpha = 0.85;
+      rr(-w * 0.24, -h * 0.465, w * 0.10, h * 0.93, w * 0.05); ctx.fill();
+      rr(w * 0.14, -h * 0.465, w * 0.10, h * 0.93, w * 0.05); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // 车顶细节
+    if (style === 'suv') {
+      ctx.strokeStyle = 'rgba(16,18,24,.42)';
+      ctx.lineWidth = Math.max(1.4, w * 0.03);
+      for (const sx of [-0.40, 0.40]) {
+        ctx.beginPath();
+        ctx.moveTo(sx * w, -h * 0.34);
+        ctx.lineTo(sx * w, h * 0.34);
+        ctx.stroke();
+      }
+      for (const yy of [-0.14, 0.16]) {
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.40, yy * h);
+        ctx.lineTo(w * 0.40, yy * h);
+        ctx.stroke();
+      }
+      // 后备胎
+      ctx.fillStyle = '#1d2129';
+      ctx.beginPath();
+      ctx.arc(0, h * 0.445, w * 0.115, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.25)';
+      ctx.lineWidth = Math.max(1.2, w * 0.025);
+      ctx.beginPath();
+      ctx.arc(0, h * 0.445, w * 0.115, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 挡风玻璃
+    if (style === 'wedge') {
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.30, -h * 0.32);
+      ctx.lineTo(w * 0.30, -h * 0.32);
+      ctx.lineTo(w * 0.36, h * 0.02);
+      ctx.lineTo(-w * 0.36, h * 0.02);
+      ctx.closePath();
+      ctx.fillStyle = '#d8ecf7';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(80,120,145,.45)';
+      ctx.lineWidth = Math.max(1.2, w * 0.03);
+      ctx.stroke();
+    } else {
+      let wx = -w * 0.33, wy = -h * 0.31, ww2 = w * 0.66, wh2 = h * 0.33, wr = w * 0.18;
+      if (style === 'beetle') {
+        wx = -w * 0.30; wy = -h * 0.30; ww2 = w * 0.60; wh2 = h * 0.33; wr = w * 0.26;
+      } else if (style === 'suv') {
+        wx = -w * 0.36; wy = -h * 0.33; ww2 = w * 0.72; wh2 = h * 0.35; wr = w * 0.10;
+      }
+      ctx.fillStyle = '#d8f2ff';
+      rr(wx, wy, ww2, wh2, wr);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(90,150,180,.45)';
+      ctx.lineWidth = Math.max(1.2, w * 0.03);
+      ctx.stroke();
+    }
+
+    // 引擎盖上的车标
+    const img = logoImgs[b.id];
+    if (img && img.naturalWidth) {
+      const bs = w * 0.24;
+      ctx.drawImage(img, -bs / 2, -h * 0.40 - bs / 2, bs, bs);
+    }
+
+    // 尾翼 / 尾部细节
+    if (style === 'sport' || style === 'coupe') {
+      ctx.fillStyle = '#2b2f3a';
+      rr(-w * 0.53, h * 0.375, w * 1.06, h * 0.085, w * 0.04); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      rr(-w * 0.53, h * 0.375, w * 1.06, h * 0.03, w * 0.02); ctx.fill();
+    } else if (style === 'beetle') {
+      ctx.fillStyle = '#dfe4ec';
+      rr(-w * 0.36, h * 0.42, w * 0.72, h * 0.05, w * 0.025); ctx.fill();
+    } else if (style === 'wedge') {
+      ctx.fillStyle = '#e82127';
+      rr(-w * 0.36, h * 0.445, w * 0.72, h * 0.045, w * 0.02); ctx.fill();
+    }
+
+    // 眼睛
+    const eyeY = -h * 0.17;
+    const eyeX = w * 0.135;
+    ctx.fillStyle = '#2b2b3d';
+    if (blinkTimer > 3.2 && blinkTimer < 3.38) {
+      ctx.strokeStyle = '#2b2b3d';
+      ctx.lineWidth = Math.max(1.6, w * 0.045);
+      ctx.beginPath(); ctx.moveTo(-eyeX - w * 0.05, eyeY); ctx.lineTo(-eyeX + w * 0.05, eyeY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(eyeX - w * 0.05, eyeY); ctx.lineTo(eyeX + w * 0.05, eyeY); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(-eyeX, eyeY, w * 0.055, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eyeX, eyeY, w * 0.055, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      ctx.beginPath(); ctx.arc(-eyeX - w * 0.017, eyeY - w * 0.017, w * 0.018, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(eyeX - w * 0.017, eyeY - w * 0.017, w * 0.018, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 微笑
+    ctx.strokeStyle = '#2b2b3d';
+    ctx.lineWidth = Math.max(1.6, w * 0.042);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, h * 0.085, w * 0.11, Math.PI * 0.18, Math.PI * 0.82);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    // 车灯
+    ctx.fillStyle = '#fff3a8';
+    rr(-w * 0.40, -h * 0.47, w * 0.19, h * 0.052, w * 0.025); ctx.fill();
+    rr(w * 0.21, -h * 0.47, w * 0.19, h * 0.052, w * 0.025); ctx.fill();
+    ctx.fillStyle = '#ff5a5a';
+    rr(-w * 0.40, h * 0.405, w * 0.16, h * 0.048, w * 0.02); ctx.fill();
+    rr(w * 0.24, h * 0.405, w * 0.16, h * 0.048, w * 0.02); ctx.fill();
+
+    ctx.restore();
+
+    // 车下面的品牌小名片（让小朋友认识车名）
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.font = '900 ' + Math.max(12, w * 0.26).toFixed(1) + 'px system-ui,-apple-system,"PingFang SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,.95)';
+    ctx.strokeText(b.brand, state.carX, carY + bob + h * 0.66);
+    ctx.fillStyle = '#3a3d5c';
+    ctx.fillText(b.brand, state.carX, carY + bob + h * 0.66);
+    ctx.restore();
+  }
+
+  // ---------- 粒子 / 提示 ----------
+  const CONFETTI_COLORS = ['#ffd642', '#ff6b6b', '#6bd5ff', '#8be36b', '#c58bff', '#ff9f43'];
+
+  function burst(x, y, n, colors, gravity = 620) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(60, 280);
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 60,
+        g: gravity,
+        rot: rand(0, Math.PI * 2),
+        vr: rand(-9, 9),
+        size: rand(3, 7),
+        color: colors[(Math.random() * colors.length) | 0],
+        life: rand(0.55, 1.25),
+        ttl: 1.25,
+        star: Math.random() < 0.28
+      });
+    }
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      const alpha = clamp(p.life / p.ttl, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      if (p.star) {
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const rad = i % 2 ? p.size * 0.45 : p.size;
+          const a = -Math.PI / 2 + i * Math.PI / 5;
+          if (i === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+          else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillRect(-p.size * 0.5, -p.size * 0.35, p.size, p.size * 0.7);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawToasts() {
+    for (const t of toasts) {
+      const alpha = clamp(t.life / t.ttl, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = '900 ' + Math.round(car.w * 0.5) + 'px system-ui, -apple-system, "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(255,255,255,.95)';
+      ctx.strokeText(t.text, t.x, t.y);
+      ctx.fillStyle = t.color;
+      ctx.fillText(t.text, t.x, t.y);
+      ctx.restore();
+    }
+  }
+
+  // ---------- 背景 ----------
+  function drawGrass() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#8fe084');
+    g.addColorStop(1, '#6ccd63');
+    ctx.fillStyle = g;
+    ctx.fillRect(-40, -40, W + 80, H + 80);
+
+    const period = 140;
+    const start = (grassOffset % period) - period - 40;
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    for (let y = start; y < H + period; y += period) {
+      ctx.fillRect(-40, y, W + 80, period / 2);
+    }
+  }
+
+  function drawCurb(x) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, -40, 14, H + 80);
+    ctx.clip();
+    const start = (curbOffset % 56) - 56 - 40;
+    for (let y = start; y < H + 80; y += 56) {
+      ctx.fillStyle = '#fbf7ea';
+      ctx.fillRect(x, y, 14, 28);
+      ctx.fillStyle = '#f26a6a';
+      ctx.fillRect(x, y + 28, 14, 28);
+    }
+    ctx.restore();
+  }
+
+  function drawRoad() {
+    ctx.fillStyle = '#5d6483';
+    ctx.fillRect(roadLeft, -40, roadWidth, H + 80);
+
+    const g = ctx.createLinearGradient(roadLeft, 0, roadRight, 0);
+    g.addColorStop(0, 'rgba(0,0,0,.16)');
+    g.addColorStop(0.16, 'rgba(0,0,0,0)');
+    g.addColorStop(0.84, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.16)');
+    ctx.fillStyle = g;
+    ctx.fillRect(roadLeft, -40, roadWidth, H + 80);
+
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fillRect(roadLeft + 2, -40, 3, H + 80);
+    ctx.fillRect(roadRight - 5, -40, 3, H + 80);
+
+    drawCurb(roadLeft - 14);
+    drawCurb(roadRight);
+
+    const dashH = 34, gap = 38, period = dashH + gap;
+    const start = (dashOffset % period) - period;
+    ctx.fillStyle = 'rgba(255,255,255,.62)';
+    for (let i = 1; i < LANES; i++) {
+      const x = roadLeft + i * laneW;
+      for (let y = start; y < H + period; y += period) {
+        rr(x - 4, y, 8, dashH, 4);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ---------- 游戏逻辑 ----------
+  function spawnObject() {
+    const lane = Math.floor(Math.random() * LANES);
+    const x = roadLeft + (lane + 0.5) * laneW + rand(-laneW * 0.16, laneW * 0.16);
+    if (Math.random() < 0.66) {
+      objects.push({
+        type: 'star',
+        x,
+        y: -70,
+        r: Math.max(15, car.w * 0.40),
+        rot: rand(0, Math.PI * 2),
+        phase: rand(0, Math.PI * 2),
+        dead: false
+      });
+    } else {
+      objects.push({
+        type: Math.random() < 0.5 ? 'cone' : 'rock',
+        x,
+        y: -70,
+        s: Math.max(28, car.w * 0.66),
+        dead: false
+      });
+    }
+  }
+
+  function collect(o) {
+    o.dead = true;
+    state.stars++;
+    starsEl.textContent = String(state.stars);
+    burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
+    toasts.push({ x: o.x, y: o.y - 8, text: '+1', life: 0.8, ttl: 0.8, color: '#f5a623' });
+    sfxStar();
+  }
+
+  function bump(o) {
+    if (state.invuln > 0) return;
+    o.dead = true;
+    state.invuln = 0.95;
+    state.shake = 11;
+    state.carVX += (state.carX < o.x ? -1 : 1) * 150;
+    state.speed *= 0.55;
+    burst(o.x, o.y, 14, ['#d5dbe8', '#9aa3b5', '#ffd642'], 500);
+    toasts.push({ x: o.x, y: o.y - 10, text: '呀！', life: 0.75, ttl: 0.75, color: '#ff6b6b' });
+    sfxBump();
+  }
+
+  function update(dt) {
+    state.time += dt;
+    blinkTimer += dt;
+    if (blinkTimer > 4.2) blinkTimer = 0;
+
+    const playing = state.mode === 'playing';
+    const sp = playing ? state.speed : (state.mode === 'ready' ? 85 : 45);
+
+    // 速度与里程
+    if (playing) {
+      const prog = Math.min(1, state.distance / state.goal);
+      const target = (200 + prog * 95) * state.scale;
+      state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2));
+      state.distance += state.speed * dt;
+    }
+
+    // 滚动
+    grassOffset += sp * dt * 0.35;
+    curbOffset += sp * dt;
+    dashOffset += sp * dt;
+
+    // 转向
+    if (playing) {
+      let steer = btnDir || keyDir;
+      if (!steer && dragTarget !== null) {
+        const dx = dragTarget - state.carX;
+        if (Math.abs(dx) < 2) steer = 0;
+        else steer = Math.sign(dx) * Math.min(1, Math.abs(dx) / 30);
+      }
+      const maxVX = car.w * 8;
+      state.carVX = lerp(state.carVX, steer * maxVX, Math.min(1, dt * 11));
+      state.carX += state.carVX * dt;
+      const pad = car.w * 0.5 + 7;
+      if (state.carX < roadLeft + pad) {
+        state.carX = roadLeft + pad;
+        if (state.carVX < 0) state.carVX = 0;
+      }
+      if (state.carX > roadRight - pad) {
+        state.carX = roadRight - pad;
+        if (state.carVX > 0) state.carVX = 0;
+      }
+      state.tilt = lerp(state.tilt, clamp(steer, -1, 1), Math.min(1, dt * 9));
+
+      // 生成
+      if (state.distance > 380) {
+        state.spawnAcc += state.speed * dt;
+        const spacing = 215 * state.scale;
+        if (state.spawnAcc > spacing) {
+          state.spawnAcc -= spacing;
+          spawnObject();
+        }
+      }
+
+      // 物体
+      for (const o of objects) {
+        o.y += state.speed * dt;
+        if (o.type === 'star') o.rot += dt * 1.6;
+        if (o.y > H + 90) o.dead = true;
+      }
+
+      // 碰撞
+      const halfW = car.w * 0.42;
+      const halfH = car.h * 0.40;
+      for (const o of objects) {
+        if (o.dead) continue;
+        const orad = o.type === 'star' ? o.r * 0.95 : o.s * 0.36;
+        if (Math.abs(o.x - state.carX) < halfW + orad &&
+            Math.abs(o.y - carY) < halfH + orad) {
+          if (o.type === 'star') collect(o);
+          else bump(o);
+        }
+      }
+      objects = objects.filter(o => !o.dead);
+      state.invuln = Math.max(0, state.invuln - dt);
+      state.shake = Math.max(0, state.shake - dt * 45);
+
+      const prog = Math.min(1, state.distance / state.goal);
+      barEl.style.width = (prog * 100).toFixed(1) + '%';
+      if (state.distance >= state.goal) finishGame();
+    } else {
+      state.tilt = lerp(state.tilt, 0, Math.min(1, dt * 4));
+      state.invuln = Math.max(0, state.invuln - dt);
+      state.shake = Math.max(0, state.shake - dt * 45);
+    }
+
+    // 装饰滚动
+    for (const d of decor) {
+      d.y += sp * dt;
+      if (d.y > H + 60) {
+        d.y = -60;
+        d.side = Math.random() < 0.5 ? -1 : 1;
+        d.x = decorX(d.side);
+        d.s = rand(0.6, 1.05);
+        d.type = Math.random() < 0.55 ? 'tree' : 'flower';
+        d.color = Math.random() < 0.5 ? '#ffffff' : '#ffd1e8';
+      }
+    }
+
+    // 粒子
+    for (const p of particles) {
+      p.life -= dt;
+      p.vy += p.g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.99;
+      p.rot += p.vr * dt;
+    }
+    particles = particles.filter(p => p.life > 0 && p.y < H + 80);
+
+    // 提示文字
+    for (const t of toasts) {
+      t.life -= dt;
+      t.y -= dt * 42;
+    }
+    toasts = toasts.filter(t => t.life > 0);
+  }
+
+  function draw() {
+    ctx.save();
+    if (state.shake > 0.5) {
+      ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
+    }
+    drawGrass();
+    drawRoad();
+    drawDecor();
+
+    for (const o of objects) {
+      if (o.type === 'star') {
+        drawStar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.rot);
+      } else if (o.type === 'cone') {
+        drawCone(o.x, o.y, o.s);
+      } else {
+        drawRock(o.x, o.y, o.s);
+      }
+    }
+
+    drawCar();
+    drawParticles();
+    drawToasts();
+    ctx.restore();
+
+    if (state.invuln > 0) {
+      ctx.fillStyle = 'rgba(255,90,90,' + (0.16 * state.invuln / 0.95).toFixed(3) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  // ---------- 车库 ----------
+  function renderGarage() {
+    garageEl.innerHTML = BRANDS.map(b => (
+      '<button class="car-card' + (b.id === state.brandId ? ' on' : '') + '" data-id="' + b.id +
+        '" type="button" aria-pressed="' + (b.id === state.brandId) + '">' +
+        '<span class="car-logo">' + b.logo + '</span>' +
+        '<span class="car-brand">' + b.brand + '</span>' +
+        '<span class="car-model">' + b.model + '</span>' +
+      '</button>'
+    )).join('');
+  }
+
+  garageEl.addEventListener('click', (e) => {
+    const card = e.target.closest('.car-card');
+    if (!card) return;
+    const id = card.dataset.id;
+    if (!brandById[id] || id === state.brandId) return;
+    state.brandId = id;
+    try { localStorage.setItem('car-race-brand', id); } catch (err) { /* ignore */ }
+    renderGarage();
+    layout();
+    tone(520, 0.09, 'triangle', 0, 0.1);
+    tone(700, 0.12, 'triangle', 0.07, 0.09);
+  });
+
+  // ---------- 流程 ----------
+  function startGame() {
+    ensureAudio();
+    state.mode = 'playing';
+    state.stars = 0;
+    state.distance = 0;
+    state.speed = 0;
+    state.goal = Math.round(GOAL * state.scale);
+    state.carX = (roadLeft + roadRight) / 2;
+    state.carVX = 0;
+    state.tilt = 0;
+    state.invuln = 0;
+    state.shake = 0;
+    state.spawnAcc = 0;
+    objects = [];
+    particles = [];
+    toasts = [];
+    starsEl.textContent = '0';
+    barEl.style.width = '0%';
+    startScreen.classList.add('hidden');
+    finishScreen.classList.add('hidden');
+    hudEl.classList.remove('hidden');
+    progressEl.classList.remove('hidden');
+    sfxStart();
+  }
+
+  function finishGame() {
+    if (state.mode !== 'playing') return;
+    state.mode = 'finish';
+    sfxWin();
+    burst(W / 2, H * 0.42, 90, CONFETTI_COLORS, 700);
+    barEl.style.width = '100%';
+    const b = getBrand();
+    finishStarsEl.textContent = String(state.stars);
+    finishModelEl.textContent = b.brand + ' ' + b.model;
+    finishLogoEl.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(b.logo);
+    setTimeout(() => {
+      if (state.mode === 'finish') finishScreen.classList.remove('hidden');
+    }, 650);
+  }
+
+  function goGarage() {
+    state.mode = 'ready';
+    state.stars = 0;
+    state.distance = 0;
+    state.speed = 0;
+    state.invuln = 0;
+    state.shake = 0;
+    objects = [];
+    particles = [];
+    toasts = [];
+    starsEl.textContent = '0';
+    barEl.style.width = '0%';
+    finishScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    hudEl.classList.add('hidden');
+    progressEl.classList.add('hidden');
+    renderGarage();
+    layout();
+  }
+
+  // ---------- 交互 ----------
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+
+  function bindHold(el, dir) {
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btnDir = dir;
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    });
+    const release = (e) => {
+      e.preventDefault();
+      if (btnDir === dir) btnDir = 0;
+    };
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('lostpointercapture', release);
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  bindHold(leftBtn, -1);
+  bindHold(rightBtn, 1);
+
+  function updateDrag(x) {
+    if (state.mode !== 'playing') return;
+    dragTarget = clamp(x, roadLeft + car.w * 0.5, roadRight - car.w * 0.5);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (state.mode !== 'playing') return;
+    dragId = e.pointerId;
+    updateDrag(e.clientX);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (dragId === e.pointerId) updateDrag(e.clientX);
+  });
+  const endDrag = (e) => {
+    if (dragId === e.pointerId) {
+      dragId = null;
+      dragTarget = null;
+    }
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      keyDir = -1;
+      e.preventDefault();
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      keyDir = 1;
+      e.preventDefault();
+    } else if (e.key === ' ' || e.key === 'Enter') {
+      if (state.mode !== 'playing') startGame();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' ||
+        e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      keyDir = 0;
+    }
+  });
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('againBtn').addEventListener('click', startGame);
+  document.getElementById('changeBtn').addEventListener('click', goGarage);
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // ---------- 主循环 ----------
+  let last = performance.now();
+  function frame(now) {
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    if ((canvas.width <= 1 || canvas.height <= 1) ||
+        (cw > 1 && ch > 1 && (Math.abs(cw - W) > 1 || Math.abs(ch - H) > 1))) {
+      resize();
+    }
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+  document.addEventListener('visibilitychange', () => { last = performance.now(); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resize);
+  }
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => resize()).observe(document.getElementById('stage'));
+  }
+
+  renderGarage();
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
