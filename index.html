@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#86d97a">
 <title>小车大冒险</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9A%97%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="小车大冒险">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
   html,body{margin:0;height:100%;height:100dvh;overflow:hidden;background:#4d5470;touch-action:none;
@@ -95,6 +101,42 @@
   .finish-car img{width:clamp(56px,12vmin,80px);height:clamp(56px,12vmin,80px);
     filter:drop-shadow(0 6px 0 rgba(0,0,0,.1));}
 
+  .hud-right{display:flex;gap:clamp(6px,1.6vmin,10px);pointer-events:none;}
+  #pause{pointer-events:auto;width:clamp(40px,9vmin,54px);height:clamp(40px,9vmin,54px);
+    border:none;border-radius:50%;background:rgba(255,255,255,.9);
+    box-shadow:0 4px 0 rgba(0,0,0,.14);font-size:clamp(17px,4.2vmin,24px);
+    display:grid;place-items:center;cursor:pointer;color:#4a4a63;}
+  #pause:active{transform:translateY(2px);}
+
+  #effects{position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(clamp(94px,19vmin,128px) + env(safe-area-inset-top));
+    display:flex;gap:6px;pointer-events:none;}
+  #effects .fx{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.92);
+    border-radius:999px;padding:3px 9px;font-size:clamp(12px,2.6vmin,15px);font-weight:800;
+    color:#4a3b1c;box-shadow:0 2px 0 rgba(0,0,0,.12);}
+  #effects:empty{display:none;}
+
+  .level-chip{display:inline-flex;align-items:center;gap:6px;margin-top:8px;
+    background:#eef7e6;border-radius:999px;padding:4px 12px;
+    font-size:clamp(12px,2.5vmin,15px);font-weight:800;color:#4f7a3a;}
+  .level-chip b{color:#3a5c28;}
+
+  .rating{display:flex;justify-content:center;gap:clamp(4px,2vw,10px);margin:6px 0 0;}
+  .rating span{font-size:clamp(30px,7.6vmin,46px);line-height:1;
+    filter:grayscale(1) brightness(.85);opacity:.32;transition:transform .25s,opacity .25s,filter .25s;}
+  .rating span.on{filter:none;opacity:1;animation:starPop .45s cubic-bezier(.2,1.7,.5,1) both;}
+  @keyframes starPop{from{transform:scale(.4) rotate(-18deg)}to{transform:scale(1) rotate(0)}}
+
+  #cardWrap{margin:8px 0 0;display:none;}
+  #cardWrap.on{display:block;}
+  #cardImg{width:min(72vw,260px);border-radius:14px;box-shadow:0 8px 0 rgba(0,0,0,.12);display:inline-block;}
+  #saveCard{margin-top:6px;}
+
+  #quitBtn{position:relative;overflow:hidden;}
+  #quitBtn .fill{position:absolute;left:0;top:0;height:100%;width:0;
+    background:rgba(255,120,80,.20);transition:width 2s linear;pointer-events:none;}
+  #quitBtn.holding .fill{width:100%;}
+
   @media (max-width:560px){
     .garage{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px;}
     .card{padding:16px 12px;border-radius:24px;}
@@ -133,8 +175,13 @@
 
   <div class="hud hidden" id="hud">
     <div class="pill"><span class="ico">⭐</span><span class="num" id="starCount">0</span></div>
-    <button id="mute" aria-label="声音开关">🔊</button>
+    <div class="hud-right">
+      <button id="pause" aria-label="暂停">⏸</button>
+      <button id="mute" aria-label="声音开关">🔊</button>
+    </div>
   </div>
+
+  <div id="effects"></div>
 
   <div class="progress hidden" id="progress"><div id="progressFill"></div><span class="flag">🏁</span></div>
 
@@ -148,10 +195,11 @@
       <div class="logo">🏎️</div>
       <h1>小车大冒险</h1>
       <p class="sub">选一辆喜欢的车，收集 ⭐ 出发！</p>
+      <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
       <div class="garage" id="garage"></div>
       <button class="big-btn" id="startBtn">开始 ▶</button>
       <p class="hint">按住 ◀ ▶ 左右移动 · 也可拖动小车</p>
-      <p class="tiny">车标为简化手绘，仅供小朋友认识车辆</p>
+      <p class="tiny">车标图片来自公开素材库，仅家庭非商业使用；商标归各品牌所有</p>
     </div>
   </div>
 
@@ -159,10 +207,24 @@
     <div class="card small">
       <div class="finish-car"><img id="finishLogo" alt=""></div>
       <h1>到终点啦！</h1>
+      <div class="rating" id="finishRating"><span>⭐</span><span>⭐</span><span>⭐</span></div>
       <div class="score"><span>⭐</span><b id="finishStars">0</b></div>
       <p class="sub" id="finishModel">法拉利 488</p>
-      <button class="big-btn" id="againBtn">再玩一次 ↻</button>
+      <div id="cardWrap"><img id="cardImg" alt="成绩卡"><br>
+        <a class="ghost-btn" id="saveCard" download="car-race-score.png">保存成绩图</a></div>
+      <button class="big-btn" id="nextBtn">下一关 ▶</button>
+      <button class="ghost-btn" id="againBtn">再玩一次 ↻</button>
       <button class="ghost-btn" id="changeBtn">换一辆车</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="pauseScreen">
+    <div class="card small">
+      <div class="logo">⏸</div>
+      <h1>休息一下</h1>
+      <p class="sub">小车在路边等你</p>
+      <button class="big-btn" id="resumeBtn">继续 ▶</button>
+      <button class="ghost-btn" id="quitBtn"><span class="fill"></span>长按 2 秒回车库</button>
     </div>
   </div>
 </div>
@@ -189,9 +251,36 @@
   const finishLogoEl = document.getElementById('finishLogo');
   const finishModelEl = document.getElementById('finishModel');
   const garageEl = document.getElementById('garage');
+  const pauseBtn = document.getElementById('pause');
+  const pauseScreen = document.getElementById('pauseScreen');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const quitBtn = document.getElementById('quitBtn');
+  const effectsEl = document.getElementById('effects');
+  const levelChipEl = document.getElementById('levelChip');
+  const ratingEl = document.getElementById('finishRating');
+  const cardWrapEl = document.getElementById('cardWrap');
+  const cardImgEl = document.getElementById('cardImg');
+  const saveCardEl = document.getElementById('saveCard');
+  const nextBtn = document.getElementById('nextBtn');
 
   const LANES = 4;
   const GOAL = 6200;
+
+  // 关卡主题：每关换一条赛道风景
+  const THEMES = [
+    { id: 'city', name: '城市', grass: ['#8fe084', '#6ccd63'], stripe: 'rgba(255,255,255,.07)',
+      road: '#5d6483', edge: 'rgba(0,0,0,.16)', curb: ['#fbf7ea', '#f26a6a'],
+      plant: 'tree', flower: ['#ffffff', '#ffd1e8'] },
+    { id: 'desert', name: '沙漠', grass: ['#f7d98f', '#e7bc62'], stripe: 'rgba(255,255,255,.11)',
+      road: '#8b7b64', edge: 'rgba(90,55,10,.20)', curb: ['#fff4d8', '#e0913f'],
+      plant: 'cactus', flower: ['#ffe9a8', '#ffb86b'] },
+    { id: 'snow', name: '雪地', grass: ['#eef5ff', '#cfe0f4'], stripe: 'rgba(255,255,255,.4)',
+      road: '#6d7484', edge: 'rgba(40,60,90,.14)', curb: ['#ffffff', '#8fb6e6'],
+      plant: 'pine', flower: ['#ffffff', '#bcd8ff'] },
+    { id: 'beach', name: '海边', grass: ['#ffe3a8', '#f3c97b'], stripe: 'rgba(255,255,255,.14)',
+      road: '#5f6b84', edge: 'rgba(30,60,90,.16)', curb: ['#fff8e8', '#4fb8d8'],
+      plant: 'palm', flower: ['#ffffff', '#ff9fc4'] }
+  ];
 
   // 车型与真实车标（车标取自公开车标素材库；商标归各品牌所有，本项目仅个人非商业使用）
   const BRANDS = [
@@ -257,7 +346,7 @@
   let initialized = false;
 
   const state = {
-    mode: 'ready',        // ready | playing | finish
+    mode: 'ready',        // ready | playing | paused | finish
     time: 0,
     stars: 0,
     distance: 0,
@@ -271,13 +360,39 @@
     muted: false,
     brandId: 'ferrari',
     goal: GOAL,
-    scale: 1
+    scale: 1,
+    level: 1,
+    combo: 0,
+    comboT: 0,
+    magnet: 0,
+    shield: 0,
+    boost: 0,
+    fxSig: '',
+    rating: 0,
+    spawnStars: 0
   };
+
+  const bestStars = {};   // { 关卡: 最好星数 }
 
   try {
     const savedBrand = localStorage.getItem('car-race-brand');
     if (savedBrand && brandById[savedBrand]) state.brandId = savedBrand;
+    const lv = parseInt(localStorage.getItem('car-race-level') || '1', 10);
+    if (lv >= 1 && lv <= 99) state.level = lv;
+    const bj = JSON.parse(localStorage.getItem('car-race-best') || '{}');
+    for (const k in bj) if (bj[k] > 0) bestStars[k] = bj[k];
   } catch (e) { /* ignore */ }
+
+  function themeOf(level) {
+    return THEMES[(Math.max(1, level) - 1) % THEMES.length];
+  }
+  function curTheme() { return themeOf(state.level); }
+  function saveProgress() {
+    try {
+      localStorage.setItem('car-race-level', String(state.level));
+      localStorage.setItem('car-race-best', JSON.stringify(bestStars));
+    } catch (e) { /* ignore */ }
+  }
 
   const car = { w: 46, h: 72 };
   let objects = [];
@@ -320,8 +435,12 @@
     osc.start(t0);
     osc.stop(t0 + dur + 0.03);
   }
-  function sfxStar() {
-    [784, 988, 1175].forEach((f, i) => tone(f, 0.14, 'sine', i * 0.055, 0.12));
+  // 星星连击：音高逐级升高
+  const COMBO_SCALE = [784, 880, 988, 1047, 1175, 1319, 1397, 1568];
+  function sfxStar(combo) {
+    const f = COMBO_SCALE[clamp((combo || 1) - 1, 0, COMBO_SCALE.length - 1)];
+    tone(f, 0.13, 'sine', 0, 0.12);
+    tone(f * 1.5, 0.10, 'sine', 0.05, 0.05);
   }
   function sfxBump() {
     tone(150, 0.18, 'triangle', 0, 0.22);
@@ -333,6 +452,32 @@
   }
   function sfxWin() {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.34, 'triangle', i * 0.12, 0.13));
+  }
+  function sfxPower() {
+    [660, 880, 1320].forEach((f, i) => tone(f, 0.12, 'triangle', i * 0.06, 0.11));
+  }
+  function sfxShield() {
+    tone(320, 0.12, 'square', 0, 0.09);
+    tone(520, 0.22, 'sine', 0.08, 0.1);
+  }
+  function vibrate(ms) {
+    if (state.muted) return;
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignore */ }
+  }
+
+  // 背景音乐：极轻的五声音阶循环，只在游戏中播放
+  const BGM_NOTES = [523, 659, 784, 659, 587, 784, 880, 784, 523, 659, 784, 1047];
+  let bgmTimer = 0, bgmStep = 0;
+  function bgmTick(dt) {
+    if (state.muted || state.mode !== 'playing') return;
+    bgmTimer -= dt;
+    if (bgmTimer > 0) return;
+    bgmTimer = 0.32;
+    const f = BGM_NOTES[bgmStep % BGM_NOTES.length];
+    const acc = bgmStep % 4 === 0;
+    tone(f, 0.26, 'triangle', 0, acc ? 0.045 : 0.028);
+    if (acc) tone(f / 2, 0.40, 'sine', 0, 0.026);
+    bgmStep++;
   }
 
   try {
@@ -410,6 +555,7 @@
     state.carX = clamp(state.carX, roadLeft + car.w * 0.5 + 6, roadRight - car.w * 0.5 - 6);
     prevLeft = roadLeft;
     prevWidth = roadWidth;
+    buildBgCache();
     buildDecor();
   }
 
@@ -425,6 +571,7 @@
 
   function buildDecor() {
     decor = [];
+    const th = curTheme();
     const count = 12;
     for (let i = 0; i < count; i++) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -433,8 +580,8 @@
         x: decorX(side),
         y: rand(-H, H),
         s: rand(0.6, 1.05),
-        type: Math.random() < 0.55 ? 'tree' : 'flower',
-        color: Math.random() < 0.5 ? '#ffffff' : '#ffd1e8',
+        type: Math.random() < 0.62 ? th.plant : 'flower',
+        color: th.flower[(Math.random() * th.flower.length) | 0],
         phase: rand(0, Math.PI * 2)
       });
     }
@@ -479,9 +626,90 @@
     ctx.fill();
   }
 
+  // 沙漠仙人掌
+  function drawCactus(x, y, s) {
+    ctx.fillStyle = 'rgba(120,90,40,.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 12 * s, 13 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5aa86a';
+    rr(x - 4.5 * s, y - 22 * s, 9 * s, 34 * s, 4.5 * s);
+    ctx.fill();
+    ctx.fillStyle = '#4c9a5c';
+    rr(x - 14 * s, y - 8 * s, 8 * s, 14 * s, 4 * s);
+    ctx.fill();
+    rr(x + 6 * s, y - 14 * s, 8 * s, 16 * s, 4 * s);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.lineWidth = Math.max(1, 1.2 * s);
+    ctx.beginPath();
+    ctx.moveTo(x - 1 * s, y - 18 * s);
+    ctx.lineTo(x - 1 * s, y + 8 * s);
+    ctx.stroke();
+  }
+
+  // 雪松
+  function drawPine(x, y, s) {
+    ctx.fillStyle = 'rgba(60,90,120,.14)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 12 * s, 14 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#9a6b44';
+    rr(x - 3 * s, y - 4 * s, 6 * s, 18 * s, 2.5 * s);
+    ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      const w = (17 - i * 4) * s;
+      const yy = y - (6 + i * 10) * s;
+      ctx.beginPath();
+      ctx.moveTo(x, yy - 14 * s);
+      ctx.lineTo(x + w, yy + 6 * s);
+      ctx.quadraticCurveTo(x, yy + 1 * s, x - w, yy + 6 * s);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 ? '#2f7a58' : '#35906a';
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.72)';
+      ctx.beginPath();
+      ctx.moveTo(x, yy - 12 * s);
+      ctx.lineTo(x + w * 0.55, yy + 3 * s);
+      ctx.quadraticCurveTo(x, yy - 1 * s, x - w * 0.55, yy + 3 * s);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // 海边棕榈
+  function drawPalm(x, y, s) {
+    ctx.fillStyle = 'rgba(120,90,40,.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 12 * s, 16 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#b98b52';
+    ctx.lineWidth = Math.max(2, 4 * s);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y + 10 * s);
+    ctx.quadraticCurveTo(x + 5 * s, y - 6 * s, x + 2 * s, y - 18 * s);
+    ctx.stroke();
+    ctx.fillStyle = '#3aa564';
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i - 2) * 0.62;
+      ctx.beginPath();
+      ctx.ellipse(x + 2 * s + Math.cos(a) * 11 * s, y - 19 * s + Math.sin(a) * 7 * s,
+        10 * s, 4.2 * s, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#7d5a2e';
+    ctx.beginPath();
+    ctx.arc(x + 2 * s, y - 15 * s, 2.4 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   function drawDecor() {
     for (const d of decor) {
       if (d.type === 'tree') drawTree(d.x, d.y, d.s);
+      else if (d.type === 'cactus') drawCactus(d.x, d.y, d.s);
+      else if (d.type === 'pine') drawPine(d.x, d.y, d.s);
+      else if (d.type === 'palm') drawPalm(d.x, d.y, d.s);
       else drawFlower(d.x, d.y, d.s, d.color, d.phase);
     }
   }
@@ -603,6 +831,73 @@
     ctx.ellipse(x - r * 0.24, y - r * 0.26, r * 0.30, r * 0.18, -0.6, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255,255,255,.55)';
     ctx.fill();
+  }
+
+  // ---------- 道具图标 ----------
+  const POWER_LABEL = { magnet: '磁铁', shield: '护盾', boost: '加速' };
+  const POWER_COLOR = { magnet: '#e94d6a', shield: '#4aa8ff', boost: '#ff9f43' };
+
+  function drawPower(x, y, s, kind, t) {
+    const col = POWER_COLOR[kind] || '#ff9f43';
+    const bob = Math.sin(t * 4) * 2;
+    ctx.save();
+    ctx.translate(x, y + bob);
+
+    ctx.fillStyle = 'rgba(255,255,255,.30)';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.64, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fffdf6';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.50, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(2, s * 0.085);
+    ctx.stroke();
+
+    const r = s * 0.30;
+    ctx.fillStyle = col;
+    ctx.strokeStyle = col;
+    if (kind === 'magnet') {
+      ctx.lineWidth = Math.max(3, s * 0.15);
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.arc(0, r * 0.18, r * 0.74, Math.PI, 0);
+      ctx.stroke();
+      ctx.fillRect(-r * 0.92, r * 0.18, r * 0.42, r * 0.58);
+      ctx.fillRect(r * 0.50, r * 0.18, r * 0.42, r * 0.58);
+      ctx.fillStyle = '#e8ecf4';
+      ctx.fillRect(-r * 0.92, r * 0.62, r * 0.42, r * 0.20);
+      ctx.fillRect(r * 0.50, r * 0.62, r * 0.42, r * 0.20);
+    } else if (kind === 'shield') {
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.92, -r * 0.56);
+      ctx.lineTo(r * 0.80, r * 0.34);
+      ctx.quadraticCurveTo(0, r * 1.10, -r * 0.80, r * 0.34);
+      ctx.lineTo(-r * 0.92, -r * 0.56);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.92, -r * 0.56);
+      ctx.lineTo(r * 0.30, -r * 0.30);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(r * 0.18, -r);
+      ctx.lineTo(-r * 0.62, r * 0.12);
+      ctx.lineTo(-r * 0.06, r * 0.12);
+      ctx.lineTo(-r * 0.20, r);
+      ctx.lineTo(r * 0.62, -r * 0.16);
+      ctx.lineTo(r * 0.04, -r * 0.16);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   // ---------- 车身绘制（俯视，按真实车型比例与造型） ----------
@@ -1361,55 +1656,76 @@
     }
   }
 
-  // ---------- 背景 ----------
+  // ---------- 背景（静态部分离屏缓存，只画一次） ----------
+  let bgCache = null;
+
+  function buildBgCache() {
+    const th = curTheme();
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(W * DPR));
+    c.height = Math.max(1, Math.round(H * DPR));
+    const g = c.getContext('2d');
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    const gg = g.createLinearGradient(0, 0, 0, H);
+    gg.addColorStop(0, th.grass[0]);
+    gg.addColorStop(1, th.grass[1]);
+    g.fillStyle = gg;
+    g.fillRect(0, 0, W, H);
+
+    g.fillStyle = th.road;
+    g.fillRect(roadLeft, 0, roadWidth, H);
+
+    const eg = g.createLinearGradient(roadLeft, 0, roadRight, 0);
+    eg.addColorStop(0, th.edge);
+    eg.addColorStop(0.16, 'rgba(0,0,0,0)');
+    eg.addColorStop(0.84, 'rgba(0,0,0,0)');
+    eg.addColorStop(1, th.edge);
+    g.fillStyle = eg;
+    g.fillRect(roadLeft, 0, roadWidth, H);
+
+    g.fillStyle = 'rgba(255,255,255,.55)';
+    g.fillRect(roadLeft + 2, 0, 3, H);
+    g.fillRect(roadRight - 5, 0, 3, H);
+
+    bgCache = c;
+  }
+
   function drawGrass() {
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#8fe084');
-    g.addColorStop(1, '#6ccd63');
-    ctx.fillStyle = g;
-    ctx.fillRect(-40, -40, W + 80, H + 80);
+    const th = curTheme();
+    if (bgCache) ctx.drawImage(bgCache, 0, 0, W, H);
+    else { ctx.fillStyle = th.grass[0]; ctx.fillRect(0, 0, W, H); }
 
     const period = 140;
-    const start = (grassOffset % period) - period - 40;
-    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    const start = (grassOffset % period) - period;
+    const lw = Math.max(0, roadLeft - 14);
+    const rw = Math.max(0, W - roadRight - 14);
+    ctx.fillStyle = th.stripe;
     for (let y = start; y < H + period; y += period) {
-      ctx.fillRect(-40, y, W + 80, period / 2);
+      if (lw > 0) ctx.fillRect(0, y, lw, period / 2);
+      if (rw > 0) ctx.fillRect(roadRight + 14, y, rw, period / 2);
     }
   }
 
-  function drawCurb(x) {
+  function drawCurb(x, colors) {
     ctx.save();
     ctx.beginPath();
     ctx.rect(x, -40, 14, H + 80);
     ctx.clip();
     const start = (curbOffset % 56) - 56 - 40;
     for (let y = start; y < H + 80; y += 56) {
-      ctx.fillStyle = '#fbf7ea';
+      ctx.fillStyle = colors[0];
       ctx.fillRect(x, y, 14, 28);
-      ctx.fillStyle = '#f26a6a';
+      ctx.fillStyle = colors[1];
       ctx.fillRect(x, y + 28, 14, 28);
     }
     ctx.restore();
   }
 
   function drawRoad() {
-    ctx.fillStyle = '#5d6483';
-    ctx.fillRect(roadLeft, -40, roadWidth, H + 80);
-
-    const g = ctx.createLinearGradient(roadLeft, 0, roadRight, 0);
-    g.addColorStop(0, 'rgba(0,0,0,.16)');
-    g.addColorStop(0.16, 'rgba(0,0,0,0)');
-    g.addColorStop(0.84, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,.16)');
-    ctx.fillStyle = g;
-    ctx.fillRect(roadLeft, -40, roadWidth, H + 80);
-
-    ctx.fillStyle = 'rgba(255,255,255,.55)';
-    ctx.fillRect(roadLeft + 2, -40, 3, H + 80);
-    ctx.fillRect(roadRight - 5, -40, 3, H + 80);
-
-    drawCurb(roadLeft - 14);
-    drawCurb(roadRight);
+    const th = curTheme();
+    drawCurb(roadLeft - 14, th.curb);
+    drawCurb(roadRight, th.curb);
 
     const dashH = 34, gap = 38, period = dashH + gap;
     const start = (dashOffset % period) - period;
@@ -1424,10 +1740,28 @@
   }
 
   // ---------- 游戏逻辑 ----------
+  const POWER_KINDS = ['magnet', 'shield', 'boost'];
+
   function spawnObject() {
     const lane = Math.floor(Math.random() * LANES);
     const x = roadLeft + (lane + 0.5) * laneW + rand(-laneW * 0.16, laneW * 0.16);
+
+    // 跑过一段路后开始出现道具
+    if (state.distance > 900 && Math.random() < 0.10) {
+      objects.push({
+        type: 'power',
+        kind: POWER_KINDS[(Math.random() * POWER_KINDS.length) | 0],
+        x,
+        y: -70,
+        s: Math.max(34, car.w * 0.72),
+        phase: rand(0, Math.PI * 2),
+        dead: false
+      });
+      return;
+    }
+
     if (Math.random() < 0.66) {
+      state.spawnStars++;
       objects.push({
         type: 'star',
         x,
@@ -1451,36 +1785,78 @@
   function collect(o) {
     o.dead = true;
     state.stars++;
+    state.combo = Math.min(state.combo + 1, 8);
+    state.comboT = 1.1;
     starsEl.textContent = String(state.stars);
     burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
     toasts.push({ x: o.x, y: o.y - 8, text: '+1', life: 0.8, ttl: 0.8, color: '#f5a623' });
-    sfxStar();
+    sfxStar(state.combo);
+    vibrate(12);
+  }
+
+  function grabPower(o) {
+    o.dead = true;
+    const col = POWER_COLOR[o.kind];
+    if (o.kind === 'magnet') state.magnet = 6;
+    else if (o.kind === 'shield') state.shield = 9;
+    else state.boost = 3.2;
+    burst(o.x, o.y, 16, [col, '#ffffff', '#ffd642'], 380);
+    toasts.push({ x: o.x, y: o.y - 10, text: POWER_LABEL[o.kind] + '！', life: 1.0, ttl: 1.0, color: col });
+    sfxPower();
+    vibrate(18);
+    updateEffects();
   }
 
   function bump(o) {
     if (state.invuln > 0) return;
     o.dead = true;
+    // 护盾：撞一下不会减速，护盾消失
+    if (state.shield > 0) {
+      state.shield = 0;
+      state.shake = 6;
+      burst(o.x, o.y, 18, ['#4aa8ff', '#bfe4ff', '#ffffff'], 520);
+      toasts.push({ x: o.x, y: o.y - 10, text: '护盾挡住啦！', life: 0.9, ttl: 0.9, color: '#2f86d6' });
+      sfxShield();
+      vibrate(20);
+      updateEffects();
+      return;
+    }
     state.invuln = 0.95;
     state.shake = 11;
     state.carVX += (state.carX < o.x ? -1 : 1) * 150;
     state.speed *= 0.55;
+    state.combo = 0;
     burst(o.x, o.y, 14, ['#d5dbe8', '#9aa3b5', '#ffd642'], 500);
     toasts.push({ x: o.x, y: o.y - 10, text: '呀！', life: 0.75, ttl: 0.75, color: '#ff6b6b' });
     sfxBump();
+    vibrate(30);
   }
 
   function update(dt) {
+    if (state.mode === 'paused') return;
     state.time += dt;
 
     const playing = state.mode === 'playing';
     const sp = playing ? state.speed : (state.mode === 'ready' ? 85 : 45);
 
-    // 速度与里程
+    // 道具计时
+    if (state.magnet > 0) state.magnet = Math.max(0, state.magnet - dt);
+    if (state.shield > 0) state.shield = Math.max(0, state.shield - dt);
+    if (state.boost > 0) state.boost = Math.max(0, state.boost - dt);
+    if (state.comboT > 0) {
+      state.comboT -= dt;
+      if (state.comboT <= 0) state.combo = 0;
+    }
+    updateEffects();
+
+    // 速度与里程（加速道具期间更快）
     if (playing) {
       const prog = Math.min(1, state.distance / state.goal);
-      const target = (200 + prog * 95) * state.scale;
+      const boostK = state.boost > 0 ? 1.35 : 1;
+      const target = (200 + prog * 95) * state.scale * boostK;
       state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2));
       state.distance += state.speed * dt;
+      bgmTick(dt);
     }
 
     // 滚动
@@ -1524,6 +1900,16 @@
       for (const o of objects) {
         o.y += state.speed * dt;
         if (o.type === 'star') o.rot += dt * 1.6;
+        // 磁铁：把附近的星星吸过来
+        if (state.magnet > 0 && o.type === 'star') {
+          const dx = state.carX - o.x, dy = carY - o.y;
+          const d = Math.hypot(dx, dy) || 1;
+          if (d < Math.min(W, H) * 0.52) {
+            const pull = 320 * dt;
+            o.x += dx / d * pull;
+            o.y += dy / d * pull;
+          }
+        }
         if (o.y > H + 90) o.dead = true;
       }
 
@@ -1532,10 +1918,11 @@
       const halfH = car.h * 0.42;
       for (const o of objects) {
         if (o.dead) continue;
-        const orad = o.type === 'star' ? o.r * 0.95 : o.s * 0.36;
+        const orad = o.type === 'power' ? o.s * 0.46 : (o.type === 'star' ? o.r * 0.95 : o.s * 0.36);
         if (Math.abs(o.x - state.carX) < halfW + orad &&
             Math.abs(o.y - carY) < halfH + orad) {
           if (o.type === 'star') collect(o);
+          else if (o.type === 'power') grabPower(o);
           else bump(o);
         }
       }
@@ -1560,8 +1947,9 @@
         d.side = Math.random() < 0.5 ? -1 : 1;
         d.x = decorX(d.side);
         d.s = rand(0.6, 1.05);
-        d.type = Math.random() < 0.55 ? 'tree' : 'flower';
-        d.color = Math.random() < 0.5 ? '#ffffff' : '#ffd1e8';
+        const th = curTheme();
+        d.type = Math.random() < 0.62 ? th.plant : 'flower';
+        d.color = th.flower[(Math.random() * th.flower.length) | 0];
       }
     }
 
@@ -1596,11 +1984,38 @@
     for (const o of objects) {
       if (o.type === 'star') {
         drawStar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.rot);
+      } else if (o.type === 'power') {
+        drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
       } else if (o.type === 'cone') {
         drawCone(o.x, o.y, o.s);
       } else {
         drawRock(o.x, o.y, o.s);
       }
+    }
+
+    // 道具光环
+    if (state.shield > 0 || state.magnet > 0) {
+      ctx.save();
+      const cy = carY + Math.sin(state.time * 7) * 0.9;
+      if (state.shield > 0) {
+        ctx.strokeStyle = 'rgba(74,168,255,' + (0.45 + Math.sin(state.time * 6) * 0.18).toFixed(2) + ')';
+        ctx.fillStyle = 'rgba(74,168,255,.10)';
+        ctx.lineWidth = Math.max(2, car.w * 0.05);
+        ctx.beginPath();
+        ctx.ellipse(state.carX, cy, car.w * 0.92, car.h * 0.62, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      if (state.magnet > 0) {
+        ctx.strokeStyle = 'rgba(233,77,106,' + (0.30 + Math.sin(state.time * 5) * 0.12).toFixed(2) + ')';
+        ctx.lineWidth = Math.max(2, car.w * 0.045);
+        ctx.setLineDash([car.w * 0.22, car.w * 0.18]);
+        ctx.beginPath();
+        ctx.arc(state.carX, cy, Math.min(W, H) * 0.52, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
     }
 
     drawCar();
@@ -1639,6 +2054,134 @@
     tone(700, 0.12, 'triangle', 0.07, 0.09);
   });
 
+  // ---------- 道具状态条 ----------
+  function updateEffects() {
+    const parts = [];
+    if (state.magnet > 0) parts.push(['🧲', '磁铁', state.magnet]);
+    if (state.shield > 0) parts.push(['🛡️', '护盾', state.shield]);
+    if (state.boost > 0) parts.push(['🚀', '加速', state.boost]);
+    const sig = parts.map(p => p[1] + Math.ceil(p[2])).join('|');
+    if (sig === state.fxSig) return;
+    state.fxSig = sig;
+    effectsEl.innerHTML = parts.map(p =>
+      '<span class="fx">' + p[0] + ' ' + p[1] + ' ' + Math.ceil(p[2]) + 's</span>').join('');
+  }
+
+  // ---------- 屏幕常亮 ----------
+  let wakeLock = null;
+  async function requestWake() {
+    try {
+      if (navigator.wakeLock && !wakeLock) wakeLock = await navigator.wakeLock.request('screen');
+    } catch (e) { /* 部分浏览器不支持，忽略 */ }
+  }
+  function releaseWake() {
+    if (!wakeLock) return;
+    try { wakeLock.release(); } catch (e) { /* ignore */ }
+    wakeLock = null;
+  }
+
+  // ---------- 成绩卡 ----------
+  function rrOn(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.lineTo(x + w - r, y);
+    g.quadraticCurveTo(x + w, y, x + w, y + r);
+    g.lineTo(x + w, y + h - r);
+    g.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    g.lineTo(x + r, y + h);
+    g.quadraticCurveTo(x, y + h, x, y + h - r);
+    g.lineTo(x, y + r);
+    g.quadraticCurveTo(x, y, x + r, y);
+    g.closePath();
+  }
+
+  function drawCardStar(g, cx, cy, r, filled) {
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rad = i % 2 ? r * 0.46 : r;
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const px = cx + Math.cos(a) * rad;
+      const py = cy + Math.sin(a) * rad;
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.closePath();
+    g.fillStyle = filled ? '#ffc32b' : '#e6e9f0';
+    g.fill();
+    g.lineWidth = 5;
+    g.strokeStyle = filled ? '#e39a12' : '#d3d7e2';
+    g.stroke();
+  }
+
+  function buildScoreCard(rating) {
+    const th = curTheme();
+    const b = getBrand();
+    const bw = 600, bh = 760;
+    const c = document.createElement('canvas');
+    c.width = bw;
+    c.height = bh;
+    const g = c.getContext('2d');
+
+    const bg = g.createLinearGradient(0, 0, 0, bh);
+    bg.addColorStop(0, th.grass[0]);
+    bg.addColorStop(1, th.grass[1]);
+    g.fillStyle = bg;
+    g.fillRect(0, 0, bw, bh);
+
+    g.fillStyle = '#fffaf0';
+    rrOn(g, 40, 40, bw - 80, bh - 80, 40);
+    g.fill();
+
+    g.textAlign = 'center';
+    g.fillStyle = '#3a3d5c';
+    g.font = '900 40px system-ui, -apple-system, "PingFang SC", sans-serif';
+    g.fillText('小车大冒险', bw / 2, 118);
+
+    g.fillStyle = '#8a90a6';
+    g.font = '800 24px system-ui, -apple-system, "PingFang SC", sans-serif';
+    g.fillText('第 ' + state.level + ' 关 · ' + th.name, bw / 2, 162);
+
+    for (let i = 0; i < 3; i++) {
+      drawCardStar(g, bw / 2 + (i - 1) * 128, 262, 52, i < rating);
+    }
+
+    g.fillStyle = '#4a3b1c';
+    g.font = '900 68px system-ui, -apple-system, "PingFang SC", sans-serif';
+    g.fillText(String(state.stars), bw / 2, 392);
+    g.fillStyle = '#8a90a6';
+    g.font = '700 22px system-ui, -apple-system, "PingFang SC", sans-serif';
+    g.fillText('颗星星', bw / 2, 424);
+
+    const img = logoImgs[b.id];
+    if (img && img.naturalWidth) {
+      const mw = 140, k = Math.min(mw / img.naturalWidth, 140 / img.naturalHeight);
+      const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+      g.drawImage(img, bw / 2 - dw / 2, 462, dw, dh);
+    }
+
+    g.fillStyle = '#3a3d5c';
+    g.font = '900 32px system-ui, -apple-system, "PingFang SC", sans-serif';
+    g.fillText(b.brand + ' ' + b.model, bw / 2, 660);
+
+    g.fillStyle = '#b3b8c9';
+    g.font = '700 18px system-ui, -apple-system, "PingFang SC", sans-serif';
+    g.fillText('家庭小游戏 · 个人非商业使用', bw / 2, 692);
+
+    const url = c.toDataURL('image/png');
+    cardImgEl.src = url;
+    saveCardEl.href = url;
+    saveCardEl.download = 'car-race-' + state.level + '-level.png';
+    cardWrapEl.classList.add('on');
+  }
+
+  // ---------- 关卡信息 ----------
+  function updateLevelChip() {
+    const th = curTheme();
+    const best = bestStars[state.level] || 0;
+    levelChipEl.innerHTML = '第 <b>' + state.level + '</b> 关 · ' + th.name +
+      (best ? '　最好 ' + '★'.repeat(best) : '');
+  }
+
   // ---------- 流程 ----------
   function startGame() {
     ensureAudio();
@@ -1646,7 +2189,15 @@
     state.stars = 0;
     state.distance = 0;
     state.speed = 0;
-    state.goal = Math.round(GOAL * state.scale);
+    state.combo = 0;
+    state.comboT = 0;
+    state.magnet = 0;
+    state.shield = 0;
+    state.boost = 0;
+    state.fxSig = '';
+    state.spawnStars = 0;
+    state.goal = Math.round(GOAL * state.scale * (1 + (state.level - 1) * 0.12));
+    layout();                       // 关卡主题可能变化，重建背景与装饰
     state.carX = (roadLeft + roadRight) / 2;
     state.carVX = 0;
     state.tilt = 0;
@@ -1656,18 +2207,40 @@
     objects = [];
     particles = [];
     toasts = [];
+    bgmTimer = 0;
+    bgmStep = 0;
     starsEl.textContent = '0';
     barEl.style.width = '0%';
+    effectsEl.innerHTML = '';
+    ratingEl.querySelectorAll('span').forEach(s => s.classList.remove('on'));
+    cardWrapEl.classList.remove('on');
     startScreen.classList.add('hidden');
     finishScreen.classList.add('hidden');
+    pauseScreen.classList.add('hidden');
     hudEl.classList.remove('hidden');
     progressEl.classList.remove('hidden');
+    requestWake();
     sfxStart();
   }
 
   function finishGame() {
     if (state.mode !== 'playing') return;
     state.mode = 'finish';
+    releaseWake();
+    state.fxSig = '';
+    effectsEl.innerHTML = '';
+
+    // 按本局实际出现的星星数换算评价，长关卡与短关卡都公平
+    const total = Math.max(1, state.spawnStars);
+    const rating = state.stars >= total * 0.75 ? 3 :
+      state.stars >= total * 0.55 ? 2 :
+      state.stars >= total * 0.30 ? 1 : 0;
+    state.rating = rating;
+    if (rating > (bestStars[state.level] || 0)) {
+      bestStars[state.level] = rating;
+      saveProgress();
+    }
+
     sfxWin();
     burst(W / 2, H * 0.42, 90, CONFETTI_COLORS, 700);
     barEl.style.width = '100%';
@@ -1675,9 +2248,25 @@
     finishStarsEl.textContent = String(state.stars);
     finishModelEl.textContent = b.brand + ' ' + b.model;
     finishLogoEl.src = b.logo;
+
+    const spans = ratingEl.querySelectorAll('span');
+    spans.forEach(s => s.classList.remove('on'));
+    for (let i = 0; i < rating; i++) {
+      setTimeout(() => spans[i] && spans[i].classList.add('on'), 300 + i * 200);
+    }
+
+    buildScoreCard(rating);
+    updateLevelChip();
+
     setTimeout(() => {
       if (state.mode === 'finish') finishScreen.classList.remove('hidden');
     }, 650);
+  }
+
+  function nextLevel() {
+    state.level = Math.min(99, state.level + 1);
+    saveProgress();
+    startGame();
   }
 
   function goGarage() {
@@ -1685,19 +2274,49 @@
     state.stars = 0;
     state.distance = 0;
     state.speed = 0;
+    state.combo = 0;
+    state.comboT = 0;
+    state.magnet = 0;
+    state.shield = 0;
+    state.boost = 0;
+    state.fxSig = '';
     state.invuln = 0;
     state.shake = 0;
     objects = [];
     particles = [];
     toasts = [];
+    releaseWake();
     starsEl.textContent = '0';
     barEl.style.width = '0%';
+    effectsEl.innerHTML = '';
     finishScreen.classList.add('hidden');
+    pauseScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
     hudEl.classList.add('hidden');
     progressEl.classList.add('hidden');
+    updateLevelChip();
     renderGarage();
     layout();
+  }
+
+  // ---------- 暂停 ----------
+  function pauseGame() {
+    if (state.mode !== 'playing') return;
+    state.mode = 'paused';
+    btnDir = 0;
+    keyDir = 0;
+    dragTarget = null;
+    dragId = null;
+    pauseScreen.classList.remove('hidden');
+    releaseWake();
+  }
+
+  function resumeGame() {
+    if (state.mode !== 'paused') return;
+    state.mode = 'playing';
+    pauseScreen.classList.add('hidden');
+    last = performance.now();
+    requestWake();
   }
 
   // ---------- 交互 ----------
@@ -1753,8 +2372,13 @@
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
       keyDir = 1;
       e.preventDefault();
+    } else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      if (state.mode === 'playing') pauseGame();
+      else if (state.mode === 'paused') resumeGame();
+      e.preventDefault();
     } else if (e.key === ' ' || e.key === 'Enter') {
-      if (state.mode !== 'playing') startGame();
+      if (state.mode === 'paused') resumeGame();
+      else if (state.mode === 'ready' || state.mode === 'finish') startGame();
       e.preventDefault();
     }
   });
@@ -1768,7 +2392,32 @@
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.getElementById('againBtn').addEventListener('click', startGame);
   document.getElementById('changeBtn').addEventListener('click', goGarage);
+  nextBtn.addEventListener('click', nextLevel);
+  pauseBtn.addEventListener('click', pauseGame);
+  resumeBtn.addEventListener('click', resumeGame);
   document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // 长按 2 秒才回车库，防小孩误触
+  let quitTimer = null;
+  const startHold = (e) => {
+    e.preventDefault();
+    try { quitBtn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    quitBtn.classList.add('holding');
+    if (quitTimer) clearTimeout(quitTimer);
+    quitTimer = setTimeout(() => {
+      quitTimer = null;
+      quitBtn.classList.remove('holding');
+      goGarage();
+    }, 2000);
+  };
+  const endHold = () => {
+    if (quitTimer) { clearTimeout(quitTimer); quitTimer = null; }
+    quitBtn.classList.remove('holding');
+  };
+  quitBtn.addEventListener('pointerdown', startHold);
+  quitBtn.addEventListener('pointerup', endHold);
+  quitBtn.addEventListener('pointercancel', endHold);
+  quitBtn.addEventListener('lostpointercapture', endHold);
 
   // ---------- 主循环 ----------
   let last = performance.now();
@@ -1787,7 +2436,11 @@
 
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => setTimeout(resize, 120));
-  document.addEventListener('visibilitychange', () => { last = performance.now(); });
+  document.addEventListener('visibilitychange', () => {
+    last = performance.now();
+    if (document.hidden && state.mode === 'playing') pauseGame();
+    if (!document.hidden && state.mode === 'playing') requestWake();
+  });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', resize);
   }
@@ -1796,8 +2449,16 @@
   }
 
   renderGarage();
+  updateLevelChip();
   resize();
   requestAnimationFrame(frame);
+
+  // 注册 Service Worker，支持离线与添加到主屏幕
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => { /* 隐私模式等场景忽略 */ });
+    });
+  }
 })();
 </script>
 </body>
