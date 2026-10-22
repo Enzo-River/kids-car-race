@@ -216,6 +216,9 @@
     .score{font-size:40px;margin:6px 0 0;}
     .score b{font-size:44px;}
   }
+  .voice-note{margin:8px 0 0;font-size:clamp(12px,2.3vmin,14px);color:#5a4a36;line-height:1.5;}
+  .mute-tip{margin:10px 0 0;padding:8px 12px;border-radius:12px;background:#fff3d6;
+    border:1px solid #f3c66a;color:#7a4b00;font-size:clamp(12px,2.4vmin,15px);line-height:1.5;}
 </style>
 </head>
 <body>
@@ -247,6 +250,7 @@
       <div class="logo">🏎️</div>
       <h1>小车大冒险</h1>
       <p class="sub" id="startSub">选一辆喜欢的车，收集汉字学读音！</p>
+      <p class="mute-tip" id="muteTip" hidden>🔇 声音现在是关闭的：点右上角喇叭打开，才能听到汉字读音</p>
       <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
       <div class="garage" id="garage"></div>
       <div class="mode-switch" id="modeSwitch">
@@ -258,7 +262,7 @@
       <button class="ghost-btn" id="settingsBtn">家长设置</button>
       <button class="ghost-btn" id="voiceTest">🔊 测试语音</button>
       <p class="hint">按住 ◀ ▶ 左右移动 · 也可拖动小车</p>
-      <p class="tiny" id="voiceWarn" hidden></p>
+      <p class="voice-note" id="voiceWarn" hidden></p>
       <p class="tiny">车标图片来自公开素材库，仅家庭非商业使用；商标归各品牌所有</p>
     </div>
   </div>
@@ -352,6 +356,7 @@
   const quizBarEl = document.getElementById('quizBar');
   const startSubEl = document.getElementById('startSub');
   const voiceWarnEl = document.getElementById('voiceWarn');
+  const muteTipEl = document.getElementById('muteTip');
   const learnedBtnEl = document.getElementById('learnedBtn');
   const learnedScreen = document.getElementById('learnedScreen');
   const learnedGridEl = document.getElementById('learnedGrid');
@@ -883,6 +888,7 @@
 
   function updateMuteUI() {
     muteBtn.textContent = state.muted ? '🔇' : '🔊';
+    if (muteTipEl) muteTipEl.hidden = !state.muted;
   }
   muteBtn.addEventListener('click', () => {
     state.muted = !state.muted;
