@@ -742,6 +742,7 @@
   let bgmOn = true;
   let speechQueue = [];
   let speechBusy = false;
+  let speechToken = 0;
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function voiceList() {
@@ -749,8 +750,12 @@
   }
   function pickVoice() {
     const vs = voiceList();
-    speechVoice = vs.find(v => /^zh[-_]CN/i.test(v.lang)) ||
-      vs.find(v => /^zh/i.test(v.lang)) || null;
+    const lang = (v) => String(v.lang || '').replace('_', '-').toLowerCase();
+    speechVoice =
+      vs.find(v => lang(v) === 'zh-cn') ||
+      vs.find(v => /^zh-(hans|sg)/.test(lang(v))) ||
+      vs.find(v => /^zh-tw/.test(lang(v))) ||
+      vs.find(v => /^zh/.test(lang(v))) || null;
   }
   if ('speechSynthesis' in window) {
     pickVoice();
@@ -772,6 +777,8 @@
   function unlockSpeech() {
     if (state.muted || !('speechSynthesis' in window)) { checkVoiceWarn(); return; }
     try {
+      pickVoice();
+      window.speechSynthesis.resume();
       const u = new SpeechSynthesisUtterance(' ');
       u.volume = 0;
       u.lang = 'zh-CN';
@@ -783,25 +790,40 @@
   function pumpSpeech() {
     if (speechBusy || !speechQueue.length) return;
     if (!('speechSynthesis' in window)) return;
+    // 没有中文语音时不用其他语言的语音硬读汉字，否则读音完全不对
+    if (!speechVoice) pickVoice();
+    if (!speechVoice) { speechQueue = []; checkVoiceWarn(); return; }
     const word = speechQueue.shift();
+    const token = ++speechToken;
+    let finished = false;
+    let watchdog = 0;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(watchdog);
+      if (token !== speechToken) return;
+      speechBusy = false;
+      if (!speechQueue.length) duckBgm(false);
+      pumpSpeech();
+    };
     try {
       const u = new SpeechSynthesisUtterance(word);
-      u.lang = 'zh-CN';
-      if (speechVoice) u.voice = speechVoice;
+      u.lang = speechVoice.lang || 'zh-CN';
+      u.voice = speechVoice;
       u.rate = speechRate;
       u.pitch = 1.05;
       u.volume = 1;
-      const done = () => {
-        speechBusy = false;
-        if (!speechQueue.length) duckBgm(false);
-        pumpSpeech();
-      };
       u.onend = done;
       u.onerror = done;
       speechBusy = true;
       duckBgm(true);
+      window.speechSynthesis.resume();
       window.speechSynthesis.speak(u);
+      // 部分浏览器 onend 不触发，超时兜底，避免队列永久卡死
+      watchdog = setTimeout(done, Math.max(3000, word.length * 1200 + 1500));
     } catch (e) {
+      finished = true;
+      clearTimeout(watchdog);
       speechBusy = false;
       duckBgm(false);
     }
@@ -817,8 +839,10 @@
   function speakNow(word) {
     if (!word || state.muted || !('speechSynthesis' in window)) return;
     speechQueue = [];
+    speechToken++;
     try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
     speechBusy = false;
+    duckBgm(false);
     speakChar(word);
   }
 
