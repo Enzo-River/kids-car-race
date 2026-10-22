@@ -174,7 +174,7 @@
   <canvas id="game"></canvas>
 
   <div class="hud hidden" id="hud">
-    <div class="pill"><span class="ico">⭐</span><span class="num" id="starCount">0</span></div>
+    <div class="pill"><span class="ico">字</span><span class="num" id="starCount">0</span></div>
     <div class="hud-right">
       <button id="pause" aria-label="暂停">⏸</button>
       <button id="mute" aria-label="声音开关">🔊</button>
@@ -194,7 +194,7 @@
     <div class="card">
       <div class="logo">🏎️</div>
       <h1>小车大冒险</h1>
-      <p class="sub">选一辆喜欢的车，收集 ⭐ 出发！</p>
+      <p class="sub">选一辆喜欢的车，收集汉字学读音！</p>
       <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
       <div class="garage" id="garage"></div>
       <button class="big-btn" id="startBtn">开始 ▶</button>
@@ -208,7 +208,7 @@
       <div class="finish-car"><img id="finishLogo" alt=""></div>
       <h1>到终点啦！</h1>
       <div class="rating" id="finishRating"><span>⭐</span><span>⭐</span><span>⭐</span></div>
-      <div class="score"><span>⭐</span><b id="finishStars">0</b></div>
+      <div class="score"><span>字</span><b id="finishStars">0</b></div>
       <p class="sub" id="finishModel">法拉利 488</p>
       <div id="cardWrap"><img id="cardImg" alt="成绩卡"><br>
         <a class="ghost-btn" id="saveCard" download="car-race-score.png">保存成绩图</a></div>
@@ -265,6 +265,27 @@
 
   const LANES = 4;
   const GOAL = 6200;
+
+  // 路上可收集的汉字（吃掉时会朗读对应读音）
+  const CHARS = [
+    '前', '包', '可', '后', '今', '方', '平', '么', '间', '升', '众', '林', '吧', '呀', '比', '友', '又',
+    '长', '中', '本', '布', '会', '瓜', '禾', '怎', '回', '告', '森', '明', '呢', '啦', '朋', '飞',
+    '公', '毛', '兴', '年', '正', '广', '什', '没', '问', '从', '男', '吗', '啊', '米', '船', '车'
+  ];
+  let charPool = [];
+
+  function nextChar() {
+    if (!charPool.length) {
+      charPool = CHARS.slice();
+      for (let i = charPool.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        const t = charPool[i];
+        charPool[i] = charPool[j];
+        charPool[j] = t;
+      }
+    }
+    return charPool.pop();
+  }
 
   // 关卡主题：每关换一条赛道风景
   const THEMES = [
@@ -480,6 +501,43 @@
     bgmStep++;
   }
 
+  // ---------- 汉字朗读 ----------
+  let speechVoice = null;
+  function pickVoice() {
+    try {
+      const vs = window.speechSynthesis.getVoices() || [];
+      speechVoice = vs.find(v => /^zh[-_]CN/i.test(v.lang)) ||
+        vs.find(v => /^zh/i.test(v.lang)) || null;
+    } catch (e) { /* ignore */ }
+  }
+  if ('speechSynthesis' in window) {
+    pickVoice();
+    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+  }
+  // 首次点击时先唤醒语音引擎（iOS 必须由用户手势触发）
+  function unlockSpeech() {
+    if (state.muted || !('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      u.lang = 'zh-CN';
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ignore */ }
+  }
+  function speakChar(ch) {
+    if (!ch || state.muted || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(ch);
+      u.lang = 'zh-CN';
+      if (speechVoice) u.voice = speechVoice;
+      u.rate = 0.82;
+      u.pitch = 1.06;
+      u.volume = 1;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ignore */ }
+  }
+
   try {
     state.muted = localStorage.getItem('car-race-muted') === '1';
   } catch (e) { /* ignore */ }
@@ -492,7 +550,8 @@
     state.muted = !state.muted;
     updateMuteUI();
     try { localStorage.setItem('car-race-muted', state.muted ? '1' : '0'); } catch (e) { /* ignore */ }
-    if (!state.muted) tone(880, 0.12, 'sine', 0, 0.12);
+    if (!state.muted) { tone(880, 0.12, 'sine', 0, 0.12); unlockSpeech(); }
+    else if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
   });
 
   // ---------- 尺寸与布局 ----------
@@ -730,33 +789,53 @@
     ctx.closePath();
   }
 
-  function drawStar(x, y, r, rot) {
+  // 汉字卡片：金边奶白圆牌 + 金色光晕，替代原来的星星
+  function drawChar(x, y, r, ch, phase) {
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(rot);
+
+    const halo = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.45);
+    halo.addColorStop(0, 'rgba(255,214,66,.50)');
+    halo.addColorStop(1, 'rgba(255,214,66,0)');
+    ctx.fillStyle = halo;
     ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const rad = i % 2 ? r * 0.46 : r;
-      const a = -Math.PI / 2 + i * Math.PI / 5;
-      const px = Math.cos(a) * rad;
-      const py = Math.sin(a) * rad;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    const g = ctx.createRadialGradient(-r * 0.2, -r * 0.3, r * 0.1, 0, 0, r);
-    g.addColorStop(0, '#fff6b8');
-    g.addColorStop(0.55, '#ffd642');
-    g.addColorStop(1, '#f2a51f');
+    ctx.arc(0, 0, r * 1.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.rotate(Math.sin(phase) * 0.07);
+    const sc = 1 + Math.sin(phase) * 0.03;
+    ctx.scale(sc, sc);
+
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,.16)';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.24, r * 0.95, r * 0.95, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 牌面
+    const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.15, 0, 0, r);
+    g.addColorStop(0, '#fffdf4');
+    g.addColorStop(1, '#ffeab8');
     ctx.fillStyle = g;
-    ctx.fill();
-    ctx.lineWidth = Math.max(1.5, r * 0.12);
-    ctx.strokeStyle = '#e08b1f';
-    ctx.stroke();
     ctx.beginPath();
-    ctx.arc(-r * 0.26, -r * 0.22, r * 0.13, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.lineWidth = Math.max(2, r * 0.14);
+    ctx.strokeStyle = '#f5b21f';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(1, r * 0.05);
+    ctx.strokeStyle = 'rgba(245,178,31,.45)';
+    ctx.stroke();
+
+    // 字
+    ctx.fillStyle = '#3b2f27';
+    ctx.font = '900 ' + Math.round(r * 1.28) + 'px "PingFang SC","Microsoft YaHei",system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ch, 0, r * 0.06);
     ctx.restore();
   }
 
@@ -1764,6 +1843,7 @@
       state.spawnStars++;
       objects.push({
         type: 'star',
+        ch: nextChar(),
         x,
         y: -70,
         r: Math.max(15, car.w * 0.40),
@@ -1789,8 +1869,9 @@
     state.comboT = 1.1;
     starsEl.textContent = String(state.stars);
     burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
-    toasts.push({ x: o.x, y: o.y - 8, text: '+1', life: 0.8, ttl: 0.8, color: '#f5a623' });
+    toasts.push({ x: o.x, y: o.y - 8, text: o.ch, life: 0.9, ttl: 0.9, color: '#f5a623' });
     sfxStar(state.combo);
+    speakChar(o.ch);
     vibrate(12);
   }
 
@@ -1983,7 +2064,7 @@
 
     for (const o of objects) {
       if (o.type === 'star') {
-        drawStar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.rot);
+        drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
       } else if (o.type === 'power') {
         drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
       } else if (o.type === 'cone') {
@@ -2150,7 +2231,7 @@
     g.fillText(String(state.stars), bw / 2, 392);
     g.fillStyle = '#8a90a6';
     g.font = '700 22px system-ui, -apple-system, "PingFang SC", sans-serif';
-    g.fillText('颗星星', bw / 2, 424);
+    g.fillText('个汉字', bw / 2, 424);
 
     const img = logoImgs[b.id];
     if (img && img.naturalWidth) {
@@ -2185,6 +2266,7 @@
   // ---------- 流程 ----------
   function startGame() {
     ensureAudio();
+    unlockSpeech();
     state.mode = 'playing';
     state.stars = 0;
     state.distance = 0;
