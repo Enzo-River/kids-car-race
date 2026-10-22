@@ -251,6 +251,7 @@
       <h1>小车大冒险</h1>
       <p class="sub" id="startSub">选一辆喜欢的车，收集汉字学读音！</p>
       <p class="mute-tip" id="muteTip" hidden>🔇 声音现在是关闭的：点右上角喇叭打开，才能听到汉字读音</p>
+      <p class="mute-tip" id="wxTip" hidden>💬 微信里朗读使用内置录音；想用系统语音，可点右上角 ··· → 在浏览器打开</p>
       <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
       <div class="garage" id="garage"></div>
       <div class="mode-switch" id="modeSwitch">
@@ -404,6 +405,56 @@
   const CHAR_MAP = {};
   CHARS.forEach(o => { CHAR_MAP[o.c] = o; });
 
+  // 词语录音（用系统中文语音一次性生成），微信内置浏览器不支持 Web Speech 时使用
+  const WORD_AUDIO = {
+    '前面': 'audio/a01.m4a',
+    '书包': 'audio/a02.m4a',
+    '可以': 'audio/a03.m4a',
+    '后面': 'audio/a04.m4a',
+    '今天': 'audio/a05.m4a',
+    '方向': 'audio/a06.m4a',
+    '平安': 'audio/a07.m4a',
+    '什么': 'audio/a08.m4a',
+    '中间': 'audio/a09.m4a',
+    '上升': 'audio/a10.m4a',
+    '观众': 'audio/a11.m4a',
+    '树林': 'audio/a12.m4a',
+    '走吧': 'audio/a13.m4a',
+    '好呀': 'audio/a14.m4a',
+    '比一比': 'audio/a15.m4a',
+    '朋友': 'audio/a16.m4a',
+    '又来了': 'audio/a17.m4a',
+    '长短': 'audio/a18.m4a',
+    '书本': 'audio/a19.m4a',
+    '花布': 'audio/a20.m4a',
+    '开会': 'audio/a21.m4a',
+    '西瓜': 'audio/a22.m4a',
+    '禾苗': 'audio/a23.m4a',
+    '怎么': 'audio/a24.m4a',
+    '回家': 'audio/a25.m4a',
+    '告诉': 'audio/a26.m4a',
+    '森林': 'audio/a27.m4a',
+    '明亮': 'audio/a28.m4a',
+    '我呢': 'audio/a29.m4a',
+    '好啦': 'audio/a30.m4a',
+    '飞机': 'audio/a31.m4a',
+    '公园': 'audio/a32.m4a',
+    '羽毛': 'audio/a33.m4a',
+    '高兴': 'audio/a34.m4a',
+    '新年': 'audio/a35.m4a',
+    '正好': 'audio/a36.m4a',
+    '广场': 'audio/a37.m4a',
+    '没有': 'audio/a38.m4a',
+    '问一问': 'audio/a39.m4a',
+    '从来': 'audio/a40.m4a',
+    '男孩': 'audio/a41.m4a',
+    '好吗': 'audio/a42.m4a',
+    '好啊': 'audio/a43.m4a',
+    '大米': 'audio/a44.m4a',
+    '小船': 'audio/a45.m4a',
+    '汽车': 'audio/a46.m4a'
+  };
+
   let customChars = [];       // 家长自建字表（空则使用默认）
   function allChars() { return customChars.length ? customChars : CHARS; }
   function infoOf(ch) {
@@ -538,6 +589,7 @@
     quizTarget: null,
     quizTimer: 0,
     goalChars: 12,
+    collectCD: 0,       // 收集冷却，避免一次吃掉多个
     bumps: 0,
     adapt: 1,
     goodStreak: 0,
@@ -752,6 +804,8 @@
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // 微信内置浏览器（X5 / WKWebView）基本不支持 speechSynthesis，需要用录音兜底
+  const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
 
   function voiceList() {
     try { return window.speechSynthesis.getVoices() || []; } catch (e) { return []; }
@@ -798,6 +852,43 @@
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) { try { window.speechSynthesis.resume(); } catch (e) { /* ignore */ } }
   });
+
+  const audioPool = new Map();
+  // 用录音朗读（微信 / 不支持语音合成时）
+  function playWordAudio(word) {
+    const url = WORD_AUDIO[word];
+    if (!url) return false;
+    try {
+      let a = audioPool.get(word);
+      if (!a) {
+        a = new Audio(url);
+        a.preload = 'auto';
+        a.playsInline = true;
+        audioPool.set(word, a);
+      }
+      try { a.currentTime = 0; } catch (e) { /* ignore */ }
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+      duckBgm(true);
+      const back = () => duckBgm(false);
+      a.onended = back;
+      setTimeout(back, 1800);
+      return true;
+    } catch (e) { return false; }
+  }
+  // 首次用户手势里解锁音频（微信 / iOS 必需），顺便预热第一张卡
+  function unlockAudio() {
+    const url = WORD_AUDIO['前面'];
+    if (!url) return;
+    try {
+      const a = new Audio(url);
+      a.volume = 0.02;
+      a.playsInline = true;
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+      setTimeout(() => { try { a.pause(); } catch (e) { /* ignore */ } }, 300);
+    } catch (e) { /* ignore */ }
+  }
 
   function pumpSpeech() {
     if (speechBusy || !speechQueue.length) return;
@@ -863,14 +954,21 @@
   }
   // 排队朗读，连续吃字时不会互相截断
   function speakChar(word) {
-    if (!word || state.muted || !('speechSynthesis' in window)) return;
+    if (!word || state.muted) return;
+    // 微信里语音合成存在但完全静音，直接用录音
+    if (isWeChat || !('speechSynthesis' in window)) {
+      if (playWordAudio(word)) return;
+      checkVoiceWarn();
+      return;
+    }
     speechQueue.push(word);
     if (speechQueue.length > 2) speechQueue.splice(0, speechQueue.length - 2);
     pumpSpeech();
   }
   // 重听：清空队列，立即读当前字
   function speakNow(word) {
-    if (!word || state.muted || !('speechSynthesis' in window)) return;
+    if (!word || state.muted) return;
+    if (isWeChat || !('speechSynthesis' in window)) { playWordAudio(word); return; }
     speechQueue = [];
     speechToken++;
     try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
@@ -897,6 +995,7 @@
     if (!state.muted) {
       tone(880, 0.12, 'sine', 0, 0.12);
       unlockSpeech();
+      unlockAudio();
     } else {
       speechQueue = [];
       speechBusy = false;
@@ -2305,6 +2404,7 @@
 
   function collect(o) {
     o.dead = true;
+    state.collectCD = 0.45;
     const info = infoOf(o.ch);
     state.stars++;
     state.combo = Math.min(state.combo + 1, 8);
@@ -2400,6 +2500,7 @@
 
     // 道具计时
     if (state.magnet > 0) state.magnet = Math.max(0, state.magnet - dt);
+    if (state.collectCD > 0) state.collectCD = Math.max(0, state.collectCD - dt);
     if (state.shield > 0) state.shield = Math.max(0, state.shield - dt);
     if (state.boost > 0) state.boost = Math.max(0, state.boost - dt);
     if (state.comboT > 0) {
@@ -2489,6 +2590,8 @@
         if (Math.abs(o.x - state.carX) < halfW + orad &&
             Math.abs(o.y - carY) < halfH + orad) {
           if (o.type === 'star') {
+            // 冷却中先不处理，保证一次只吃一个汉字
+            if (state.collectCD > 0) continue;
             if (state.quiz && o.quiz && state.quizTarget && o.ch !== state.quizTarget.c) missChar(o);
             else collect(o);
           } else if (o.type === 'power') grabPower(o);
@@ -2755,6 +2858,7 @@
   function startGame() {
     ensureAudio();
     unlockSpeech();
+    unlockAudio();
     state.mode = 'playing';
     state.stars = 0;
     state.distance = 0;
@@ -2772,6 +2876,7 @@
     state.lastWord = '';
     state.uniqueChars = new Set();
     state.goalChars = Math.min(18, 10 + state.level * 2);
+    state.collectCD = 0;
     buildCharDeck(state.level);
     state.quizTarget = null;
     state.quizTimer = 1.6;
@@ -3003,6 +3108,15 @@
       voiceWarnEl.textContent = '这个浏览器不支持朗读，可以照着拼音读';
       return;
     }
+    if (isWeChat || !('speechSynthesis' in window)) {
+      unlockAudio();
+      const played = playWordAudio('前面');
+      voiceWarnEl.hidden = false;
+      voiceWarnEl.textContent = played
+        ? '已用内置录音朗读“前面”。微信不支持系统语音，想听系统朗读请点右上角 ··· → 在浏览器打开'
+        : '没有找到录音，可以照着拼音读';
+      return;
+    }
     pickVoice();
     speechQueue = [];
     speechToken++;
@@ -3137,6 +3251,7 @@
   }
 
   loadSettings();
+  document.getElementById('wxTip').hidden = !isWeChat;
   renderGarage();
   updateLevelChip();
   resize();
