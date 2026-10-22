@@ -256,6 +256,7 @@
       <button class="big-btn" id="startBtn">开始 ▶</button>
       <button class="ghost-btn" id="learnedBtn">我认识的字 · 0</button>
       <button class="ghost-btn" id="settingsBtn">家长设置</button>
+      <button class="ghost-btn" id="voiceTest">🔊 测试语音</button>
       <p class="hint">按住 ◀ ▶ 左右移动 · 也可拖动小车</p>
       <p class="tiny" id="voiceWarn" hidden></p>
       <p class="tiny">车标图片来自公开素材库，仅家庭非商业使用；商标归各品牌所有</p>
@@ -744,6 +745,8 @@
   let speechBusy = false;
   let speechToken = 0;
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   function voiceList() {
     try { return window.speechSynthesis.getVoices() || []; } catch (e) { return []; }
@@ -766,7 +769,7 @@
     if (!('speechSynthesis' in window)) {
       voiceWarnEl.hidden = false;
       voiceWarnEl.textContent = '这个浏览器不支持朗读，可以照着拼音读';
-    } else if (!voiceList().some(v => /^zh/i.test(v.lang))) {
+    } else if (voiceList().length && !voiceList().some(v => /^zh/i.test(v.lang))) {
       voiceWarnEl.hidden = false;
       voiceWarnEl.textContent = '没找到中文语音，可在手机系统设置里下载中文语音';
     } else {
@@ -787,15 +790,21 @@
     } catch (e) { /* ignore */ }
     setTimeout(checkVoiceWarn, 1200);
   }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { try { window.speechSynthesis.resume(); } catch (e) { /* ignore */ } }
+  });
+
   function pumpSpeech() {
     if (speechBusy || !speechQueue.length) return;
     if (!('speechSynthesis' in window)) return;
     // 没有中文语音时不用其他语言的语音硬读汉字，否则读音完全不对
     if (!speechVoice) pickVoice();
-    if (!speechVoice) { speechQueue = []; checkVoiceWarn(); return; }
+    // iOS 上 getVoices() 一开始常是空数组，此时用 lang 交给系统默认语音；只有明确没有中文语音才跳过
+    if (!speechVoice && voiceList().length) { speechQueue = []; checkVoiceWarn(); return; }
     const word = speechQueue.shift();
     const token = ++speechToken;
     let finished = false;
+    let started = false;
     let watchdog = 0;
     const done = () => {
       if (finished) return;
@@ -808,11 +817,12 @@
     };
     try {
       const u = new SpeechSynthesisUtterance(word);
-      u.lang = speechVoice.lang || 'zh-CN';
-      u.voice = speechVoice;
+      u.lang = (speechVoice && speechVoice.lang) || 'zh-CN';
+      if (speechVoice) u.voice = speechVoice;
       u.rate = speechRate;
       u.pitch = 1.05;
       u.volume = 1;
+      u.onstart = () => { started = true; };
       u.onend = done;
       u.onerror = done;
       speechBusy = true;
@@ -821,6 +831,24 @@
       window.speechSynthesis.speak(u);
       // 部分浏览器 onend 不触发，超时兜底，避免队列永久卡死
       watchdog = setTimeout(done, Math.max(3000, word.length * 1200 + 1500));
+      // iOS 偶尔把 speak() 吞掉且不触发任何事件：确认没出声再补一次
+      setTimeout(() => {
+        if (finished || started) return;
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) return;
+        started = true;
+        try {
+          const u2 = new SpeechSynthesisUtterance(word);
+          u2.lang = (speechVoice && speechVoice.lang) || 'zh-CN';
+          if (speechVoice) u2.voice = speechVoice;
+          u2.rate = speechRate;
+          u2.pitch = 1.05;
+          u2.volume = 1;
+          u2.onend = done;
+          u2.onerror = done;
+          window.speechSynthesis.resume();
+          window.speechSynthesis.speak(u2);
+        } catch (e) { /* ignore */ }
+      }, 900);
     } catch (e) {
       finished = true;
       clearTimeout(watchdog);
@@ -843,7 +871,9 @@
     try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
     speechBusy = false;
     duckBgm(false);
-    speakChar(word);
+    // iOS 上 cancel() 后立刻 speak() 经常没有声音，稍等再读
+    if (isIOS) setTimeout(() => speakChar(word), 120);
+    else speakChar(word);
   }
 
   try {
@@ -2952,6 +2982,52 @@
   });
 
   document.getElementById('startBtn').addEventListener('click', startGame);
+
+  // 开始页「测试语音」：直接同步朗读，用来判断是设备问题还是游戏链路问题
+  document.getElementById('voiceTest').addEventListener('click', () => {
+    ensureAudio();
+    if (state.muted) {
+      voiceWarnEl.hidden = false;
+      voiceWarnEl.textContent = '现在是静音状态，点右上角 🔊 打开声音再试';
+      return;
+    }
+    if (!('speechSynthesis' in window)) {
+      voiceWarnEl.hidden = false;
+      voiceWarnEl.textContent = '这个浏览器不支持朗读，可以照着拼音读';
+      return;
+    }
+    pickVoice();
+    speechQueue = [];
+    speechToken++;
+    speechBusy = false;
+    try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    const word = '前面';
+    let ok = false;
+    const u = new SpeechSynthesisUtterance(word);
+    u.lang = (speechVoice && speechVoice.lang) || 'zh-CN';
+    if (speechVoice) u.voice = speechVoice;
+    u.rate = speechRate;
+    u.pitch = 1.05;
+    u.volume = 1;
+    u.onstart = () => {
+      ok = true;
+      voiceWarnEl.hidden = false;
+      voiceWarnEl.textContent = '语音正常（' + (speechVoice ? speechVoice.name : '系统默认') + '），可以开始啦';
+    };
+    u.onerror = (e) => {
+      voiceWarnEl.hidden = false;
+      voiceWarnEl.textContent = '朗读失败（' + e.error + '），请调大媒体音量或下载中文语音';
+    };
+    try {
+      window.speechSynthesis.resume();
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ignore */ }
+    setTimeout(() => {
+      if (ok) return;
+      voiceWarnEl.hidden = false;
+      voiceWarnEl.textContent = '没听到声音？请调大媒体音量、关闭静音开关，或在系统设置里下载中文语音';
+    }, 1600);
+  });
   document.getElementById('againBtn').addEventListener('click', startGame);
   document.getElementById('changeBtn').addEventListener('click', goGarage);
   nextBtn.addEventListener('click', nextLevel);
