@@ -2993,9 +2993,10 @@
   document.getElementById('voiceTest').addEventListener('click', () => {
     ensureAudio();
     if (state.muted) {
-      voiceWarnEl.hidden = false;
-      voiceWarnEl.textContent = '现在是静音状态，点右上角 🔊 打开声音再试';
-      return;
+      // 用户主动点「测试语音」说明想听声音，直接帮他把声音打开
+      state.muted = false;
+      updateMuteUI();
+      try { localStorage.setItem('car-race-muted', '0'); } catch (e) { /* ignore */ }
     }
     if (!('speechSynthesis' in window)) {
       voiceWarnEl.hidden = false;
