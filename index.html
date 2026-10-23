@@ -601,6 +601,7 @@
     goodStreak: 0,
     lastWord: '',
     lastSpoken: '',
+    pendingCollect: null,
     uniqueChars: null
   };
 
@@ -808,7 +809,7 @@
   let speechQueue = [];
   let speechBusy = false;
   let speechToken = 0;
-  const APP_VERSION = '2026-10-23.3';
+  const APP_VERSION = '2026-10-23.4';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -970,7 +971,7 @@
       return;
     }
     speechQueue.push(word);
-    if (speechQueue.length > 2) speechQueue.splice(0, speechQueue.length - 2);
+    if (speechQueue.length > 5) speechQueue.splice(0, speechQueue.length - 5);
     pumpSpeech();
   }
   // 重听：清空队列，立即读当前字
@@ -2397,7 +2398,7 @@
         row,
         ch: chars[i],
         x: roadLeft + (lanes[i] + 0.5) * laneW,
-        y,
+        y: y - i * 220 * state.scale,
         r: Math.max(15, car.w * 0.40),
         rot: rand(0, Math.PI * 2),
         phase: rand(0, Math.PI * 2),
@@ -2454,9 +2455,9 @@
     toasts.push({ x: o.x, y: o.y - 8, text: '再听听', life: 0.85, ttl: 0.85, color: '#ff6b6b' });
     sfxBump();
     vibrate(20);
-    if (state.quiz) {
-      clearQuizRow(o.row);
-      state.quizTimer = 2.2;
+    if (state.quiz && !objects.some(p => p.quiz && !p.dead)) {
+      state.quizTarget = null;
+      state.quizTimer = 1.4;
     }
     if (state.quizTarget) speakNow(state.quizTarget.c);
   }
@@ -2511,6 +2512,11 @@
     // 道具计时
     if (state.magnet > 0) state.magnet = Math.max(0, state.magnet - dt);
     if (state.collectCD > 0) state.collectCD = Math.max(0, state.collectCD - dt);
+    if (state.collectCD <= 0 && state.pendingCollect) {
+      const p = state.pendingCollect;
+      state.pendingCollect = null;
+      if (!p.dead && state.mode === 'playing') collect(p);
+    }
     if (state.shield > 0) state.shield = Math.max(0, state.shield - dt);
     if (state.boost > 0) state.boost = Math.max(0, state.boost - dt);
     if (state.comboT > 0) {
@@ -2561,13 +2567,13 @@
         state.quizTimer -= dt;
         if (!state.quizTarget) {
           if (state.quizTimer <= 0) newQuizRound();
-        } else if (state.quizTimer <= 0) {
+        } else if (state.quizTimer <= 0 && !objects.some(p => p.quiz && !p.dead)) {
           spawnQuizRow();
-          state.quizTimer = 3.6;
+          state.quizTimer = 5.2;
         }
       } else if (state.distance > 380) {
         state.spawnAcc += state.speed * dt;
-        const spacing = 215 * state.scale;
+        const spacing = 330 * state.scale;
         if (state.spawnAcc > spacing) {
           state.spawnAcc -= spacing;
           spawnObject();
@@ -2600,8 +2606,11 @@
         if (Math.abs(o.x - state.carX) < halfW + orad &&
             Math.abs(o.y - carY) < halfH + orad) {
           if (o.type === 'star') {
-            // 冷却中先不处理，保证一次只吃一个汉字
-            if (state.collectCD > 0) continue;
+            // 冷却中先记下，等冷却结束再收，保证一次只读一个且不漏字
+            if (state.collectCD > 0) {
+              if (!o.quiz) state.pendingCollect = o;
+              continue;
+            }
             if (state.quiz && o.quiz && state.quizTarget && o.ch !== state.quizTarget.c) missChar(o);
             else collect(o);
           } else if (o.type === 'power') grabPower(o);
@@ -2885,6 +2894,7 @@
     state.goodStreak = 0;
     state.lastWord = '';
     state.lastSpoken = '';
+    state.pendingCollect = null;
     state.uniqueChars = new Set();
     state.goalChars = Math.min(18, 10 + state.level * 2);
     state.collectCD = 0;
