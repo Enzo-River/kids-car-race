@@ -380,26 +380,26 @@
     { c: '前', p: 'qián', w: '前面' }, { c: '包', p: 'bāo', w: '书包' },
     { c: '可', p: 'kě', w: '可以' }, { c: '后', p: 'hòu', w: '后面' },
     { c: '今', p: 'jīn', w: '今天' }, { c: '方', p: 'fāng', w: '方向' },
-    { c: '平', p: 'píng', w: '平安' }, { c: '么', p: 'me', w: '什么' },
-    { c: '间', p: 'jiān', w: '中间' }, { c: '升', p: 'shēng', w: '上升' },
+    { c: '平', p: 'píng', w: '平安' }, { c: '么', p: 'me', w: '什么', poly: 1 },
+    { c: '间', p: 'jiān', w: '中间', poly: 1 }, { c: '升', p: 'shēng', w: '上升' },
     { c: '众', p: 'zhòng', w: '观众' }, { c: '林', p: 'lín', w: '树林' },
-    { c: '吧', p: 'ba', w: '走吧' }, { c: '呀', p: 'ya', w: '好呀' },
+    { c: '吧', p: 'ba', w: '走吧', poly: 1 }, { c: '呀', p: 'ya', w: '好呀' },
     { c: '比', p: 'bǐ', w: '比一比' }, { c: '友', p: 'yǒu', w: '朋友' },
-    { c: '又', p: 'yòu', w: '又来了' }, { c: '长', p: 'cháng', w: '长短' },
-    { c: '中', p: 'zhōng', w: '中间' }, { c: '本', p: 'běn', w: '书本' },
-    { c: '布', p: 'bù', w: '花布' }, { c: '会', p: 'huì', w: '开会' },
+    { c: '又', p: 'yòu', w: '又来了' }, { c: '长', p: 'cháng', w: '长短', poly: 1 },
+    { c: '中', p: 'zhōng', w: '中间', poly: 1 }, { c: '本', p: 'běn', w: '书本' },
+    { c: '布', p: 'bù', w: '花布' }, { c: '会', p: 'huì', w: '开会', poly: 1 },
     { c: '瓜', p: 'guā', w: '西瓜' }, { c: '禾', p: 'hé', w: '禾苗' },
     { c: '怎', p: 'zěn', w: '怎么' }, { c: '回', p: 'huí', w: '回家' },
     { c: '告', p: 'gào', w: '告诉' }, { c: '森', p: 'sēn', w: '森林' },
-    { c: '明', p: 'míng', w: '明亮' }, { c: '呢', p: 'ne', w: '我呢' },
+    { c: '明', p: 'míng', w: '明亮' }, { c: '呢', p: 'ne', w: '我呢', poly: 1 },
     { c: '啦', p: 'la', w: '好啦' }, { c: '朋', p: 'péng', w: '朋友' },
     { c: '飞', p: 'fēi', w: '飞机' }, { c: '公', p: 'gōng', w: '公园' },
-    { c: '毛', p: 'máo', w: '羽毛' }, { c: '兴', p: 'xìng', w: '高兴' },
-    { c: '年', p: 'nián', w: '新年' }, { c: '正', p: 'zhèng', w: '正好' },
-    { c: '广', p: 'guǎng', w: '广场' }, { c: '什', p: 'shén', w: '什么' },
-    { c: '没', p: 'méi', w: '没有' }, { c: '问', p: 'wèn', w: '问一问' },
+    { c: '毛', p: 'máo', w: '羽毛' }, { c: '兴', p: 'xìng', w: '高兴', poly: 1 },
+    { c: '年', p: 'nián', w: '新年' }, { c: '正', p: 'zhèng', w: '正好', poly: 1 },
+    { c: '广', p: 'guǎng', w: '广场' }, { c: '什', p: 'shén', w: '什么', poly: 1 },
+    { c: '没', p: 'méi', w: '没有', poly: 1 }, { c: '问', p: 'wèn', w: '问一问' },
     { c: '从', p: 'cóng', w: '从来' }, { c: '男', p: 'nán', w: '男孩' },
-    { c: '吗', p: 'ma', w: '好吗' }, { c: '啊', p: 'a', w: '好啊' },
+    { c: '吗', p: 'ma', w: '好吗', poly: 1 }, { c: '啊', p: 'a', w: '好啊' },
     { c: '米', p: 'mǐ', w: '大米' }, { c: '船', p: 'chuán', w: '小船' },
     { c: '车', p: 'chē', w: '汽车' }
   ];
@@ -407,55 +407,58 @@
   const CHAR_MAP = {};
   CHARS.forEach(o => { CHAR_MAP[o.c] = o; });
 
-  // 词语录音（用系统中文语音一次性生成），微信内置浏览器不支持 Web Speech 时使用
+  // 录音：非多音字读单字，多音字读词语（用系统中文语音一次性生成）
   const WORD_AUDIO = {
-    '前面': 'audio/a01.m4a',
-    '书包': 'audio/a02.m4a',
-    '可以': 'audio/a03.m4a',
-    '后面': 'audio/a04.m4a',
-    '今天': 'audio/a05.m4a',
-    '方向': 'audio/a06.m4a',
-    '平安': 'audio/a07.m4a',
-    '什么': 'audio/a08.m4a',
-    '中间': 'audio/a09.m4a',
-    '上升': 'audio/a10.m4a',
-    '观众': 'audio/a11.m4a',
-    '树林': 'audio/a12.m4a',
-    '走吧': 'audio/a13.m4a',
-    '好呀': 'audio/a14.m4a',
-    '比一比': 'audio/a15.m4a',
-    '朋友': 'audio/a16.m4a',
-    '又来了': 'audio/a17.m4a',
-    '长短': 'audio/a18.m4a',
-    '书本': 'audio/a19.m4a',
-    '花布': 'audio/a20.m4a',
-    '开会': 'audio/a21.m4a',
-    '西瓜': 'audio/a22.m4a',
-    '禾苗': 'audio/a23.m4a',
-    '怎么': 'audio/a24.m4a',
-    '回家': 'audio/a25.m4a',
-    '告诉': 'audio/a26.m4a',
-    '森林': 'audio/a27.m4a',
-    '明亮': 'audio/a28.m4a',
-    '我呢': 'audio/a29.m4a',
-    '好啦': 'audio/a30.m4a',
-    '飞机': 'audio/a31.m4a',
-    '公园': 'audio/a32.m4a',
-    '羽毛': 'audio/a33.m4a',
-    '高兴': 'audio/a34.m4a',
-    '新年': 'audio/a35.m4a',
-    '正好': 'audio/a36.m4a',
-    '广场': 'audio/a37.m4a',
-    '没有': 'audio/a38.m4a',
-    '问一问': 'audio/a39.m4a',
-    '从来': 'audio/a40.m4a',
-    '男孩': 'audio/a41.m4a',
-    '好吗': 'audio/a42.m4a',
-    '好啊': 'audio/a43.m4a',
-    '大米': 'audio/a44.m4a',
-    '小船': 'audio/a45.m4a',
-    '汽车': 'audio/a46.m4a'
+    '前': 'audio/s01.m4a',
+    '包': 'audio/s02.m4a',
+    '可': 'audio/s03.m4a',
+    '后': 'audio/s04.m4a',
+    '今': 'audio/s05.m4a',
+    '方': 'audio/s06.m4a',
+    '平': 'audio/s07.m4a',
+    '什么': 'audio/s08.m4a',
+    '中间': 'audio/s09.m4a',
+    '升': 'audio/s10.m4a',
+    '众': 'audio/s11.m4a',
+    '林': 'audio/s12.m4a',
+    '走吧': 'audio/s13.m4a',
+    '呀': 'audio/s14.m4a',
+    '比': 'audio/s15.m4a',
+    '友': 'audio/s16.m4a',
+    '又': 'audio/s17.m4a',
+    '长短': 'audio/s18.m4a',
+    '本': 'audio/s19.m4a',
+    '布': 'audio/s20.m4a',
+    '开会': 'audio/s21.m4a',
+    '瓜': 'audio/s22.m4a',
+    '禾': 'audio/s23.m4a',
+    '怎': 'audio/s24.m4a',
+    '回': 'audio/s25.m4a',
+    '告': 'audio/s26.m4a',
+    '森': 'audio/s27.m4a',
+    '明': 'audio/s28.m4a',
+    '我呢': 'audio/s29.m4a',
+    '啦': 'audio/s30.m4a',
+    '朋': 'audio/s31.m4a',
+    '飞': 'audio/s32.m4a',
+    '公': 'audio/s33.m4a',
+    '毛': 'audio/s34.m4a',
+    '高兴': 'audio/s35.m4a',
+    '年': 'audio/s36.m4a',
+    '正好': 'audio/s37.m4a',
+    '广': 'audio/s38.m4a',
+    '没有': 'audio/s39.m4a',
+    '问': 'audio/s40.m4a',
+    '从': 'audio/s41.m4a',
+    '男': 'audio/s42.m4a',
+    '好吗': 'audio/s43.m4a',
+    '啊': 'audio/s44.m4a',
+    '米': 'audio/s45.m4a',
+    '船': 'audio/s46.m4a',
+    '车': 'audio/s47.m4a'
   };
+  // 非多音字读单字，多音字读词语消歧义
+  function spokenOf(info) { return info && info.poly ? info.w : info.c; }
 
   let customChars = [];       // 家长自建字表（空则使用默认）
   function allChars() { return customChars.length ? customChars : CHARS; }
@@ -596,6 +599,7 @@
     adapt: 1,
     goodStreak: 0,
     lastWord: '',
+    lastSpoken: '',
     uniqueChars: null
   };
 
@@ -637,7 +641,7 @@
     }
     learnedGridEl.innerHTML = allChars()
       .filter(o => learned.has(o.c))
-      .map(o => '<button class="char-cell" data-word="' + o.w + '"><b>' + o.c + '</b><i>' + o.p + '</i></button>')
+      .map(o => '<button class="char-cell" data-word="' + spokenOf(o) + '"><b>' + o.c + '</b><i>' + o.p + '</i></button>')
       .join('');
   }
 
@@ -803,7 +807,7 @@
   let speechQueue = [];
   let speechBusy = false;
   let speechToken = 0;
-  const APP_VERSION = '2026-10-23.1';
+  const APP_VERSION = '2026-10-23.2';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -881,7 +885,7 @@
   }
   // 首次用户手势里解锁音频（微信 / iOS 必需），顺便预热第一张卡
   function unlockAudio() {
-    const url = WORD_AUDIO['前面'];
+    const url = WORD_AUDIO['包'];
     if (!url) return;
     try {
       const a = new Audio(url);
@@ -2352,9 +2356,10 @@
     const ch = nextChar();
     state.quizTarget = infoOf(ch);
     state.lastWord = state.quizTarget.w;
+    state.lastSpoken = spokenOf(state.quizTarget);
     lastCharEl.textContent = '听';
     state.quizTimer = 1.2;
-    speakNow(state.quizTarget.w);
+    speakNow(state.lastSpoken);
   }
 
   function spawnQuizRow() {
@@ -2426,7 +2431,8 @@
     burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
     toasts.push({ x: o.x, y: o.y - 8, text: info.c, sub: info.p, life: 1.0, ttl: 1.0, color: '#f5a623' });
     sfxStar(state.combo);
-    speakChar(info.w);
+    state.lastSpoken = spokenOf(info);
+    speakChar(state.lastSpoken);
     vibrate(12);
     if (state.quiz) {
       clearQuizRow(o.row);
@@ -2451,7 +2457,7 @@
       clearQuizRow(o.row);
       state.quizTimer = 2.2;
     }
-    if (state.quizTarget) speakNow(state.quizTarget.w);
+    if (state.quizTarget) speakNow(spokenOf(state.quizTarget));
   }
 
   function grabPower(o) {
@@ -2877,6 +2883,7 @@
     state.adapt = 1;
     state.goodStreak = 0;
     state.lastWord = '';
+    state.lastSpoken = '';
     state.uniqueChars = new Set();
     state.goalChars = Math.min(18, 10 + state.level * 2);
     state.collectCD = 0;
@@ -3113,10 +3120,10 @@
     }
     if (isWeChat || !('speechSynthesis' in window)) {
       unlockAudio();
-      const played = playWordAudio('前面');
+      const played = playWordAudio('包');
       voiceWarnEl.hidden = false;
       voiceWarnEl.textContent = played
-        ? '已用内置录音朗读“前面”。微信不支持系统语音，想听系统朗读请点右上角 ··· → 在浏览器打开'
+        ? '已用内置录音朗读“包”。微信不支持系统语音，想听系统朗读请点右上角 ··· → 在浏览器打开'
         : '没有找到录音，可以照着拼音读';
       return;
     }
@@ -3125,7 +3132,7 @@
     speechToken++;
     speechBusy = false;
     try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
-    const word = '前面';
+    const word = '包';
     let ok = false;
     const u = new SpeechSynthesisUtterance(word);
     u.lang = (speechVoice && speechVoice.lang) || 'zh-CN';
@@ -3170,13 +3177,13 @@
   // HUD 汉字：点一下重听
   charPillEl.addEventListener('click', () => {
     if (state.mode !== 'playing' && state.mode !== 'paused') return;
-    const word = state.quiz && state.quizTarget ? state.quizTarget.w : state.lastWord;
-    speakNow(word);
+    const text = state.quiz && state.quizTarget ? spokenOf(state.quizTarget) : (state.lastSpoken || '');
+    speakNow(text);
   });
 
   // 听音模式：重播题目
   quizBarEl.addEventListener('click', () => {
-    if (state.quizTarget) speakNow(state.quizTarget.w);
+    if (state.quizTarget) speakNow(spokenOf(state.quizTarget));
   });
 
   // 我认识的字
