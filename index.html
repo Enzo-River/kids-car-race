@@ -217,6 +217,7 @@
     .score b{font-size:44px;}
   }
   .voice-note{margin:8px 0 0;font-size:clamp(12px,2.3vmin,14px);color:#5a4a36;line-height:1.5;}
+  .ver{margin:8px 0 0;font-size:12px;color:#9aa3b5;letter-spacing:.6px;}
   .mute-tip{margin:10px 0 0;padding:8px 12px;border-radius:12px;background:#fff3d6;
     border:1px solid #f3c66a;color:#7a4b00;font-size:clamp(12px,2.4vmin,15px);line-height:1.5;}
 </style>
@@ -264,6 +265,7 @@
       <button class="ghost-btn" id="voiceTest">🔊 测试语音</button>
       <p class="hint">按住 ◀ ▶ 左右移动 · 也可拖动小车</p>
       <p class="voice-note" id="voiceWarn" hidden></p>
+      <p class="ver" id="appVer"></p>
       <p class="tiny">车标图片来自公开素材库，仅家庭非商业使用；商标归各品牌所有</p>
     </div>
   </div>
@@ -801,6 +803,7 @@
   let speechQueue = [];
   let speechBusy = false;
   let speechToken = 0;
+  const APP_VERSION = '2026-10-23.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3252,6 +3255,25 @@
 
   loadSettings();
   document.getElementById('wxTip').hidden = !isWeChat;
+  document.getElementById('appVer').textContent = 'v' + APP_VERSION;
+
+  // 地址栏自动带 ?v=版本号，微信等 WebView 换 URL 才会重新取页面，避免一直看旧缓存
+  (function checkVersionParam() {
+    try {
+      const cur = new URLSearchParams(location.search).get('v');
+      const url = new URL(location.href);
+      if (cur === APP_VERSION) return;
+      const key = 'car-race-bust-' + APP_VERSION;
+      if (sessionStorage.getItem(key)) {
+        url.searchParams.set('v', APP_VERSION);
+        history.replaceState(null, '', url.toString());
+        return;
+      }
+      sessionStorage.setItem(key, '1');
+      url.searchParams.set('v', APP_VERSION);
+      location.replace(url.toString());
+    } catch (e) { /* 隐私模式等场景忽略 */ }
+  })();
   renderGarage();
   updateLevelChip();
   resize();
@@ -3260,7 +3282,7 @@
   // 注册 Service Worker，支持离线与添加到主屏幕
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => { /* 隐私模式等场景忽略 */ });
+      navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).catch(() => { /* 隐私模式等场景忽略 */ });
     });
   }
 })();
