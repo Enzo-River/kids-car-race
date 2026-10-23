@@ -380,26 +380,26 @@
     { c: '前', p: 'qián', w: '前面' }, { c: '包', p: 'bāo', w: '书包' },
     { c: '可', p: 'kě', w: '可以' }, { c: '后', p: 'hòu', w: '后面' },
     { c: '今', p: 'jīn', w: '今天' }, { c: '方', p: 'fāng', w: '方向' },
-    { c: '平', p: 'píng', w: '平安' }, { c: '么', p: 'me', w: '什么', poly: 1 },
-    { c: '间', p: 'jiān', w: '中间', poly: 1 }, { c: '升', p: 'shēng', w: '上升' },
+    { c: '平', p: 'píng', w: '平安' }, { c: '么', p: 'me', w: '什么' },
+    { c: '间', p: 'jiān', w: '中间' }, { c: '升', p: 'shēng', w: '上升' },
     { c: '众', p: 'zhòng', w: '观众' }, { c: '林', p: 'lín', w: '树林' },
-    { c: '吧', p: 'ba', w: '走吧', poly: 1 }, { c: '呀', p: 'ya', w: '好呀' },
+    { c: '吧', p: 'ba', w: '走吧' }, { c: '呀', p: 'ya', w: '好呀' },
     { c: '比', p: 'bǐ', w: '比一比' }, { c: '友', p: 'yǒu', w: '朋友' },
-    { c: '又', p: 'yòu', w: '又来了' }, { c: '长', p: 'cháng', w: '长短', poly: 1 },
-    { c: '中', p: 'zhōng', w: '中间', poly: 1 }, { c: '本', p: 'běn', w: '书本' },
-    { c: '布', p: 'bù', w: '花布' }, { c: '会', p: 'huì', w: '开会', poly: 1 },
+    { c: '又', p: 'yòu', w: '又来了' }, { c: '长', p: 'cháng', w: '长短' },
+    { c: '中', p: 'zhōng', w: '中间' }, { c: '本', p: 'běn', w: '书本' },
+    { c: '布', p: 'bù', w: '花布' }, { c: '会', p: 'huì', w: '开会' },
     { c: '瓜', p: 'guā', w: '西瓜' }, { c: '禾', p: 'hé', w: '禾苗' },
     { c: '怎', p: 'zěn', w: '怎么' }, { c: '回', p: 'huí', w: '回家' },
     { c: '告', p: 'gào', w: '告诉' }, { c: '森', p: 'sēn', w: '森林' },
-    { c: '明', p: 'míng', w: '明亮' }, { c: '呢', p: 'ne', w: '我呢', poly: 1 },
+    { c: '明', p: 'míng', w: '明亮' }, { c: '呢', p: 'ne', w: '我呢' },
     { c: '啦', p: 'la', w: '好啦' }, { c: '朋', p: 'péng', w: '朋友' },
     { c: '飞', p: 'fēi', w: '飞机' }, { c: '公', p: 'gōng', w: '公园' },
-    { c: '毛', p: 'máo', w: '羽毛' }, { c: '兴', p: 'xìng', w: '高兴', poly: 1 },
-    { c: '年', p: 'nián', w: '新年' }, { c: '正', p: 'zhèng', w: '正好', poly: 1 },
-    { c: '广', p: 'guǎng', w: '广场' }, { c: '什', p: 'shén', w: '什么', poly: 1 },
-    { c: '没', p: 'méi', w: '没有', poly: 1 }, { c: '问', p: 'wèn', w: '问一问' },
+    { c: '毛', p: 'máo', w: '羽毛' }, { c: '兴', p: 'xìng', w: '高兴' },
+    { c: '年', p: 'nián', w: '新年' }, { c: '正', p: 'zhèng', w: '正好' },
+    { c: '广', p: 'guǎng', w: '广场' }, { c: '什', p: 'shén', w: '什么' },
+    { c: '没', p: 'méi', w: '没有' }, { c: '问', p: 'wèn', w: '问一问' },
     { c: '从', p: 'cóng', w: '从来' }, { c: '男', p: 'nán', w: '男孩' },
-    { c: '吗', p: 'ma', w: '好吗', poly: 1 }, { c: '啊', p: 'a', w: '好啊' },
+    { c: '吗', p: 'ma', w: '好吗' }, { c: '啊', p: 'a', w: '好啊' },
     { c: '米', p: 'mǐ', w: '大米' }, { c: '船', p: 'chuán', w: '小船' },
     { c: '车', p: 'chē', w: '汽车' }
   ];
@@ -407,58 +407,59 @@
   const CHAR_MAP = {};
   CHARS.forEach(o => { CHAR_MAP[o.c] = o; });
 
-  // 录音：非多音字读单字，多音字读词语（用系统中文语音一次性生成）
+  // 录音：每个字单独一段，多音字按默认常用读音（用系统中文语音一次性生成）
   const WORD_AUDIO = {
-    '前': 'audio/s01.m4a',
-    '包': 'audio/s02.m4a',
-    '可': 'audio/s03.m4a',
-    '后': 'audio/s04.m4a',
-    '今': 'audio/s05.m4a',
-    '方': 'audio/s06.m4a',
-    '平': 'audio/s07.m4a',
-    '什么': 'audio/s08.m4a',
-    '中间': 'audio/s09.m4a',
-    '升': 'audio/s10.m4a',
-    '众': 'audio/s11.m4a',
-    '林': 'audio/s12.m4a',
-    '走吧': 'audio/s13.m4a',
-    '呀': 'audio/s14.m4a',
-    '比': 'audio/s15.m4a',
-    '友': 'audio/s16.m4a',
-    '又': 'audio/s17.m4a',
-    '长短': 'audio/s18.m4a',
-    '本': 'audio/s19.m4a',
-    '布': 'audio/s20.m4a',
-    '开会': 'audio/s21.m4a',
-    '瓜': 'audio/s22.m4a',
-    '禾': 'audio/s23.m4a',
-    '怎': 'audio/s24.m4a',
-    '回': 'audio/s25.m4a',
-    '告': 'audio/s26.m4a',
-    '森': 'audio/s27.m4a',
-    '明': 'audio/s28.m4a',
-    '我呢': 'audio/s29.m4a',
-    '啦': 'audio/s30.m4a',
-    '朋': 'audio/s31.m4a',
-    '飞': 'audio/s32.m4a',
-    '公': 'audio/s33.m4a',
-    '毛': 'audio/s34.m4a',
-    '高兴': 'audio/s35.m4a',
-    '年': 'audio/s36.m4a',
-    '正好': 'audio/s37.m4a',
-    '广': 'audio/s38.m4a',
-    '没有': 'audio/s39.m4a',
-    '问': 'audio/s40.m4a',
-    '从': 'audio/s41.m4a',
-    '男': 'audio/s42.m4a',
-    '好吗': 'audio/s43.m4a',
-    '啊': 'audio/s44.m4a',
-    '米': 'audio/s45.m4a',
-    '船': 'audio/s46.m4a',
-    '车': 'audio/s47.m4a'
+    '前': 'audio/c01.m4a',
+    '包': 'audio/c02.m4a',
+    '可': 'audio/c03.m4a',
+    '后': 'audio/c04.m4a',
+    '今': 'audio/c05.m4a',
+    '方': 'audio/c06.m4a',
+    '平': 'audio/c07.m4a',
+    '么': 'audio/c08.m4a',
+    '间': 'audio/c09.m4a',
+    '升': 'audio/c10.m4a',
+    '众': 'audio/c11.m4a',
+    '林': 'audio/c12.m4a',
+    '吧': 'audio/c13.m4a',
+    '呀': 'audio/c14.m4a',
+    '比': 'audio/c15.m4a',
+    '友': 'audio/c16.m4a',
+    '又': 'audio/c17.m4a',
+    '长': 'audio/c18.m4a',
+    '中': 'audio/c19.m4a',
+    '本': 'audio/c20.m4a',
+    '布': 'audio/c21.m4a',
+    '会': 'audio/c22.m4a',
+    '瓜': 'audio/c23.m4a',
+    '禾': 'audio/c24.m4a',
+    '怎': 'audio/c25.m4a',
+    '回': 'audio/c26.m4a',
+    '告': 'audio/c27.m4a',
+    '森': 'audio/c28.m4a',
+    '明': 'audio/c29.m4a',
+    '呢': 'audio/c30.m4a',
+    '啦': 'audio/c31.m4a',
+    '朋': 'audio/c32.m4a',
+    '飞': 'audio/c33.m4a',
+    '公': 'audio/c34.m4a',
+    '毛': 'audio/c35.m4a',
+    '兴': 'audio/c36.m4a',
+    '年': 'audio/c37.m4a',
+    '正': 'audio/c38.m4a',
+    '广': 'audio/c39.m4a',
+    '什': 'audio/c40.m4a',
+    '没': 'audio/c41.m4a',
+    '问': 'audio/c42.m4a',
+    '从': 'audio/c43.m4a',
+    '男': 'audio/c44.m4a',
+    '吗': 'audio/c45.m4a',
+    '啊': 'audio/c46.m4a',
+    '米': 'audio/c47.m4a',
+    '船': 'audio/c48.m4a',
+    '车': 'audio/c49.m4a'
   };
-  // 非多音字读单字，多音字读词语消歧义
-  function spokenOf(info) { return info && info.poly ? info.w : info.c; }
+
 
   let customChars = [];       // 家长自建字表（空则使用默认）
   function allChars() { return customChars.length ? customChars : CHARS; }
@@ -641,7 +642,7 @@
     }
     learnedGridEl.innerHTML = allChars()
       .filter(o => learned.has(o.c))
-      .map(o => '<button class="char-cell" data-word="' + spokenOf(o) + '"><b>' + o.c + '</b><i>' + o.p + '</i></button>')
+      .map(o => '<button class="char-cell" data-word="' + o.c + '"><b>' + o.c + '</b><i>' + o.p + '</i></button>')
       .join('');
   }
 
@@ -807,7 +808,7 @@
   let speechQueue = [];
   let speechBusy = false;
   let speechToken = 0;
-  const APP_VERSION = '2026-10-23.2';
+  const APP_VERSION = '2026-10-23.3';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2356,7 +2357,7 @@
     const ch = nextChar();
     state.quizTarget = infoOf(ch);
     state.lastWord = state.quizTarget.w;
-    state.lastSpoken = spokenOf(state.quizTarget);
+    state.lastSpoken = state.quizTarget.c;
     lastCharEl.textContent = '听';
     state.quizTimer = 1.2;
     speakNow(state.lastSpoken);
@@ -2431,8 +2432,8 @@
     burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
     toasts.push({ x: o.x, y: o.y - 8, text: info.c, sub: info.p, life: 1.0, ttl: 1.0, color: '#f5a623' });
     sfxStar(state.combo);
-    state.lastSpoken = spokenOf(info);
-    speakChar(state.lastSpoken);
+    state.lastSpoken = info.c;
+    speakChar(info.c);
     vibrate(12);
     if (state.quiz) {
       clearQuizRow(o.row);
@@ -2457,7 +2458,7 @@
       clearQuizRow(o.row);
       state.quizTimer = 2.2;
     }
-    if (state.quizTarget) speakNow(spokenOf(state.quizTarget));
+    if (state.quizTarget) speakNow(state.quizTarget.c);
   }
 
   function grabPower(o) {
@@ -3177,13 +3178,13 @@
   // HUD 汉字：点一下重听
   charPillEl.addEventListener('click', () => {
     if (state.mode !== 'playing' && state.mode !== 'paused') return;
-    const text = state.quiz && state.quizTarget ? spokenOf(state.quizTarget) : (state.lastSpoken || '');
+    const text = state.quiz && state.quizTarget ? state.quizTarget.c : (state.lastSpoken || '');
     speakNow(text);
   });
 
   // 听音模式：重播题目
   quizBarEl.addEventListener('click', () => {
-    if (state.quizTarget) speakNow(spokenOf(state.quizTarget));
+    if (state.quizTarget) speakNow(state.quizTarget.c);
   });
 
   // 我认识的字
