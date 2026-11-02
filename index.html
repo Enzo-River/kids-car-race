@@ -155,6 +155,8 @@
     margin:12px 0;font-size:clamp(13px,2.6vmin,16px);color:#4a4a63;font-weight:700;text-align:left;}
   .set-row input[type=range]{flex:1;max-width:52%;accent-color:#ff9f2b;}
   .set-row input[type=checkbox]{width:22px;height:22px;accent-color:#ff9f2b;}
+  .set-row select{border:2px solid #eee2c8;border-radius:10px;padding:4px 8px;
+    font-family:inherit;font-size:14px;font-weight:700;color:#4a4a63;background:#fff;}
   .set-chars{width:100%;min-height:82px;border:2px solid #eee2c8;border-radius:14px;
     padding:8px;font-family:inherit;font-size:17px;line-height:1.7;color:#3b2f27;
     background:#fff;resize:vertical;}
@@ -339,7 +341,13 @@
         <input type="range" id="setRate" min="0.6" max="1.1" step="0.05"></div>
       <div class="set-row"><span>背景音乐</span>
         <input type="checkbox" id="setBgm"></div>
-      <p class="set-tip">自建字表：把想练的字粘贴到下面，留空则使用默认 49 字。每关取其中 12 个。</p>
+      <div class="set-row"><span>天气效果</span>
+        <select id="setWeather">
+          <option value="0">关闭</option>
+          <option value="1">弱</option>
+          <option value="2">正常</option>
+        </select></div>
+      <p class="set-tip">自建字表：把想练的字粘贴到下面，留空则使用默认 56 字。每关取其中 12 个。</p>
       <div class="preset-row">
         <button class="mini-btn" data-preset="nature">自然</button>
         <button class="mini-btn" data-preset="people">人物</button>
@@ -404,6 +412,7 @@
   const setRateEl = document.getElementById('setRate');
   const setBgmEl = document.getElementById('setBgm');
   const setCharsEl = document.getElementById('setChars');
+  const setWeatherEl = document.getElementById('setWeather');
 
   const LANES = 4;
   const GOAL = 6200;
@@ -434,7 +443,11 @@
     { c: '从', p: 'cóng', w: '从来' }, { c: '男', p: 'nán', w: '男孩' },
     { c: '吗', p: 'ma', w: '好吗' }, { c: '啊', p: 'a', w: '好啊' },
     { c: '米', p: 'mǐ', w: '大米' }, { c: '船', p: 'chuán', w: '小船' },
-    { c: '车', p: 'chē', w: '汽车' }
+    { c: '车', p: 'chē', w: '汽车' },
+    { c: '雨', p: 'yǔ', w: '下雨' }, { c: '水', p: 'shuǐ', w: '河水' },
+    { c: '云', p: 'yún', w: '白云' }, { c: '雪', p: 'xuě', w: '雪花' },
+    { c: '冬', p: 'dōng', w: '冬天' }, { c: '冷', p: 'lěng', w: '冷水' },
+    { c: '风', p: 'fēng', w: '大风' }
   ];
   const CHARS_PER_LEVEL = 12;
   const CHAR_MAP = {};
@@ -490,7 +503,14 @@
     '啊': 'audio/c46.m4a',
     '米': 'audio/c47.m4a',
     '船': 'audio/c48.m4a',
-    '车': 'audio/c49.m4a'
+    '车': 'audio/c49.m4a',
+    '雨': 'audio/c50.m4a',
+    '水': 'audio/c51.m4a',
+    '云': 'audio/c52.m4a',
+    '雪': 'audio/c53.m4a',
+    '冬': 'audio/c54.m4a',
+    '冷': 'audio/c55.m4a',
+    '风': 'audio/c56.m4a'
   };
 
 
@@ -499,6 +519,16 @@
   function infoOf(ch) {
     return CHAR_MAP[ch] || { c: ch, p: '', w: ch };
   }
+
+  // 天气与识字联动：相应天气优先安排相关字
+  const WEATHER_CHARS = {
+    rain: ['雨', '水', '云'],
+    storm: ['风', '雨', '云'],
+    snow: ['雪', '冬', '冷'],
+    hail: ['雪', '冷'],
+    fog: ['云'],
+    wind: ['风']
+  };
 
   // 每关只出 12 个字，按关卡轮换，一局内不重复
   let charDeck = [];
@@ -512,6 +542,14 @@
     for (let i = out.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
       const t = out[i]; out[i] = out[j]; out[j] = t;
+    }
+    // 天气相关字：本关至少安排 1~2 个（如雨天出「雨、水、云」）
+    const rel = (WEATHER_CHARS[currentWeather()] || []).filter(c => allChars().some(o => o.c === c));
+    if (rel.length && out.length) {
+      const miss = rel.filter(c => !out.some(o => o.c === c));
+      for (let i = 0; i < Math.min(2, miss.length); i++) {
+        out[out.length - 1 - i] = infoOf(miss[i]);
+      }
     }
     // 复习：有易错字时替换一个位置，保证本关至少再练一次
     if (wrongChars.size && out.length) {
@@ -651,7 +689,9 @@
     lastSpoken: '',
     lastCollectAt: 0,
     pendingCollect: [],
-    uniqueChars: null
+    uniqueChars: null,
+    flash: 0,
+    nextLightning: 999
   };
 
   const bestStars = {};   // { 关卡: 最好星数 }
@@ -804,6 +844,8 @@
       const rate = parseFloat(localStorage.getItem('car-race-rate') || '');
       if (rate >= 0.6 && rate <= 1.1) speechRate = rate;
       bgmOn = localStorage.getItem('car-race-bgm') !== '0';
+      const wl = parseInt(localStorage.getItem('car-race-weather') || '2', 10);
+      if (wl >= 0 && wl <= 2) weatherLevel = wl;
       const cc = JSON.parse(localStorage.getItem('car-race-chars') || '[]');
       if (Array.isArray(cc)) customChars = cc.filter(c => typeof c === 'string' && c);
       setMode(localStorage.getItem('car-race-mode') === 'quiz');
@@ -831,6 +873,7 @@
   function openSettings() {
     setRateEl.value = String(speechRate);
     setBgmEl.checked = bgmOn;
+    setWeatherEl.value = String(weatherLevel);
     setCharsEl.value = customChars.join(' ');
     renderReport();
     settingsScreen.classList.remove('hidden');
@@ -838,6 +881,7 @@
   function saveSettings() {
     speechRate = clamp(parseFloat(setRateEl.value) || 0.85, 0.6, 1.1);
     bgmOn = setBgmEl.checked;
+    weatherLevel = clamp(parseInt(setWeatherEl.value, 10) || 0, 0, 2);
     const arr = [];
     for (const ch of (setCharsEl.value || '')) {
       if (/[\u4e00-\u9fa5]/.test(ch) && arr.indexOf(ch) < 0) arr.push(ch);
@@ -846,12 +890,14 @@
     try {
       localStorage.setItem('car-race-rate', String(speechRate));
       localStorage.setItem('car-race-bgm', bgmOn ? '1' : '0');
+      localStorage.setItem('car-race-weather', String(weatherLevel));
       localStorage.setItem('car-race-chars', JSON.stringify(customChars));
     } catch (e) { /* ignore */ }
     buildCharDeck(state.level);
     settingsScreen.classList.add('hidden');
     tone(880, 0.1, 'sine', 0, 0.1);
     if (!bgmOn) duckBgm(false);
+    syncAmbience();
   }
 
   const car = { w: 46, h: 72 };
@@ -878,6 +924,68 @@
     }
     if (actx && actx.state === 'suspended') actx.resume();
   }
+  let noiseBuf = null;
+  function getNoise() {
+    if (!actx) return null;
+    if (!noiseBuf) {
+      noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return noiseBuf;
+  }
+  let ambSource = null, ambFilter = null, ambGain = null;
+  // 风声 / 雨声环境音：低音量白噪声，随天气变化
+  function syncAmbience() {
+    if (!actx) return;
+    const buf = getNoise();
+    if (!buf) return;
+    if (!ambSource) {
+      ambSource = actx.createBufferSource();
+      ambSource.buffer = buf;
+      ambSource.loop = true;
+      ambFilter = actx.createBiquadFilter();
+      ambGain = actx.createGain();
+      ambGain.gain.value = 0;
+      ambSource.connect(ambFilter);
+      ambFilter.connect(ambGain);
+      ambGain.connect(actx.destination);
+      ambSource.start();
+    }
+    const playing = state.mode === 'playing';
+    const w = playing ? currentWeather() : 'clear';
+    let freq = 900, type = 'lowpass', vol = 0;
+    if (w === 'rain') { freq = 1800; type = 'highpass'; vol = 0.10; }
+    else if (w === 'storm') { freq = 2300; type = 'highpass'; vol = 0.15; }
+    else if (w === 'hail') { freq = 1200; type = 'bandpass'; vol = 0.12; }
+    else if (w === 'snow') { freq = 800; type = 'lowpass'; vol = 0.06; }
+    else if (w === 'wind') { freq = 420; type = 'lowpass'; vol = 0.10; }
+    if (!playing || state.muted || weatherLevel === 0) vol = 0;
+    if (weatherLevel === 1) vol *= 0.5;
+    ambFilter.type = type;
+    ambFilter.frequency.setTargetAtTime(freq, actx.currentTime, 0.3);
+    ambGain.gain.setTargetAtTime(vol, actx.currentTime, 0.25);
+  }
+  // 远雷：低通噪声，延迟 0.9 秒，长时间衰减
+  function thunder() {
+    if (!actx || state.muted || weatherLevel === 0) return;
+    const buf = getNoise();
+    if (!buf) return;
+    const t0 = actx.currentTime + 0.9;
+    const src = actx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const f = actx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 320;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.4);
+    src.connect(f); f.connect(g); g.connect(actx.destination);
+    src.start(t0); src.stop(t0 + 2.6);
+  }
+
   function tone(freq, dur = 0.15, type = 'sine', delay = 0, vol = 0.16, dest) {
     if (state.muted) return;
     ensureAudio();
@@ -964,11 +1072,12 @@
   let speechVoice = null;
   let speechRate = 0.85;
   let bgmOn = true;
+  let weatherLevel = 2;
   let speechQueue = [];
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-02.1';
+  const APP_VERSION = '2026-11-02.2';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1224,7 +1333,9 @@
       tone(880, 0.12, 'sine', 0, 0.12);
       unlockSpeech();
       unlockAudio();
+      syncAmbience();
     } else {
+      syncAmbience();
       speechQueue = [];
       speechBusy = false;
       duckBgm(false);
@@ -2753,6 +2864,15 @@
   function update(dt) {
     if (state.mode === 'paused') return;
     state.time += dt;
+    if (state.mode === 'playing' && currentWeather() === 'storm' && weatherLevel > 0) {
+      state.nextLightning -= dt;
+      if (state.nextLightning <= 0) {
+        state.nextLightning = 12 + Math.random() * 9;
+        if (!reduceMotion) state.flash = 1;
+        thunder();
+      }
+    }
+    state.flash = Math.max(0, state.flash - dt * 2.4);
 
     const playing = state.mode === 'playing';
     const sp = playing ? state.speed : (state.mode === 'ready' ? 85 : 45);
@@ -2912,6 +3032,25 @@
     toasts = toasts.filter(t => t.life > 0);
   }
 
+  // 雨雪天路面水洼（只做视觉）
+  function drawPuddles(w) {
+    if ((w !== 'rain' && w !== 'storm') || weatherLevel === 0) return;
+    const n = weatherLevel === 1 ? 4 : 7;
+    for (let i = 0; i < n; i++) {
+      const y = ((i * 173 + state.distance * 0.8) % (H + 160)) - 80;
+      const x = roadLeft + 30 + ((i * 0.37 + 0.13) % 1) * Math.max(10, roadRight - roadLeft - 60);
+      ctx.fillStyle = 'rgba(170,205,240,.20)';
+      ctx.beginPath();
+      ctx.ellipse(x, y, roadW * 0.14, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.22)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(x, y, roadW * 0.14, 9, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
   // ---------- 天气 ----------
   const WEATHERS = {
     clear: { name: '晴' },
@@ -2933,9 +3072,9 @@
   }
   // 天气只影响画面，不改变难度，避免小朋友被风吹偏
   function drawWeather(w) {
-    if (w === 'clear' || !w) return;
+    if (w === 'clear' || !w || weatherLevel === 0) return;
     const t = state.time;
-    const calm = reduceMotion ? 0.4 : 1;
+    const calm = (reduceMotion ? 0.4 : 1) * (weatherLevel === 1 ? 0.55 : 1);
     if (w === 'fog') {
       const fg = ctx.createRadialGradient(W * 0.5, H * 0.3, W * 0.16, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
       fg.addColorStop(0, 'rgba(232,240,255,.10)');
@@ -3008,6 +3147,7 @@
     }
     drawGrass();
     drawRoad();
+    drawPuddles(currentWeather());
     drawDecor();
 
     // 夜晚 / 雨天氛围（画在车辆之下，不影响看清路况）
@@ -3060,6 +3200,10 @@
     drawCar();
     drawParticles();
     drawWeather(currentWeather());
+    if (state.flash > 0.01) {
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.35 * state.flash).toFixed(2) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
     drawToasts();
     ctx.restore();
 
@@ -3249,7 +3393,10 @@
     state.uniqueChars = new Set();
     state.goalChars = Math.min(18, 10 + state.level * 2);
     state.collectCD = 0;
+    state.flash = 0;
+    state.nextLightning = 10 + Math.random() * 8;
     buildCharDeck(state.level);
+    syncAmbience();
     charDeck.forEach(o => warmAudio(o.c));
     state.lastCollectAt = state.time;
     state.quizTarget = null;
@@ -3286,6 +3433,7 @@
     if (state.mode !== 'playing') return;
     state.mode = 'finish';
     releaseWake();
+    syncAmbience();
     state.fxSig = '';
     effectsEl.innerHTML = '';
 
@@ -3344,6 +3492,8 @@
 
   function goGarage() {
     state.mode = 'ready';
+    state.flash = 0;
+    syncAmbience();
     state.stars = 0;
     state.distance = 0;
     state.speed = 0;
@@ -3386,6 +3536,7 @@
     dragId = null;
     pauseScreen.classList.remove('hidden');
     releaseWake();
+    syncAmbience();
   }
 
   function resumeGame() {
@@ -3394,6 +3545,7 @@
     pauseScreen.classList.add('hidden');
     last = performance.now();
     requestWake();
+    syncAmbience();
   }
 
   // ---------- 交互 ----------
@@ -3653,6 +3805,7 @@
     if (document.hidden && state.mode === 'playing') pauseGame();
     if (!document.hidden) {
       ensureAudio();
+      syncAmbience();
       try { window.speechSynthesis.resume(); } catch (e) { /* ignore */ }
       if (state.mode === 'playing') requestWake();
     }
