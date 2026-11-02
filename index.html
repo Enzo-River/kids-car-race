@@ -161,9 +161,32 @@
   .set-tip{font-size:clamp(11px,2.2vmin,13px);color:#a09a86;margin:2px 0 8px;line-height:1.6;}
 
   .run-chars{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0 2px;}
-  .run-chars span{background:#fff;border:2px solid #f0e6cc;border-radius:12px;
-    padding:3px 8px;font-size:clamp(16px,3.4vmin,20px);font-weight:800;color:#3b2f27;}
-  .run-chars span i{font-style:normal;font-size:10px;color:#a09a86;margin-left:2px;}
+  .run-chars button{position:relative;overflow:hidden;background:#fff;border:2px solid #f0e6cc;
+    border-radius:12px;padding:4px 10px;font-family:inherit;cursor:pointer;
+    font-size:clamp(16px,3.4vmin,20px);font-weight:800;color:#3b2f27;}
+  .run-chars button:active{transform:scale(.95);}
+  .run-chars button::before{content:'';position:absolute;inset:0;pointer-events:none;
+    background:
+      linear-gradient(to right,transparent calc(50% - .5px),rgba(120,140,180,.28) 50%,transparent calc(50% + .5px)),
+      linear-gradient(to bottom,transparent calc(50% - .5px),rgba(120,140,180,.28) 50%,transparent calc(50% + .5px));}
+  .run-chars button i{position:relative;font-style:normal;font-size:10px;color:#a09a86;margin-left:2px;}
+
+  .daily-chip{display:inline-flex;align-items:center;gap:6px;margin:6px auto 0;padding:5px 12px;
+    border-radius:999px;background:rgba(255,255,255,.86);color:#6b5a34;
+    font-size:clamp(11px,2.4vmin,13px);font-weight:800;box-shadow:0 2px 0 rgba(0,0,0,.08);}
+  .daily-chip.done{background:#ffe9a8;color:#8a5a10;}
+
+  .report{background:#fffdf6;border:2px solid #f0e6cc;border-radius:14px;padding:8px 10px;
+    margin:2px 0 10px;font-size:clamp(11px,2.3vmin,13px);color:#6b5a34;line-height:1.6;text-align:left;}
+  .report p{margin:2px 0;}
+  .report em{font-style:normal;font-weight:800;color:#c25a2a;background:#fff2e2;
+    border-radius:6px;padding:1px 5px;margin-right:3px;}
+  .report .rep-days{display:flex;gap:6px;flex-wrap:wrap;color:#8a8a9a;font-size:10px;}
+  .report .rep-days b{color:#4a4a63;}
+  .preset-row{display:flex;gap:6px;margin:0 0 8px;}
+  .mini-btn{flex:1;border:2px solid #eee2c8;background:#fff;border-radius:10px;padding:6px 0;
+    font-family:inherit;font-size:clamp(11px,2.4vmin,13px);font-weight:800;color:#6b5a34;cursor:pointer;}
+  .mini-btn:active{transform:scale(.96);}
   .run-note{color:#8a5a10;font-size:clamp(12px,2.4vmin,14px);font-weight:800;margin:6px 0 0;}
 
   #quizBar{position:absolute;left:50%;transform:translateX(-50%);
@@ -254,6 +277,7 @@
       <p class="mute-tip" id="muteTip" hidden>🔇 声音现在是关闭的：点右上角喇叭打开，才能听到汉字读音</p>
       <p class="mute-tip" id="wxTip" hidden>💬 微信里朗读使用内置录音；想用系统语音，可点右上角 ··· → 在浏览器打开</p>
       <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
+      <div class="daily-chip" id="dailyChip"></div>
       <div class="garage" id="garage"></div>
       <div class="mode-switch" id="modeSwitch">
         <button class="mode-btn on" data-mode="collect">收集汉字</button>
@@ -302,6 +326,7 @@
       <h1>我认识的字</h1>
       <p class="sub">点一点，听读音</p>
       <div class="char-grid" id="learnedGrid"></div>
+      <button class="ghost-btn" id="sheetBtn">生成可打印字卡</button>
       <button class="ghost-btn" id="learnedClose">返回</button>
     </div>
   </div>
@@ -309,11 +334,17 @@
   <div class="overlay hidden" id="settingsScreen">
     <div class="card small">
       <h1>家长设置</h1>
+      <div class="report" id="parentReport"></div>
       <div class="set-row"><span>朗读语速</span>
         <input type="range" id="setRate" min="0.6" max="1.1" step="0.05"></div>
       <div class="set-row"><span>背景音乐</span>
         <input type="checkbox" id="setBgm"></div>
       <p class="set-tip">自建字表：把想练的字粘贴到下面，留空则使用默认 49 字。每关取其中 12 个。</p>
+      <div class="preset-row">
+        <button class="mini-btn" data-preset="nature">自然</button>
+        <button class="mini-btn" data-preset="people">人物</button>
+        <button class="mini-btn" data-preset="common">常用</button>
+      </div>
       <textarea class="set-chars" id="setChars" placeholder="例如：山 水 田 土 日 月"></textarea>
       <button class="big-btn" id="setSave">保存</button>
       <button class="ghost-btn" id="setClose">返回</button>
@@ -363,6 +394,8 @@
   const learnedBtnEl = document.getElementById('learnedBtn');
   const learnedScreen = document.getElementById('learnedScreen');
   const learnedGridEl = document.getElementById('learnedGrid');
+  const dailyEl = document.getElementById('dailyChip');
+  const parentReportEl = document.getElementById('parentReport');
   const modeSwitchEl = document.getElementById('modeSwitch');
   const runCharsEl = document.getElementById('runChars');
   const runNoteEl = document.getElementById('runNote');
@@ -480,6 +513,13 @@
       const j = (Math.random() * (i + 1)) | 0;
       const t = out[i]; out[i] = out[j]; out[j] = t;
     }
+    // 复习：有易错字时替换一个位置，保证本关至少再练一次
+    if (wrongChars.size && out.length) {
+      const weak = [...wrongChars].filter(c => allChars().some(o => o.c === c) && !out.some(o => o.c === c));
+      if (weak.length && Math.random() < 0.75) {
+        out[out.length - 1] = infoOf(weak[(Math.random() * weak.length) | 0]);
+      }
+    }
     charDeck = out;
   }
   function nextChar() {
@@ -500,7 +540,13 @@
       plant: 'pine', flower: ['#ffffff', '#bcd8ff'] },
     { id: 'beach', name: '海边', grass: ['#ffe3a8', '#f3c97b'], stripe: 'rgba(255,255,255,.14)',
       road: '#5f6b84', edge: 'rgba(30,60,90,.16)', curb: ['#fff8e8', '#4fb8d8'],
-      plant: 'palm', flower: ['#ffffff', '#ff9fc4'] }
+      plant: 'palm', flower: ['#ffffff', '#ff9fc4'] },
+    { id: 'night', name: '夜晚', grass: ['#3d4566', '#2b3350'], stripe: 'rgba(255,255,255,.06)',
+      road: '#3b4258', edge: 'rgba(0,0,0,.28)', curb: ['#dfe8ff', '#6d8fd6'],
+      plant: 'tree', flower: ['#fff3c4', '#ffd166'] },
+    { id: 'rain', name: '雨天', grass: ['#a3b7ac', '#7e948a'], stripe: 'rgba(255,255,255,.16)',
+      road: '#4e5664', edge: 'rgba(20,40,60,.22)', curb: ['#ffffff', '#7fb3d5'],
+      plant: 'pine', flower: ['#e8f4ff', '#9fc9e8'] }
   ];
 
   // 车型与真实车标（车标取自公开车标素材库；商标归各品牌所有，本项目仅个人非商业使用）
@@ -561,6 +607,8 @@
   }
 
   let W = 0, H = 0, DPR = 1;
+  let qualityCap = 2;
+  let fpsAt = 0, fpsFrames = 0;
   let roadLeft = 0, roadRight = 0, roadWidth = 0, laneW = 0;
   let carY = 0;
   let prevLeft = 0, prevWidth = 0;
@@ -601,7 +649,8 @@
     goodStreak: 0,
     lastWord: '',
     lastSpoken: '',
-    pendingCollect: null,
+    lastCollectAt: 0,
+    pendingCollect: [],
     uniqueChars: null
   };
 
@@ -629,6 +678,48 @@
 
   // ---------- 识字记录 ----------
   let learned = new Set();
+  let wrongChars = new Set();
+  let daily = { day: '', count: 0 };
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+  function loadExtra() {
+    try {
+      const w = JSON.parse(localStorage.getItem('car-race-wrong') || '[]');
+      if (Array.isArray(w)) wrongChars = new Set(w.filter(c => typeof c === 'string'));
+      const d = JSON.parse(localStorage.getItem('car-race-daily') || 'null');
+      if (d && d.day && d.count >= 0) daily = d;
+    } catch (e) { /* ignore */ }
+    if (daily.day !== todayKey()) daily = { day: todayKey(), count: 0 };
+    renderDaily();
+  }
+  function saveWrong() {
+    try { localStorage.setItem('car-race-wrong', JSON.stringify([...wrongChars])); } catch (e) { /* ignore */ }
+  }
+  function bumpDaily() {
+    if (daily.day !== todayKey()) daily = { day: todayKey(), count: 0 };
+    daily.count++;
+    try { localStorage.setItem('car-race-daily', JSON.stringify(daily)); } catch (e) { /* ignore */ }
+    renderDaily();
+  }
+  function renderDaily() {
+    if (!dailyEl) return;
+    const n = Math.min(daily.count, 5);
+    dailyEl.textContent = '今日新字 ' + n + '/5' + (n >= 5 ? ' 完成啦 🎉' : '');
+    dailyEl.classList.toggle('done', n >= 5);
+  }
+  function recordDay() {
+    try {
+      const map = JSON.parse(localStorage.getItem('car-race-days') || '{}');
+      const k = todayKey();
+      map[k] = (map[k] || 0) + 1;
+      const keys = Object.keys(map).sort().slice(-30);
+      const out = {};
+      keys.forEach(kk => { out[kk] = map[kk]; });
+      localStorage.setItem('car-race-days', JSON.stringify(out));
+    } catch (e) { /* ignore */ }
+  }
   function saveLearned() {
     try { localStorage.setItem('car-race-learned', JSON.stringify([...learned])); } catch (e) { /* ignore */ }
     updateLearnedBtn();
@@ -645,6 +736,54 @@
       .filter(o => learned.has(o.c))
       .map(o => '<button class="char-cell" data-word="' + o.c + '"><b>' + o.c + '</b><i>' + o.p + '</i></button>')
       .join('');
+  }
+
+  // 生成 4 列田字格字卡图片，可保存打印
+  function buildCharSheet() {
+    const got = allChars().filter(o => learned.has(o.c));
+    const use = got.length ? got : allChars();
+    const cols = 4, cell = 220, pad = 40, gap = 16;
+    const rows = Math.ceil(use.length / cols);
+    const w = pad * 2 + cols * cell + (cols - 1) * gap;
+    const h = pad * 2 + rows * cell + (rows - 1) * gap + 60;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fffaf0';
+    g.fillRect(0, 0, w, h);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#8a5a10';
+    g.font = 'bold 30px "PingFang SC", sans-serif';
+    g.fillText(got.length ? '我认识的字（' + use.length + '）' : '汉字字卡（' + use.length + '）', w / 2, pad + 22);
+    use.forEach((o, i) => {
+      const x = pad + (i % cols) * (cell + gap);
+      const y = pad + 56 + Math.floor(i / cols) * (cell + gap);
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = '#e8dcc2';
+      g.lineWidth = 4;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, cell, cell, 22);
+      else g.rect(x, y, cell, cell);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = 'rgba(150,160,180,.35)';
+      g.lineWidth = 1.5;
+      g.setLineDash([6, 6]);
+      g.beginPath();
+      g.moveTo(x + cell / 2, y + 12); g.lineTo(x + cell / 2, y + cell - 12);
+      g.moveTo(x + 12, y + cell / 2); g.lineTo(x + cell - 12, y + cell / 2);
+      g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = '#3b2f27';
+      g.font = 'bold 120px "PingFang SC", sans-serif';
+      g.fillText(o.c, x + cell / 2, y + cell / 2 + 4);
+      g.fillStyle = '#a09a86';
+      g.font = 'bold 24px sans-serif';
+      g.fillText(o.p || '', x + cell / 2, y + cell - 24);
+    });
+    return c.toDataURL('image/png');
   }
 
   // ---------- 玩法模式 ----------
@@ -671,10 +810,29 @@
     } catch (e) { /* ignore */ }
     updateLearnedBtn();
   }
+  function renderReport() {
+    if (!parentReportEl) return;
+    const total = allChars().length;
+    const weak = [...wrongChars].filter(c => allChars().some(o => o.c === c));
+    let days = {};
+    try { days = JSON.parse(localStorage.getItem('car-race-days') || '{}'); } catch (e) { /* ignore */ }
+    const now = new Date();
+    const rows = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+      rows.push('<span>' + (d.getMonth() + 1) + '/' + d.getDate() + ' <b>' + (days[k] || 0) + '</b></span>');
+    }
+    parentReportEl.innerHTML =
+      '<p>已学 <b>' + learned.size + '</b> / ' + total + ' 个字 · 今日新字 ' + Math.min(daily.count, 5) + '/5</p>' +
+      '<p>易错字：' + (weak.length ? weak.map(c => '<em>' + c + '</em>').join(' ') : '还没有，继续保持') + '</p>' +
+      '<p class="rep-days">最近 7 天游玩：' + rows.join('') + '</p>';
+  }
   function openSettings() {
     setRateEl.value = String(speechRate);
     setBgmEl.checked = bgmOn;
     setCharsEl.value = customChars.join(' ');
+    renderReport();
     settingsScreen.classList.remove('hidden');
   }
   function saveSettings() {
@@ -808,8 +966,9 @@
   let bgmOn = true;
   let speechQueue = [];
   let speechBusy = false;
+  let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-10-23.4';
+  const APP_VERSION = '2026-10-31.3';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -863,6 +1022,7 @@
   });
 
   const audioPool = new Map();
+  let audioQueue = [], audioBusy = false, curAudio = null;
   // 用录音朗读（微信 / 不支持语音合成时）
   function playWordAudio(word) {
     const url = WORD_AUDIO[word];
@@ -885,6 +1045,18 @@
       return true;
     } catch (e) { return false; }
   }
+  // 预取本关 12 段录音，微信里第一张牌也能立刻出声
+  function warmAudio(ch) {
+    const url = WORD_AUDIO[ch];
+    if (!url || audioPool.has(ch)) return;
+    try {
+      const a = new Audio(url);
+      a.preload = 'auto';
+      a.playsInline = true;
+      audioPool.set(ch, a);
+    } catch (e) { /* ignore */ }
+  }
+
   // 首次用户手势里解锁音频（微信 / iOS 必需），顺便预热第一张卡
   function unlockAudio() {
     const url = WORD_AUDIO['包'];
@@ -899,8 +1071,48 @@
     } catch (e) { /* ignore */ }
   }
 
+  function pumpAudio() {
+    if (audioBusy || !audioQueue.length) return;
+    const word = audioQueue.shift();
+    const url = WORD_AUDIO[word];
+    if (!url) { pumpAudio(); return; }
+    let a = audioPool.get(word);
+    if (!a) {
+      try {
+        a = new Audio(url);
+        a.preload = 'auto';
+        a.playsInline = true;
+        audioPool.set(word, a);
+      } catch (e) { pumpAudio(); return; }
+    }
+    curAudio = a;
+    audioBusy = true;
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      audioBusy = false;
+      duckBgm(false);
+      setTimeout(pumpAudio, 420);
+    };
+    a.onended = done;
+    a.onerror = done;
+    try { a.currentTime = 0; } catch (e) { /* ignore */ }
+    duckBgm(true);
+    const p = a.play();
+    if (p && p.catch) p.catch(done);
+    setTimeout(done, 2400);
+  }
+  function speakAudio(word) {
+    audioQueue.push(word);
+    if (audioQueue.length > 3) audioQueue.splice(0, audioQueue.length - 3);
+    pumpAudio();
+  }
+
   function pumpSpeech() {
     if (speechBusy || !speechQueue.length) return;
+    const nowMs = performance.now();
+    if (nowMs < speechNextAt) { setTimeout(pumpSpeech, speechNextAt - nowMs + 10); return; }
     if (!('speechSynthesis' in window)) return;
     // 没有中文语音时不用其他语言的语音硬读汉字，否则读音完全不对
     if (!speechVoice) pickVoice();
@@ -917,8 +1129,9 @@
       clearTimeout(watchdog);
       if (token !== speechToken) return;
       speechBusy = false;
+      speechNextAt = performance.now() + 520;
       if (!speechQueue.length) duckBgm(false);
-      pumpSpeech();
+      setTimeout(pumpSpeech, 540);
     };
     try {
       const u = new SpeechSynthesisUtterance(word);
@@ -966,7 +1179,7 @@
     if (!word || state.muted) return;
     // 微信里语音合成存在但完全静音，直接用录音
     if (isWeChat || !('speechSynthesis' in window)) {
-      if (playWordAudio(word)) return;
+      if (WORD_AUDIO[word]) { speakAudio(word); return; }
       checkVoiceWarn();
       return;
     }
@@ -977,7 +1190,13 @@
   // 重听：清空队列，立即读当前字
   function speakNow(word) {
     if (!word || state.muted) return;
-    if (isWeChat || !('speechSynthesis' in window)) { playWordAudio(word); return; }
+    if (isWeChat || !('speechSynthesis' in window)) {
+      audioQueue = [word];
+      if (curAudio) { try { curAudio.pause(); } catch (e) { /* ignore */ } }
+      audioBusy = false;
+      pumpAudio();
+      return;
+    }
     speechQueue = [];
     speechToken++;
     try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
@@ -1037,7 +1256,7 @@
     const size = viewportSize();
     if (size.w < 2 || size.h < 2) return; // 布局还没就绪，等下一帧再试
     if (W === Math.round(size.w) && H === Math.round(size.h) && canvas.width > 1) return;
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    DPR = Math.min(window.devicePixelRatio || 1, qualityCap);
     W = size.w;
     H = size.h;
     canvas.width = Math.round(W * DPR);
@@ -2312,9 +2531,30 @@
   const POWER_KINDS = ['magnet', 'shield', 'boost'];
   let quizRowSeq = 0;
 
+  function carLane() {
+    return clamp(Math.floor((state.carX - roadLeft) / laneW), 0, LANES - 1);
+  }
+  function laneX(lane) {
+    return roadLeft + (lane + 0.5) * laneW + rand(-laneW * 0.16, laneW * 0.16);
+  }
+  // 连续 3 秒没收到字，就在正前方补一张，避免一直空跑
+  function spawnCatchup() {
+    objects.push({
+      type: 'star',
+      ch: nextChar(),
+      x: clamp(state.carX + rand(-laneW * 0.12, laneW * 0.12), roadLeft + 20, roadRight - 20),
+      y: -70,
+      r: Math.max(15, car.w * 0.40),
+      rot: 0,
+      phase: rand(0, Math.PI * 2),
+      dead: false
+    });
+    state.spawnStars++;
+    state.lastCollectAt = state.time;
+  }
   function spawnObject() {
     const lane = Math.floor(Math.random() * LANES);
-    const x = roadLeft + (lane + 0.5) * laneW + rand(-laneW * 0.16, laneW * 0.16);
+    const x = laneX(lane);
 
     // 跑过一段路后开始出现道具
     if (state.distance > 900 && Math.random() < 0.10) {
@@ -2332,10 +2572,12 @@
 
     if (Math.random() < 0.66) {
       state.spawnStars++;
+      // 汉字优先出在车所在车道附近，减少空跑
+      const gl = clamp(carLane() + (Math.random() < 0.6 ? 0 : (Math.random() < 0.5 ? -1 : 1)), 0, LANES - 1);
       objects.push({
         type: 'star',
         ch: nextChar(),
-        x,
+        x: laneX(gl),
         y: -70,
         r: Math.max(15, car.w * 0.40),
         rot: rand(0, Math.PI * 2),
@@ -2415,6 +2657,7 @@
   function collect(o) {
     o.dead = true;
     state.collectCD = 0.45;
+    state.lastCollectAt = state.time;
     const info = infoOf(o.ch);
     state.stars++;
     state.combo = Math.min(state.combo + 1, 8);
@@ -2425,8 +2668,11 @@
       state.adapt = Math.min(1.12, state.adapt + 0.02);
     }
     if (state.uniqueChars) state.uniqueChars.add(o.ch);
+    const wasNew = !learned.has(o.ch);
     state.lastWord = info.w;
     learned.add(o.ch);
+    if (wasNew) bumpDaily();
+    if (wrongChars.has(o.ch)) { wrongChars.delete(o.ch); saveWrong(); }
     saveLearned();
     starsEl.textContent = String(state.stars);
     lastCharEl.textContent = o.ch;
@@ -2446,6 +2692,8 @@
   // 听音选字：点错卡片不扣分，只减速并重播读音
   function missChar(o) {
     o.dead = true;
+    wrongChars.add(o.ch);
+    saveWrong();
     state.bumps++;
     state.adapt = Math.max(0.84, state.adapt - 0.03);
     state.combo = 0;
@@ -2512,9 +2760,8 @@
     // 道具计时
     if (state.magnet > 0) state.magnet = Math.max(0, state.magnet - dt);
     if (state.collectCD > 0) state.collectCD = Math.max(0, state.collectCD - dt);
-    if (state.collectCD <= 0 && state.pendingCollect) {
-      const p = state.pendingCollect;
-      state.pendingCollect = null;
+    if (state.collectCD <= 0 && state.pendingCollect.length) {
+      const p = state.pendingCollect.shift();
       if (!p.dead && state.mode === 'playing') collect(p);
     }
     if (state.shield > 0) state.shield = Math.max(0, state.shield - dt);
@@ -2529,7 +2776,8 @@
     if (playing) {
       const prog = Math.min(1, state.stars / state.goalChars);
       const boostK = state.boost > 0 ? 1.35 : 1;
-      const target = (200 + prog * 95) * state.scale * boostK * state.adapt;
+      const quizK = (state.quiz && state.quizTarget) ? 0.85 : 1;
+      const target = (200 + prog * 95) * state.scale * boostK * state.adapt * quizK;
       state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2));
       state.distance += state.speed * dt;
       bgmTick(dt);
@@ -2578,6 +2826,7 @@
           state.spawnAcc -= spacing;
           spawnObject();
         }
+        if (state.time - state.lastCollectAt > 3.2) spawnCatchup();
       }
 
       // 物体
@@ -2608,7 +2857,7 @@
           if (o.type === 'star') {
             // 冷却中先记下，等冷却结束再收，保证一次只读一个且不漏字
             if (state.collectCD > 0) {
-              if (!o.quiz) state.pendingCollect = o;
+              if (!o.quiz && state.pendingCollect.length < 3) state.pendingCollect.push(o);
               continue;
             }
             if (state.quiz && o.quiz && state.quizTarget && o.ch !== state.quizTarget.c) missChar(o);
@@ -2671,6 +2920,27 @@
     drawGrass();
     drawRoad();
     drawDecor();
+
+    // 夜晚 / 雨天氛围（画在车辆之下，不影响看清路况）
+    const theme = curTheme();
+    if (theme.id === 'night') {
+      const ng = ctx.createLinearGradient(0, 0, 0, H);
+      ng.addColorStop(0, 'rgba(10,16,38,.70)');
+      ng.addColorStop(1, 'rgba(18,26,50,.50)');
+      ctx.fillStyle = ng;
+      ctx.fillRect(0, 0, W, H);
+    } else if (theme.id === 'rain') {
+      ctx.strokeStyle = 'rgba(205,232,255,.38)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < 64; i++) {
+        const x = ((i * 137 + state.time * 280) % (W + 90)) - 45;
+        const y = ((i * 211 + state.time * 760) % (H + 90)) - 45;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 7, y + 26);
+      }
+      ctx.stroke();
+    }
 
     for (const o of objects) {
       if (o.type === 'star') {
@@ -2875,6 +3145,7 @@
 
   // ---------- 流程 ----------
   function startGame() {
+    recordDay();
     ensureAudio();
     unlockSpeech();
     unlockAudio();
@@ -2894,11 +3165,13 @@
     state.goodStreak = 0;
     state.lastWord = '';
     state.lastSpoken = '';
-    state.pendingCollect = null;
+    state.pendingCollect = [];
     state.uniqueChars = new Set();
     state.goalChars = Math.min(18, 10 + state.level * 2);
     state.collectCD = 0;
     buildCharDeck(state.level);
+    charDeck.forEach(o => warmAudio(o.c));
+    state.lastCollectAt = state.time;
     state.quizTarget = null;
     state.quizTimer = 1.6;
     layout();                       // 关卡主题可能变化，重建背景与装饰
@@ -2963,7 +3236,7 @@
     const chars = state.uniqueChars ? [...state.uniqueChars] : [];
     runCharsEl.innerHTML = chars.map(ch => {
       const info = infoOf(ch);
-      return '<span>' + info.c + '<i>' + info.p + '</i></span>';
+      return '<button data-ch="' + ch + '">' + info.c + '<i>' + info.p + '</i></button>';
     }).join('');
     runNoteEl.textContent = chars.length >= total
       ? '全字收集！奖励一颗星'
@@ -3209,6 +3482,30 @@
     const cell = e.target.closest('.char-cell');
     if (cell) speakNow(cell.dataset.word);
   });
+  runCharsEl.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-ch]');
+    if (b) speakNow(b.dataset.ch);
+  });
+  document.getElementById('sheetBtn').addEventListener('click', () => {
+    try {
+      const a = document.createElement('a');
+      a.href = buildCharSheet();
+      a.download = '汉字字卡.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) { /* ignore */ }
+  });
+  document.querySelectorAll('.mini-btn[data-preset]').forEach(b => {
+    b.addEventListener('click', () => {
+      const presets = {
+        nature: '林 森 禾 瓜 米 船 飞',
+        people: '朋 友 男 公 毛 问 从',
+        common: '前 后 今 回 可 没 正 平'
+      };
+      setCharsEl.value = presets[b.dataset.preset] || '';
+    });
+  });
 
   // 家长设置
   settingsBtnEl.addEventListener('click', openSettings);
@@ -3254,6 +3551,18 @@
     last = now;
     update(dt);
     draw();
+    // 低端机连续掉帧时降一档分辨率，保证流畅
+    fpsFrames++;
+    if (fpsAt && now - fpsAt > 2500) {
+      const fps = fpsFrames / ((now - fpsAt) / 1000);
+      if (fps < 45 && qualityCap > 1.2) {
+        qualityCap = 1;
+        canvas.width = 1;
+        resize();
+      }
+      fpsAt = now;
+      fpsFrames = 0;
+    } else if (!fpsAt) { fpsAt = now; fpsFrames = 0; }
     requestAnimationFrame(frame);
   }
 
@@ -3262,7 +3571,11 @@
   document.addEventListener('visibilitychange', () => {
     last = performance.now();
     if (document.hidden && state.mode === 'playing') pauseGame();
-    if (!document.hidden && state.mode === 'playing') requestWake();
+    if (!document.hidden) {
+      ensureAudio();
+      try { window.speechSynthesis.resume(); } catch (e) { /* ignore */ }
+      if (state.mode === 'playing') requestWake();
+    }
   });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', resize);
@@ -3272,6 +3585,7 @@
   }
 
   loadSettings();
+  loadExtra();
   document.getElementById('wxTip').hidden = !isWeChat;
   document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
