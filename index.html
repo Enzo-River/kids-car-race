@@ -531,22 +531,22 @@
   const THEMES = [
     { id: 'city', name: '城市', grass: ['#8fe084', '#6ccd63'], stripe: 'rgba(255,255,255,.07)',
       road: '#5d6483', edge: 'rgba(0,0,0,.16)', curb: ['#fbf7ea', '#f26a6a'],
-      plant: 'tree', flower: ['#ffffff', '#ffd1e8'] },
+      plant: 'tree', flower: ['#ffffff', '#ffd1e8'], weather: ['clear', 'wind'] },
     { id: 'desert', name: '沙漠', grass: ['#f7d98f', '#e7bc62'], stripe: 'rgba(255,255,255,.11)',
       road: '#8b7b64', edge: 'rgba(90,55,10,.20)', curb: ['#fff4d8', '#e0913f'],
-      plant: 'cactus', flower: ['#ffe9a8', '#ffb86b'] },
+      plant: 'cactus', flower: ['#ffe9a8', '#ffb86b'], weather: ['wind', 'clear'] },
     { id: 'snow', name: '雪地', grass: ['#eef5ff', '#cfe0f4'], stripe: 'rgba(255,255,255,.4)',
       road: '#6d7484', edge: 'rgba(40,60,90,.14)', curb: ['#ffffff', '#8fb6e6'],
-      plant: 'pine', flower: ['#ffffff', '#bcd8ff'] },
+      plant: 'pine', flower: ['#ffffff', '#bcd8ff'], weather: ['snow', 'hail'] },
     { id: 'beach', name: '海边', grass: ['#ffe3a8', '#f3c97b'], stripe: 'rgba(255,255,255,.14)',
       road: '#5f6b84', edge: 'rgba(30,60,90,.16)', curb: ['#fff8e8', '#4fb8d8'],
-      plant: 'palm', flower: ['#ffffff', '#ff9fc4'] },
+      plant: 'palm', flower: ['#ffffff', '#ff9fc4'], weather: ['clear', 'wind'] },
     { id: 'night', name: '夜晚', grass: ['#3d4566', '#2b3350'], stripe: 'rgba(255,255,255,.06)',
       road: '#3b4258', edge: 'rgba(0,0,0,.28)', curb: ['#dfe8ff', '#6d8fd6'],
-      plant: 'tree', flower: ['#fff3c4', '#ffd166'] },
+      plant: 'tree', flower: ['#fff3c4', '#ffd166'], weather: ['clear', 'fog'] },
     { id: 'rain', name: '雨天', grass: ['#a3b7ac', '#7e948a'], stripe: 'rgba(255,255,255,.16)',
       road: '#4e5664', edge: 'rgba(20,40,60,.22)', curb: ['#ffffff', '#7fb3d5'],
-      plant: 'pine', flower: ['#e8f4ff', '#9fc9e8'] }
+      plant: 'pine', flower: ['#e8f4ff', '#9fc9e8'], weather: ['rain', 'storm'] }
   ];
 
   // 车型与真实车标（车标取自公开车标素材库；商标归各品牌所有，本项目仅个人非商业使用）
@@ -968,7 +968,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-10-31.3';
+  const APP_VERSION = '2026-11-02.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2912,6 +2912,95 @@
     toasts = toasts.filter(t => t.life > 0);
   }
 
+  // ---------- 天气 ----------
+  const WEATHERS = {
+    clear: { name: '晴' },
+    wind: { name: '大风' },
+    rain: { name: '小雨' },
+    storm: { name: '风雨' },
+    snow: { name: '下雪' },
+    hail: { name: '冰雹' },
+    fog: { name: '大雾' }
+  };
+  function currentWeather() {
+    const th = curTheme();
+    const list = th.weather || ['clear'];
+    const cycle = Math.floor((Math.max(1, state.level) - 1) / THEMES.length);
+    return list[cycle % list.length];
+  }
+  function weatherName(w) {
+    return WEATHERS[w] ? WEATHERS[w].name : '';
+  }
+  // 天气只影响画面，不改变难度，避免小朋友被风吹偏
+  function drawWeather(w) {
+    if (w === 'clear' || !w) return;
+    const t = state.time;
+    const calm = reduceMotion ? 0.4 : 1;
+    if (w === 'fog') {
+      const fg = ctx.createRadialGradient(W * 0.5, H * 0.3, W * 0.16, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+      fg.addColorStop(0, 'rgba(232,240,255,.10)');
+      fg.addColorStop(1, 'rgba(226,236,252,.52)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
+    if (w === 'rain' || w === 'storm') {
+      const n = Math.round((w === 'storm' ? 72 : 52) * calm);
+      ctx.strokeStyle = w === 'storm' ? 'rgba(200,228,255,.48)' : 'rgba(205,232,255,.36)';
+      ctx.lineWidth = w === 'storm' ? 2 : 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const sp = w === 'storm' ? 1.4 : 1;
+        const x = ((i * 137 + t * 300 * sp) % (W + 100)) - 50;
+        const y = ((i * 211 + t * 820 * sp) % (H + 100)) - 50;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - (w === 'storm' ? 15 : 7), y + (w === 'storm' ? 36 : 26));
+      }
+      ctx.stroke();
+      return;
+    }
+    if (w === 'snow') {
+      const n = Math.round(48 * calm);
+      ctx.fillStyle = 'rgba(255,255,255,.88)';
+      for (let i = 0; i < n; i++) {
+        const x = ((i * 163 + Math.sin(t * 1.1 + i) * 20 + t * 55) % (W + 30)) - 15;
+        const y = ((i * 197 + t * 150) % (H + 30)) - 15;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6 + (i % 4) * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+    if (w === 'hail') {
+      const n = Math.round(42 * calm);
+      ctx.fillStyle = 'rgba(255,255,255,.92)';
+      ctx.strokeStyle = 'rgba(170,205,255,.85)';
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < n; i++) {
+        const x = ((i * 151 + t * 110) % (W + 30)) - 15;
+        const y = ((i * 223 + t * 940) % (H + 30)) - 15;
+        ctx.beginPath();
+        ctx.arc(x, y, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      return;
+    }
+    if (w === 'wind') {
+      const n = Math.round(34 * calm);
+      ctx.strokeStyle = 'rgba(255,255,255,.22)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const y = ((i * 101 + t * 55) % (H + 40)) - 20;
+        const x = ((i * 217 - t * 430) % (W + 180)) + 90;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 72, y - 5);
+      }
+      ctx.stroke();
+    }
+  }
+
   function draw() {
     ctx.save();
     if (state.shake > 0.5 && !reduceMotion) {
@@ -2929,17 +3018,6 @@
       ng.addColorStop(1, 'rgba(18,26,50,.50)');
       ctx.fillStyle = ng;
       ctx.fillRect(0, 0, W, H);
-    } else if (theme.id === 'rain') {
-      ctx.strokeStyle = 'rgba(205,232,255,.38)';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      for (let i = 0; i < 64; i++) {
-        const x = ((i * 137 + state.time * 280) % (W + 90)) - 45;
-        const y = ((i * 211 + state.time * 760) % (H + 90)) - 45;
-        ctx.moveTo(x, y);
-        ctx.lineTo(x - 7, y + 26);
-      }
-      ctx.stroke();
     }
 
     for (const o of objects) {
@@ -2981,6 +3059,7 @@
 
     drawCar();
     drawParticles();
+    drawWeather(currentWeather());
     drawToasts();
     ctx.restore();
 
@@ -3139,7 +3218,8 @@
   function updateLevelChip() {
     const th = curTheme();
     const best = bestStars[state.level] || 0;
-    levelChipEl.innerHTML = '第 <b>' + state.level + '</b> 关 · ' + th.name +
+    const wn = weatherName(currentWeather());
+    levelChipEl.innerHTML = '第 <b>' + state.level + '</b> 关 · ' + th.name + (wn ? ' · ' + wn : '') +
       (best ? '　最好 ' + '★'.repeat(best) : '');
   }
 
