@@ -1014,6 +1014,15 @@
     tone(150, 0.18, 'triangle', 0, 0.22);
     tone(96, 0.22, 'square', 0.03, 0.1);
   }
+  function sfxTraffic(kind) {
+    if (kind === 'police') {
+      tone(700, 0.12, 'square', 0, 0.045);
+      tone(940, 0.12, 'square', 0.15, 0.045);
+    } else if (kind === 'fire' || kind === 'ambulance') {
+      tone(620, 0.14, 'triangle', 0, 0.05);
+      tone(840, 0.16, 'triangle', 0.18, 0.05);
+    }
+  }
   function sfxStart() {
     tone(660, 0.11, 'sine', 0, 0.1);
     tone(880, 0.16, 'sine', 0.09, 0.1);
@@ -1077,7 +1086,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-02.2';
+  const APP_VERSION = '2026-11-02.3';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1648,6 +1657,154 @@
 
     const plate = charPlate(ch, r);
     ctx.drawImage(plate.img, -plate.size / 2, -plate.size / 2, plate.size, plate.size);
+    ctx.restore();
+  }
+
+  function drawTraffic(o) {
+    const x = o.x, y = o.y, w = o.w, h = o.h, kind = o.kind;
+    const spec = TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car;
+    const t = state.time;
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,.20)';
+    ctx.beginPath();
+    ctx.ellipse(0, h * 0.03, w * 0.56, h * 0.47, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 轮胎
+    ctx.fillStyle = '#2b303b';
+    const wy = h * 0.27, ww = w * 0.11, wh = h * 0.14;
+    rr(-w * 0.53, -wy, ww, wh, 3); ctx.fill();
+    rr(w * 0.42, -wy, ww, wh, 3); ctx.fill();
+    rr(-w * 0.53, wy - wh, ww, wh, 3); ctx.fill();
+    rr(w * 0.42, wy - wh, ww, wh, 3); ctx.fill();
+
+    // 车身
+    const g = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
+    g.addColorStop(0, spec.body[1]);
+    g.addColorStop(0.45, spec.body[0]);
+    g.addColorStop(1, spec.body[1]);
+    ctx.fillStyle = g;
+    rr(-w * 0.5, -h * 0.5, w, h, Math.max(6, w * 0.15));
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.28)';
+    ctx.lineWidth = Math.max(1.2, w * 0.022);
+    ctx.stroke();
+
+    // 前挡风（车头在屏幕上方）
+    ctx.fillStyle = 'rgba(38,52,72,.72)';
+    rr(-w * 0.34, -h * 0.44, w * 0.68, h * 0.10, 4); ctx.fill();
+
+    // 货箱 / 水泥罐
+    if (kind === 'truck') {
+      ctx.fillStyle = '#f7f9fb';
+      rr(-w * 0.47, -h * 0.02, w * 0.94, h * 0.48, 4); ctx.fill();
+      ctx.strokeStyle = 'rgba(90,100,115,.55)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(90,100,115,.45)';
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.02);
+      ctx.lineTo(0, h * 0.46);
+      ctx.stroke();
+    }
+
+    if (kind === 'cement') {
+      ctx.save();
+      ctx.translate(0, h * 0.16);
+      ctx.rotate(-0.32);
+      const spin = t * 1.4 + o.phase;
+      ctx.fillStyle = '#c4cad2';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, w * 0.40, h * 0.26, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#8b939f';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.strokeStyle = '#7f8794';
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.ellipse(0, -h * 0.10 + i * h * 0.08, w * 0.34, h * 0.12, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.22)';
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(spin) * w * 0.12, Math.sin(spin) * h * 0.05, w * 0.10, h * 0.05, spin, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 消防车：白条 + 车顶云梯
+    if (kind === 'fire') {
+      ctx.fillStyle = 'rgba(255,255,255,.92)';
+      rr(-w * 0.5, h * 0.02, w, h * 0.10, 0); ctx.fill();
+      ctx.strokeStyle = '#eef1f5';
+      ctx.lineWidth = Math.max(2, w * 0.035);
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.20, -h * 0.34); ctx.lineTo(-w * 0.20, h * 0.26);
+      ctx.moveTo(w * 0.20, -h * 0.34); ctx.lineTo(w * 0.20, h * 0.26);
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1.4, w * 0.02);
+      for (let i = 0; i < 5; i++) {
+        const ly = -h * 0.30 + i * h * 0.13;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.20, ly);
+        ctx.lineTo(w * 0.20, ly);
+        ctx.stroke();
+      }
+    }
+
+    // 警车：蓝条 + 蓝白格
+    if (kind === 'police') {
+      ctx.fillStyle = '#2f6bd8';
+      rr(-w * 0.5, h * 0.02, w, h * 0.09, 0); ctx.fill();
+      for (let i = 0; i < 4; i++) {
+        if (i % 2) {
+          ctx.fillStyle = '#2f6bd8';
+          rr(-w * 0.46 + i * w * 0.24, h * 0.13, w * 0.12, h * 0.035, 0);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 救护车：红十字
+    if (kind === 'ambulance') {
+      ctx.fillStyle = '#e23b3b';
+      rr(-w * 0.045, h * 0.10, w * 0.09, h * 0.18, 2); ctx.fill();
+      rr(-w * 0.10, h * 0.17, w * 0.20, h * 0.045, 2); ctx.fill();
+    }
+
+    // 警灯 / 警示灯
+    if (kind === 'police' || kind === 'fire' || kind === 'ambulance') {
+      const barY = -h * 0.46;
+      const on = Math.floor(t * 6 + o.phase) % 2 === 0;
+      const cL = kind === 'police' ? (on ? '#ff3b3b' : '#3b82ff') : (on ? '#ff3b3b' : '#ff9a2b');
+      const cR = kind === 'police' ? (on ? '#3b82ff' : '#ff3b3b') : cL;
+      ctx.fillStyle = '#232a38';
+      rr(-w * 0.26, barY, w * 0.52, h * 0.045, 3); ctx.fill();
+      ctx.fillStyle = cL;
+      rr(-w * 0.24, barY - h * 0.004, w * 0.20, h * 0.050, 2); ctx.fill();
+      ctx.fillStyle = cR;
+      rr(w * 0.04, barY - h * 0.004, w * 0.20, h * 0.050, 2); ctx.fill();
+      const gl = ctx.createRadialGradient(0, barY + h * 0.02, 0, 0, barY + h * 0.02, w * 0.55);
+      gl.addColorStop(0, kind === 'police' ? 'rgba(80,140,255,.30)' : 'rgba(255,90,70,.28)');
+      gl.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gl;
+      ctx.beginPath();
+      ctx.arc(0, barY + h * 0.02, w * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 尾灯
+    const tl = Math.max(2.5, w * 0.055);
+    ctx.fillStyle = '#ff4d4d';
+    rr(-w * 0.44, h * 0.43, w * 0.14, tl, 2); ctx.fill();
+    rr(w * 0.30, h * 0.43, w * 0.14, tl, 2); ctx.fill();
+
     ctx.restore();
   }
 
@@ -2640,6 +2797,17 @@
 
   // ---------- 游戏逻辑 ----------
   const POWER_KINDS = ['magnet', 'shield', 'boost'];
+
+  // 路上行驶的其他车辆
+  const TRAFFIC_KINDS = ['car', 'truck', 'police', 'cement', 'fire', 'ambulance'];
+  const TRAFFIC_SPECS = {
+    car: { w: 1.00, h: 1.90, body: ['#7aa6d4', '#3d6390'] },
+    truck: { w: 1.12, h: 2.35, body: ['#f4f6f8', '#c3c9d1'] },
+    police: { w: 1.02, h: 2.00, body: ['#ffffff', '#dfe5ee'] },
+    cement: { w: 1.10, h: 2.05, body: ['#e9ecf0', '#bcc3cc'] },
+    fire: { w: 1.10, h: 2.10, body: ['#e4553f', '#b22f22'] },
+    ambulance: { w: 1.02, h: 2.15, body: ['#ffffff', '#e2e7ef'] }
+  };
   let quizRowSeq = 0;
 
   function carLane() {
@@ -2663,9 +2831,34 @@
     state.spawnStars++;
     state.lastCollectAt = state.time;
   }
+  function spawnTraffic() {
+    const lane = Math.floor(Math.random() * LANES);
+    const kind = TRAFFIC_KINDS[(Math.random() * TRAFFIC_KINDS.length) | 0];
+    const spec = TRAFFIC_SPECS[kind];
+    const w = Math.min(laneW * 0.86, car.w * spec.w);
+    objects.push({
+      type: 'traffic',
+      kind,
+      x: roadLeft + (lane + 0.5) * laneW,
+      y: -w * spec.h - 50,
+      w,
+      h: w * spec.h,
+      v: car.w * (0.8 + Math.random() * 0.7),
+      phase: rand(0, Math.PI * 2),
+      dead: false
+    });
+    sfxTraffic(kind);
+  }
+
   function spawnObject() {
     const lane = Math.floor(Math.random() * LANES);
     const x = laneX(lane);
+
+    // 交通车辆：关卡越高越常见
+    if (state.distance > 700 && Math.random() < Math.min(0.30, 0.10 + state.level * 0.02)) {
+      spawnTraffic();
+      return;
+    }
 
     // 跑过一段路后开始出现道具
     if (state.distance > 900 && Math.random() < 0.10) {
@@ -2951,7 +3144,9 @@
 
       // 物体
       for (const o of objects) {
-        o.y += state.speed * dt;
+        // 交通车辆自己也在往前开，所以相对玩家滚动得更慢
+        const dy = o.type === 'traffic' ? Math.max(state.speed * 0.4, state.speed - o.v) : state.speed;
+        o.y += dy * dt;
         if (o.type === 'star') o.rot += dt * 1.6;
         // 磁铁：把附近的星星吸过来（听音模式不吸，避免弄乱题目）
         if (state.magnet > 0 && o.type === 'star' && !o.quiz) {
@@ -2971,9 +3166,13 @@
       const halfH = car.h * 0.42;
       for (const o of objects) {
         if (o.dead) continue;
-        const orad = o.type === 'power' ? o.s * 0.46 : (o.type === 'star' ? o.r * 0.95 : o.s * 0.36);
-        if (Math.abs(o.x - state.carX) < halfW + orad &&
-            Math.abs(o.y - carY) < halfH + orad) {
+        let rx, ry;
+        if (o.type === 'power') { rx = ry = o.s * 0.46; }
+        else if (o.type === 'star') { rx = ry = o.r * 0.95; }
+        else if (o.type === 'traffic') { rx = o.w * 0.42; ry = o.h * 0.42; }
+        else { rx = ry = o.s * 0.36; }
+        if (Math.abs(o.x - state.carX) < halfW + rx &&
+            Math.abs(o.y - carY) < halfH + ry) {
           if (o.type === 'star') {
             // 冷却中先记下，等冷却结束再收，保证一次只读一个且不漏字
             if (state.collectCD > 0) {
@@ -3165,6 +3364,8 @@
         drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
       } else if (o.type === 'power') {
         drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
+      } else if (o.type === 'traffic') {
+        drawTraffic(o);
       } else if (o.type === 'cone') {
         drawCone(o.x, o.y, o.s);
       } else {
