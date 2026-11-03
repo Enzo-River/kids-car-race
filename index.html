@@ -1134,7 +1134,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-03.5';
+  const APP_VERSION = '2026-11-03.6';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4118,12 +4118,12 @@
       const x = roadLeft + 30 + ((i * 0.37 + 0.13) % 1) * Math.max(10, roadRight - roadLeft - 60);
       ctx.fillStyle = 'rgba(170,205,240,.20)';
       ctx.beginPath();
-      ctx.ellipse(x, y, roadW * 0.14, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.22)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.ellipse(x, y, roadW * 0.14, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -4853,6 +4853,7 @@
 
   // ---------- 主循环 ----------
   let last = performance.now();
+  let renderErrLogged = false;
   function frame(now) {
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     if (W < 2 || H < 2 || (canvas.width <= 1 || canvas.height <= 1) ||
@@ -4861,8 +4862,18 @@
     }
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
-    update(dt);
-    draw();
+    try {
+      update(dt);
+      draw();
+    } catch (err) {
+      // 单帧绘制出错不能让循环断掉，否则会只剩声音、画面卡住
+      if (!renderErrLogged) {
+        renderErrLogged = true;
+        console.error(err);
+      }
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.globalAlpha = 1;
+    }
     // 低端机连续掉帧时降一档分辨率，保证流畅
     fpsFrames++;
     if (fpsAt && now - fpsAt > 2500) {
