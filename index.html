@@ -584,7 +584,19 @@
       plant: 'tree', flower: ['#fff3c4', '#ffd166'], weather: ['clear', 'fog'] },
     { id: 'rain', name: '雨天', grass: ['#a3b7ac', '#7e948a'], stripe: 'rgba(255,255,255,.16)',
       road: '#4e5664', edge: 'rgba(20,40,60,.22)', curb: ['#ffffff', '#7fb3d5'],
-      plant: 'pine', flower: ['#e8f4ff', '#9fc9e8'], weather: ['rain', 'storm'] }
+      plant: 'pine', flower: ['#e8f4ff', '#9fc9e8'], weather: ['rain', 'storm'] },
+    { id: 'forest', name: '森林', grass: ['#6fbf6a', '#4da358'], stripe: 'rgba(255,255,255,.08)',
+      road: '#545d78', edge: 'rgba(20,50,25,.18)', curb: ['#f6fff0', '#4f9d55'],
+      plant: 'birch', flower: ['#fff6c9', '#ffd166'], weather: ['clear', 'fog'] },
+    { id: 'mountain', name: '山地', grass: ['#b9c9a8', '#94ad8f'], stripe: 'rgba(255,255,255,.10)',
+      road: '#5e6476', edge: 'rgba(40,50,40,.18)', curb: ['#f4f0e2', '#8f9b88'],
+      plant: 'rock', flower: ['#ffffff', '#ffd9a0'], weather: ['clear', 'wind'] },
+    { id: 'countryside', name: '乡村', grass: ['#cfe38a', '#a9c96a'], stripe: 'rgba(255,255,255,.12)',
+      road: '#6b6f86', edge: 'rgba(60,70,30,.16)', curb: ['#fffbe9', '#e0a53f'],
+      plant: 'wheat', flower: ['#ffffff', '#ff9ec4'], weather: ['clear', 'wind'] },
+    { id: 'harbor', name: '港口', grass: ['#8fd6e8', '#63b9d3'], stripe: 'rgba(255,255,255,.14)',
+      road: '#5a647c', edge: 'rgba(20,60,80,.18)', curb: ['#ffffff', '#4fb8d8'],
+      plant: 'boat', flower: ['#ffffff', '#ffd166'], weather: ['wind', 'fog'] }
   ];
 
   // 车型与真实车标（车标取自公开车标素材库；商标归各品牌所有，本项目仅个人非商业使用）
@@ -1086,7 +1098,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-02.3';
+  const APP_VERSION = '2026-11-03.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1562,12 +1574,122 @@
     ctx.fill();
   }
 
+  // 森林白桦
+  function drawBirch(x, y, s) {
+    ctx.fillStyle = 'rgba(30,60,30,.16)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 11 * s, 12 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f2f5ef';
+    rr(x - 3.5 * s, y - 12 * s, 7 * s, 25 * s, 3 * s);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(60,70,65,.55)';
+    rr(x - 3.5 * s, y - 8 * s, 7 * s, 1.6 * s, 0); ctx.fill();
+    rr(x - 3.5 * s, y + 1 * s, 4 * s, 1.4 * s, 0); ctx.fill();
+    const leaves = [
+      [0, -22, 13, '#4f9d55'], [-9, -30, 9, '#63b86a'],
+      [9, -29, 10, '#5db264'], [0, -38, 8, '#79cc80']
+    ];
+    for (const [dx, dy, r, c] of leaves) {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 山地岩石
+  function drawBoulder(x, y, s) {
+    ctx.fillStyle = 'rgba(60,70,50,.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 11 * s, 15 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8e9686';
+    ctx.beginPath();
+    ctx.moveTo(x - 13 * s, y + 11 * s);
+    ctx.lineTo(x - 9 * s, y - 8 * s);
+    ctx.lineTo(x + 1 * s, y - 16 * s);
+    ctx.lineTo(x + 12 * s, y - 5 * s);
+    ctx.lineTo(x + 14 * s, y + 11 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.28)';
+    ctx.beginPath();
+    ctx.moveTo(x - 7 * s, y - 5 * s);
+    ctx.lineTo(x + 1 * s, y - 13 * s);
+    ctx.lineTo(x + 5 * s, y - 7 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#6f8a5c';
+    ctx.beginPath();
+    ctx.arc(x + 10 * s, y + 8 * s, 4 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 乡村麦穗
+  function drawWheat(x, y, s) {
+    const sway = Math.sin(state.time * 1.6 + x * 0.02) * 0.08;
+    ctx.strokeStyle = '#8a9c43';
+    ctx.lineWidth = Math.max(1.4, 2 * s);
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + i * 5 * s, y + 12 * s);
+      ctx.quadraticCurveTo(x + i * 6 * s, y - 2 * s, x + (i * 8 + sway * 12) * s, y - 17 * s);
+      ctx.stroke();
+      ctx.fillStyle = '#e8c34e';
+      for (let j = 0; j < 4; j++) {
+        const yy = y - 6 * s - j * 4 * s;
+        ctx.beginPath();
+        ctx.ellipse(x + (i * 7 + sway * 10) * s + (j % 2 ? 2.6 : -2.6) * s, yy,
+          2.2 * s, 3.4 * s, j % 2 ? 0.5 : -0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // 港口小帆船
+  function drawBoat(x, y, s) {
+    const bob = Math.sin(state.time * 1.8 + x * 0.03) * 1.6 * s;
+    ctx.fillStyle = 'rgba(30,90,120,.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 9 * s + bob, 15 * s, 4 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(x - 13 * s, y + 6 * s + bob);
+    ctx.quadraticCurveTo(x, y + 12 * s + bob, x + 13 * s, y + 6 * s + bob);
+    ctx.lineTo(x + 9 * s, y - 1 * s + bob);
+    ctx.lineTo(x - 9 * s, y - 1 * s + bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#3a7fb5';
+    ctx.fillRect(x - 9 * s, y + 3 * s + bob, 18 * s, 2 * s);
+    ctx.fillStyle = '#ff9f43';
+    ctx.beginPath();
+    ctx.moveTo(x, y - 2 * s + bob);
+    ctx.lineTo(x, y - 22 * s + bob);
+    ctx.lineTo(x + 11 * s, y - 6 * s + bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(x - 1 * s, y - 4 * s + bob);
+    ctx.lineTo(x - 1 * s, y - 18 * s + bob);
+    ctx.lineTo(x - 9 * s, y - 7 * s + bob);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function drawDecor() {
     for (const d of decor) {
       if (d.type === 'tree') drawTree(d.x, d.y, d.s);
       else if (d.type === 'cactus') drawCactus(d.x, d.y, d.s);
       else if (d.type === 'pine') drawPine(d.x, d.y, d.s);
       else if (d.type === 'palm') drawPalm(d.x, d.y, d.s);
+      else if (d.type === 'birch') drawBirch(d.x, d.y, d.s);
+      else if (d.type === 'rock') drawBoulder(d.x, d.y, d.s);
+      else if (d.type === 'wheat') drawWheat(d.x, d.y, d.s);
+      else if (d.type === 'boat') drawBoat(d.x, d.y, d.s);
       else drawFlower(d.x, d.y, d.s, d.color, d.phase);
     }
   }
@@ -1776,6 +1898,88 @@
       ctx.fillStyle = '#e23b3b';
       rr(-w * 0.045, h * 0.10, w * 0.09, h * 0.18, 2); ctx.fill();
       rr(-w * 0.10, h * 0.17, w * 0.20, h * 0.045, 2); ctx.fill();
+    }
+
+    // 公交车：大车窗 + 蓝色腰线 + 车顶空调
+    if (kind === 'bus') {
+      ctx.fillStyle = 'rgba(40,55,75,.55)';
+      rr(-w * 0.40, -h * 0.42, w * 0.80, h * 0.09, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      rr(-w * 0.36, -h * 0.26, w * 0.72, h * 0.48, 6); ctx.fill();
+      ctx.fillStyle = '#2f6bd8';
+      rr(-w * 0.5, h * 0.16, w, h * 0.055, 0); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      rr(-w * 0.16, -h * 0.18, w * 0.32, h * 0.05, 2); ctx.fill();
+    }
+
+    // 出租车：黄白格纹 + 车顶灯牌
+    if (kind === 'taxi') {
+      ctx.fillStyle = '#2b303b';
+      for (let i = 0; i < 7; i++) {
+        if (i % 2) {
+          rr(-w * 0.45 + i * w * 0.13, h * 0.23, w * 0.065, h * 0.05, 0);
+          ctx.fill();
+        }
+      }
+      ctx.fillStyle = '#fff3c4';
+      rr(-w * 0.16, -h * 0.13, w * 0.32, h * 0.055, 3); ctx.fill();
+      ctx.strokeStyle = '#c99a2e';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    // 面包车：对开后门
+    if (kind === 'van') {
+      ctx.fillStyle = 'rgba(255,255,255,.20)';
+      rr(-w * 0.36, h * 0.08, w * 0.72, h * 0.34, 4); ctx.fill();
+      ctx.strokeStyle = 'rgba(80,90,105,.5)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.08);
+      ctx.lineTo(0, h * 0.44);
+      ctx.stroke();
+    }
+
+    // 油罐车：金属罐体 + 危险品黄条
+    if (kind === 'tanker') {
+      const tg = ctx.createLinearGradient(-w * 0.42, 0, w * 0.42, 0);
+      tg.addColorStop(0, '#98a2ad');
+      tg.addColorStop(0.45, '#eef2f5');
+      tg.addColorStop(1, '#98a2ad');
+      ctx.fillStyle = tg;
+      rr(-w * 0.44, -h * 0.02, w * 0.88, h * 0.48, w * 0.18); ctx.fill();
+      ctx.strokeStyle = 'rgba(70,80,90,.42)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.fillStyle = '#f2c94c';
+      rr(-w * 0.44, h * 0.38, w * 0.88, h * 0.035, 0); ctx.fill();
+    }
+
+    // 拖车：平板 + 黄色挂钩
+    if (kind === 'tow') {
+      ctx.fillStyle = '#8d99a8';
+      rr(-w * 0.46, h * 0.02, w * 0.92, h * 0.46, 4); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,70,85,.5)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.30)';
+      rr(-w * 0.40, h * 0.10, w * 0.80, h * 0.04, 1); ctx.fill();
+      ctx.fillStyle = '#f2c94c';
+      rr(-w * 0.10, h * 0.40, w * 0.20, h * 0.05, 2); ctx.fill();
+    }
+
+    // 垃圾车：绿色箱体 + 后斗条纹
+    if (kind === 'garbage') {
+      ctx.fillStyle = '#4e8f5c';
+      rr(-w * 0.46, h * 0.02, w * 0.92, h * 0.46, 4); ctx.fill();
+      ctx.strokeStyle = 'rgba(30,60,40,.5)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.20)';
+      for (let i = 0; i < 4; i++) {
+        rr(-w * 0.40, h * 0.07 + i * h * 0.10, w * 0.80, h * 0.028, 1);
+        ctx.fill();
+      }
     }
 
     // 警灯 / 警示灯
@@ -2799,14 +3003,23 @@
   const POWER_KINDS = ['magnet', 'shield', 'boost'];
 
   // 路上行驶的其他车辆
-  const TRAFFIC_KINDS = ['car', 'truck', 'police', 'cement', 'fire', 'ambulance'];
+  const TRAFFIC_KINDS = [
+    'car', 'truck', 'police', 'cement', 'fire', 'ambulance',
+    'bus', 'taxi', 'van', 'tanker', 'tow', 'garbage'
+  ];
   const TRAFFIC_SPECS = {
     car: { w: 1.00, h: 1.90, body: ['#7aa6d4', '#3d6390'] },
     truck: { w: 1.12, h: 2.35, body: ['#f4f6f8', '#c3c9d1'] },
     police: { w: 1.02, h: 2.00, body: ['#ffffff', '#dfe5ee'] },
     cement: { w: 1.10, h: 2.05, body: ['#e9ecf0', '#bcc3cc'] },
     fire: { w: 1.10, h: 2.10, body: ['#e4553f', '#b22f22'] },
-    ambulance: { w: 1.02, h: 2.15, body: ['#ffffff', '#e2e7ef'] }
+    ambulance: { w: 1.02, h: 2.15, body: ['#ffffff', '#e2e7ef'] },
+    bus: { w: 1.16, h: 2.90, body: ['#f3c94b', '#c79b23'] },
+    taxi: { w: 0.98, h: 1.95, body: ['#ffd54a', '#d8a418'] },
+    van: { w: 1.05, h: 2.10, body: ['#f0f3f7', '#c4ccd4'] },
+    tanker: { w: 1.12, h: 2.40, body: ['#dfe4ea', '#a7b0ba'] },
+    tow: { w: 1.10, h: 2.30, body: ['#eef2f7', '#c2cbd6'] },
+    garbage: { w: 1.12, h: 2.30, body: ['#5aa46b', '#3b7048'] }
   };
   let quizRowSeq = 0;
 
