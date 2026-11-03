@@ -1134,7 +1134,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-03.4';
+  const APP_VERSION = '2026-11-03.5';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1420,9 +1420,16 @@
     return { w, h };
   }
 
+  let resizeRetry = 0;
   function resize() {
     const size = viewportSize();
-    if (size.w < 2 || size.h < 2) return; // 布局还没就绪，等下一帧再试
+    if (size.w < 2 || size.h < 2) {
+      // 微信/后台恢复时视口可能暂时为 0，稍后自动重试，避免画布一直停留在空白尺寸
+      if (!resizeRetry) {
+        resizeRetry = setTimeout(function () { resizeRetry = 0; resize(); }, 180);
+      }
+      return;
+    }
     if (W === Math.round(size.w) && H === Math.round(size.h) && canvas.width > 1) return;
     DPR = Math.min(window.devicePixelRatio || 1, qualityCap);
     W = size.w;
@@ -1460,7 +1467,6 @@
     state.carX = clamp(state.carX, roadLeft + car.w * 0.5 + 6, roadRight - car.w * 0.5 - 6);
     prevLeft = roadLeft;
     prevWidth = roadWidth;
-    buildBgCache();
     charCache.clear();
     buildDecor();
   }
@@ -3571,45 +3577,13 @@
     }
   }
 
-  // ---------- 背景（静态部分离屏缓存，只画一次） ----------
-  let bgCache = null;
-
-  function buildBgCache() {
-    const th = curTheme();
-    const c = document.createElement('canvas');
-    c.width = Math.max(1, Math.round(W * DPR));
-    c.height = Math.max(1, Math.round(H * DPR));
-    const g = c.getContext('2d');
-    g.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-    const gg = g.createLinearGradient(0, 0, 0, H);
-    gg.addColorStop(0, th.grass[0]);
-    gg.addColorStop(1, th.grass[1]);
-    g.fillStyle = gg;
-    g.fillRect(0, 0, W, H);
-
-    g.fillStyle = th.road;
-    g.fillRect(roadLeft, 0, roadWidth, H);
-
-    const eg = g.createLinearGradient(roadLeft, 0, roadRight, 0);
-    eg.addColorStop(0, th.edge);
-    eg.addColorStop(0.16, 'rgba(0,0,0,0)');
-    eg.addColorStop(0.84, 'rgba(0,0,0,0)');
-    eg.addColorStop(1, th.edge);
-    g.fillStyle = eg;
-    g.fillRect(roadLeft, 0, roadWidth, H);
-
-    g.fillStyle = 'rgba(255,255,255,.55)';
-    g.fillRect(roadLeft + 2, 0, 3, H);
-    g.fillRect(roadRight - 5, 0, 3, H);
-
-    bgCache = c;
-  }
-
   function drawGrass() {
     const th = curTheme();
-    if (bgCache) ctx.drawImage(bgCache, 0, 0, W, H);
-    else { ctx.fillStyle = th.grass[0]; ctx.fillRect(0, 0, W, H); }
+    const gg = ctx.createLinearGradient(0, 0, 0, H);
+    gg.addColorStop(0, th.grass[0]);
+    gg.addColorStop(1, th.grass[1]);
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, 0, W, H);
 
     const period = 140;
     const start = (grassOffset % period) - period;
@@ -3639,6 +3613,21 @@
 
   function drawRoad() {
     const th = curTheme();
+
+    // 路面本体每帧直接绘制，避免依赖离屏缓存导致整块路面消失
+    ctx.fillStyle = th.road;
+    ctx.fillRect(roadLeft, 0, roadWidth, H);
+    const eg = ctx.createLinearGradient(roadLeft, 0, roadRight, 0);
+    eg.addColorStop(0, th.edge);
+    eg.addColorStop(0.16, 'rgba(0,0,0,0)');
+    eg.addColorStop(0.84, 'rgba(0,0,0,0)');
+    eg.addColorStop(1, th.edge);
+    ctx.fillStyle = eg;
+    ctx.fillRect(roadLeft, 0, roadWidth, H);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fillRect(roadLeft + 2, 0, 3, H);
+    ctx.fillRect(roadRight - 5, 0, 3, H);
+
     drawCurb(roadLeft - 14, th.curb);
     drawCurb(roadRight, th.curb);
 
@@ -4491,6 +4480,7 @@
     state.lastCollectAt = state.time;
     state.quizTarget = null;
     state.quizTimer = 1.6;
+    resize();                       // 先确保画布尺寸有效（微信恢复时可能是 0）
     layout();                       // 关卡主题可能变化，重建背景与装饰
     state.carX = (roadLeft + roadRight) / 2;
     state.carVX = 0;
@@ -4865,7 +4855,7 @@
   let last = performance.now();
   function frame(now) {
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
-    if ((canvas.width <= 1 || canvas.height <= 1) ||
+    if (W < 2 || H < 2 || (canvas.width <= 1 || canvas.height <= 1) ||
         (cw > 1 && ch > 1 && (Math.abs(cw - W) > 1 || Math.abs(ch - H) > 1))) {
       resize();
     }
