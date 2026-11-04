@@ -285,6 +285,10 @@
         <button class="mode-btn on" data-mode="collect">收集汉字</button>
         <button class="mode-btn" data-mode="quiz">听音选字</button>
       </div>
+      <div class="mode-switch" id="viewSwitch">
+        <button class="mode-btn on" data-view="2d">平面视角</button>
+        <button class="mode-btn" data-view="3d">立体视角</button>
+      </div>
       <button class="big-btn" id="startBtn">开始 ▶</button>
       <button class="ghost-btn" id="learnedBtn">我认识的字 · 0</button>
       <button class="ghost-btn" id="settingsBtn">家长设置</button>
@@ -405,6 +409,7 @@
   const dailyEl = document.getElementById('dailyChip');
   const parentReportEl = document.getElementById('parentReport');
   const modeSwitchEl = document.getElementById('modeSwitch');
+  const viewSwitchEl = document.getElementById('viewSwitch');
   const runCharsEl = document.getElementById('runChars');
   const runNoteEl = document.getElementById('runNote');
   const settingsBtnEl = document.getElementById('settingsBtn');
@@ -709,6 +714,7 @@
   let fpsAt = 0, fpsFrames = 0;
   let roadLeft = 0, roadRight = 0, roadWidth = 0, laneW = 0;
   let carY = 0;
+  let view3d = false;   // 立体（伪 3D）视角开关
   let prevLeft = 0, prevWidth = 0;
   let initialized = false;
 
@@ -759,6 +765,7 @@
   try {
     const savedBrand = localStorage.getItem('car-race-brand');
     if (savedBrand && brandById[savedBrand]) state.brandId = savedBrand;
+    setView(localStorage.getItem('car-race-view3d') === '1');
     const lv = parseInt(localStorage.getItem('car-race-level') || '1', 10);
     if (lv >= 1 && lv <= 99) state.level = lv;
     const bj = JSON.parse(localStorage.getItem('car-race-best') || '{}');
@@ -894,6 +901,15 @@
       b.classList.toggle('on', (b.dataset.mode === 'quiz') === quiz);
     });
     startSubEl.textContent = quiz ? '听读音，找出正确的字！' : '选一辆喜欢的车，收集汉字学读音！';
+  }
+
+  // ---------- 立体视角 ----------
+  function setView(is3d) {
+    view3d = is3d;
+    try { localStorage.setItem('car-race-view3d', is3d ? '1' : '0'); } catch (e) { /* ignore */ }
+    viewSwitchEl.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.toggle('on', (b.dataset.view === '3d') === is3d);
+    });
   }
 
   // ---------- 家长设置 ----------
@@ -1146,7 +1162,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-04.1';
+  const APP_VERSION = '2026-11-05.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2198,6 +2214,7 @@
 
   function drawDecor() {
     for (const d of decor) {
+      if (view3d) begin3d(d.y);
       if (d.type === 'tree') drawTree(d.x, d.y, d.s);
       else if (d.type === 'cactus') drawCactus(d.x, d.y, d.s);
       else if (d.type === 'pine') drawPine(d.x, d.y, d.s);
@@ -2223,6 +2240,7 @@
       else if (d.type === 'coral') drawCoral(d.x, d.y, d.s);
       else if (d.type === 'lantern') drawLantern(d.x, d.y, d.s);
       else drawFlower(d.x, d.y, d.s, d.color, d.phase);
+      if (view3d) ctx.restore();
     }
   }
 
@@ -3813,7 +3831,174 @@
     }
   }
 
+  // ---------- 伪 3D 投影 ----------
+  function horizonY() { return H * 0.28; }
+
+  function projY(y) {
+    const hz = horizonY(), CY = carY;
+    if (y <= 0) return hz;
+    if (y <= CY) return hz + (CY - hz) * (y / CY);
+    return CY + (H - CY) * Math.min(1, (y - CY) / Math.max(1, H - CY));
+  }
+
+  function projK(y) {
+    const CY = carY;
+    if (y <= 0) return 0.30;
+    if (y <= CY) {
+      const t = y / CY;
+      return 0.30 + 0.70 * Math.pow(t, 1.35);
+    }
+    const t = Math.min(1, (y - CY) / Math.max(1, H - CY));
+    return 1 + 0.18 * t;
+  }
+
+  function projX(x, k) { return W / 2 + (x - W / 2) * k; }
+
+  // 以物体自身为锚点做透视缩放
+  function begin3d(y) {
+    const k = projK(y);
+    ctx.save();
+    ctx.translate(W / 2, projY(y));
+    ctx.scale(k, k);
+    ctx.translate(-W / 2, -y);
+  }
+
+  function with3d(y, fn) {
+    if (!view3d) { fn(); return; }
+    begin3d(y);
+    fn();
+    ctx.restore();
+  }
+
+  function drawGrass3d() {
+    const th = curTheme();
+    const gg = ctx.createLinearGradient(0, 0, 0, H);
+    gg.addColorStop(0, th.grass[0]);
+    gg.addColorStop(1, th.grass[1]);
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, 0, W, H);
+
+    // 地平线附近的雾，拉开纵深
+    const hz = horizonY();
+    const fogH = Math.min(120, H * 0.18);
+    const hg = ctx.createLinearGradient(0, hz - fogH * 0.5, 0, hz + fogH * 0.5);
+    hg.addColorStop(0, 'rgba(255,255,255,.26)');
+    hg.addColorStop(0.5, 'rgba(255,255,255,.12)');
+    hg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, hz - fogH * 0.5, W, fogH);
+
+    // 两侧草地条纹随距离收拢
+    const period = 140;
+    const start = (grassOffset % period) - period;
+    ctx.fillStyle = th.stripe;
+    for (let wy = start; wy < H + period; wy += period) {
+      const a = Math.max(0, wy), b = Math.min(H, wy + period / 2);
+      if (b <= a) continue;
+      const k1 = projK(a), k2 = projK(b);
+      const y1 = projY(a), y2 = projY(b);
+      ctx.beginPath();
+      ctx.moveTo(0, y1);
+      ctx.lineTo(projX(roadLeft - 14, k1), y1);
+      ctx.lineTo(projX(roadLeft - 14, k2), y2);
+      ctx.lineTo(0, y2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(projX(roadRight + 14, k1), y1);
+      ctx.lineTo(W, y1);
+      ctx.lineTo(W, y2);
+      ctx.lineTo(projX(roadRight + 14, k2), y2);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawCurb3d(side, colors) {
+    const baseX = side < 0 ? roadLeft - 14 : roadRight;
+    const start = (curbOffset % 56) - 56;
+    for (let wy = start; wy < H + 56; wy += 56) {
+      for (let seg = 0; seg < 2; seg++) {
+        const a = Math.max(0, wy + seg * 28), b = Math.min(H, wy + seg * 28 + 28);
+        if (b <= a) continue;
+        const k1 = projK(a), k2 = projK(b);
+        const y1 = projY(a), y2 = projY(b);
+        ctx.fillStyle = colors[seg];
+        ctx.beginPath();
+        ctx.moveTo(projX(baseX, k1), y1);
+        ctx.lineTo(projX(baseX + 14, k1), y1);
+        ctx.lineTo(projX(baseX + 14, k2), y2);
+        ctx.lineTo(projX(baseX, k2), y2);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawRoad3d() {
+    const th = curTheme();
+    const hz = horizonY();
+    const kFar = projK(0), kNear = projK(H);
+    const lf = projX(roadLeft, kFar), rf = projX(roadRight, kFar);
+    const ln = projX(roadLeft, kNear), rn = projX(roadRight, kNear);
+
+    ctx.beginPath();
+    ctx.moveTo(lf, hz);
+    ctx.lineTo(rf, hz);
+    ctx.lineTo(rn, H);
+    ctx.lineTo(ln, H);
+    ctx.closePath();
+    ctx.fillStyle = th.road;
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    const eg = ctx.createLinearGradient(lf, 0, rf, 0);
+    eg.addColorStop(0, th.edge);
+    eg.addColorStop(0.2, 'rgba(0,0,0,0)');
+    eg.addColorStop(0.8, 'rgba(0,0,0,0)');
+    eg.addColorStop(1, th.edge);
+    ctx.fillStyle = eg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(projX(roadLeft + 3, kFar), hz);
+    ctx.lineTo(projX(roadLeft + 3, kNear), H);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(projX(roadRight - 3, kFar), hz);
+    ctx.lineTo(projX(roadRight - 3, kNear), H);
+    ctx.stroke();
+
+    drawCurb3d(-1, th.curb);
+    drawCurb3d(1, th.curb);
+
+    const dashH = 34, gap = 38, period = dashH + gap;
+    const start = (dashOffset % period) - period;
+    ctx.fillStyle = 'rgba(255,255,255,.62)';
+    for (let i = 1; i < LANES; i++) {
+      const x = roadLeft + i * laneW;
+      for (let wy = start; wy < H + period; wy += period) {
+        const a = Math.max(0, wy), b = Math.min(H, wy + dashH);
+        if (b <= a) continue;
+        const k1 = projK(a), k2 = projK(b);
+        const y1 = projY(a), y2 = projY(b);
+        ctx.beginPath();
+        ctx.moveTo(projX(x - 3, k1), y1);
+        ctx.lineTo(projX(x + 3, k1), y1);
+        ctx.lineTo(projX(x + 3, k2), y2);
+        ctx.lineTo(projX(x - 3, k2), y2);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
   function drawGrass() {
+    if (view3d) { drawGrass3d(); return; }
     const th = curTheme();
     const gg = ctx.createLinearGradient(0, 0, 0, H);
     gg.addColorStop(0, th.grass[0]);
@@ -3848,6 +4033,7 @@
   }
 
   function drawRoad() {
+    if (view3d) { drawRoad3d(); return; }
     const th = curTheme();
 
     // 路面本体每帧直接绘制，避免依赖离屏缓存导致整块路面消失
@@ -4360,14 +4546,18 @@
       const y = ((i * 173 + state.distance * 0.8) % (H + 160)) - 80;
       const x = roadLeft + 30 + ((i * 0.37 + 0.13) % 1) * Math.max(10, roadRight - roadLeft - 60);
       ctx.fillStyle = 'rgba(170,205,240,.20)';
-      ctx.beginPath();
-      ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
-      ctx.fill();
+      with3d(y, function () {
+        ctx.beginPath();
+        ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
       ctx.strokeStyle = 'rgba(255,255,255,.22)';
       ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      with3d(y, function () {
+        ctx.beginPath();
+        ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      });
     }
   }
 
@@ -4481,6 +4671,7 @@
     }
 
     for (const o of objects) {
+      if (view3d) begin3d(o.y);
       if (o.type === 'star') {
         drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
       } else if (o.type === 'power') {
@@ -4492,6 +4683,7 @@
       } else {
         drawRock(o.x, o.y, o.s);
       }
+      if (view3d) ctx.restore();
     }
 
     // 道具光环
@@ -5011,6 +5203,14 @@
     if (!btn) return;
     setMode(btn.dataset.mode === 'quiz');
     tone(660, 0.08, 'sine', 0, 0.08);
+  });
+
+  // 视角切换
+  viewSwitchEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mode-btn');
+    if (!btn) return;
+    setView(btn.dataset.view === '3d');
+    tone(560, 0.08, 'triangle', 0, 0.08);
   });
 
   // HUD 汉字：点一下重听
