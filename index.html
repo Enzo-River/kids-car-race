@@ -632,7 +632,19 @@
       plant: 'candy', flower: ['#fff3b0', '#7fe0ff'], weather: ['clear'] },
     { id: 'neon', name: '霓虹都市', grass: ['#2f2b45', '#1f1c33'], stripe: 'rgba(120,220,255,.14)',
       road: '#3f3c55', edge: 'rgba(0,0,20,.28)', curb: ['#ff5fd2', '#5de1ff'],
-      plant: 'neon', flower: ['#5de1ff', '#ff5fd2'], weather: ['clear', 'fog'] }
+      plant: 'neon', flower: ['#5de1ff', '#ff5fd2'], weather: ['clear', 'fog'] },
+    { id: 'sakura', name: '樱花小镇', grass: ['#ffe4ef', '#ffcfe2'], stripe: 'rgba(255,255,255,.16)',
+      road: '#6f6577', edge: 'rgba(120,60,90,.14)', curb: ['#fff8fb', '#ff9ec0'],
+      plant: 'sakura', flower: ['#ffffff', '#ffd1e3'], weather: ['clear', 'wind'] },
+    { id: 'aurora', name: '极光雪原', grass: ['#2c3a63', '#1d2749'], stripe: 'rgba(120,255,220,.10)',
+      road: '#3a4460', edge: 'rgba(0,10,30,.30)', curb: ['#9ff5d8', '#6f7fd6'],
+      plant: 'aurora', flower: ['#9ff5d8', '#c9a3ff'], weather: ['snow', 'clear'] },
+    { id: 'ocean', name: '海底世界', grass: ['#1f6f9c', '#14527a'], stripe: 'rgba(160,240,255,.10)',
+      road: '#2a6b8a', edge: 'rgba(0,30,60,.28)', curb: ['#d6fbff', '#4fd0e8'],
+      plant: 'coral', flower: ['#ffd6a8', '#8ff0d6'], weather: ['clear', 'fog'] },
+    { id: 'festival', name: '灯会', grass: ['#7a3f3a', '#5f2e2b'], stripe: 'rgba(255,200,120,.10)',
+      road: '#5a4a4a', edge: 'rgba(40,10,10,.26)', curb: ['#ffe0a8', '#e0503a'],
+      plant: 'lantern', flower: ['#ffd166', '#ff7a59'], weather: ['clear', 'wind'] }
   ];
 
   // 车型与真实车标（车标取自公开车标素材库；商标归各品牌所有，本项目仅个人非商业使用）
@@ -1134,7 +1146,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-03.6';
+  const APP_VERSION = '2026-11-04.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2066,6 +2078,124 @@
     ctx.stroke();
   }
 
+  // 樱花树
+  function drawSakura(x, y, s) {
+    ctx.fillStyle = 'rgba(150,70,100,.14)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 11 * s, 13 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a6248';
+    ctx.lineWidth = Math.max(1.8, 3.4 * s);
+    ctx.beginPath();
+    ctx.moveTo(x, y + 11 * s);
+    ctx.quadraticCurveTo(x + 1.5 * s, y - 4 * s, x - 2 * s, y - 14 * s);
+    ctx.stroke();
+    const sway = Math.sin(state.time * 1.2 + x * 0.02) * 1.4 * s;
+    for (let i = 0; i < 3; i++) {
+      const cx = x + (i - 1) * 9 * s + sway;
+      const cy = y - 16 * s - (i % 2 ? 2 * s : 0);
+      const g = ctx.createRadialGradient(cx - 2 * s, cy - 2 * s, 1, cx, cy, 10 * s);
+      g.addColorStop(0, '#ffe6f2');
+      g.addColorStop(1, '#ff9dc4');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 极光雪原：雪松 + 极光带
+  function drawAurora(x, y, s) {
+    ctx.fillStyle = 'rgba(10,20,50,.30)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 10 * s, 15 * s, 6 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      const w = (10 - i * 2.4) * s;
+      const yy = y - 4 * s - i * 9 * s;
+      ctx.fillStyle = i === 2 ? '#bff7ea' : (i === 1 ? '#7fe0c8' : '#58b8a0');
+      ctx.beginPath();
+      ctx.moveTo(x, yy - 13 * s);
+      ctx.lineTo(x + w, yy + 5 * s);
+      ctx.lineTo(x - w, yy + 5 * s);
+      ctx.closePath();
+      ctx.fill();
+    }
+    const t = state.time * 0.9 + x * 0.01;
+    const grad = ctx.createLinearGradient(x, y - 40 * s, x, y + 10 * s);
+    grad.addColorStop(0, 'rgba(120,255,210,0)');
+    grad.addColorStop(0.55, 'rgba(130,255,220,.18)');
+    grad.addColorStop(1, 'rgba(160,180,255,0)');
+    ctx.fillStyle = grad;
+    ctx.save();
+    ctx.translate(x + Math.sin(t) * 10 * s, y - 14 * s);
+    ctx.beginPath();
+    ctx.moveTo(-18 * s, 0);
+    ctx.quadraticCurveTo(0, -12 * s, 20 * s, 6 * s);
+    ctx.quadraticCurveTo(0, 4 * s, -18 * s, 12 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 海底珊瑚
+  function drawCoral(x, y, s) {
+    ctx.fillStyle = 'rgba(4,40,70,.22)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 11 * s, 12 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = -1; i <= 1; i++) {
+      const sway = Math.sin(state.time * 1.1 + x * 0.03 + i) * 1.6 * s;
+      ctx.strokeStyle = i === 0 ? '#ff9e7a' : (i < 0 ? '#8ff0d6' : '#ffd166');
+      ctx.lineWidth = Math.max(2, 3 * s);
+      ctx.beginPath();
+      ctx.moveTo(x + i * 6 * s, y + 10 * s);
+      ctx.quadraticCurveTo(x + i * 8 * s + sway, y - 2 * s, x + (i * 9 + sway) * s, y - 14 * s);
+      ctx.stroke();
+      for (let j = 0; j < 4; j++) {
+        ctx.beginPath();
+        ctx.arc(x + (i * 9 + sway) * s + (j % 2 ? 2.4 : -2.4) * s * (1 + j * 0.2), y - 6 * s - j * 3 * s, 2.2 * s, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // 灯会灯笼
+  function drawLantern(x, y, s) {
+    const bob = Math.sin(state.time * 1.3 + x * 0.02) * 1.6 * s;
+    const cy = y - 16 * s + bob;
+    const glow = ctx.createRadialGradient(x, cy, 2, x, cy, 22 * s);
+    glow.addColorStop(0, 'rgba(255,170,90,.30)');
+    glow.addColorStop(1, 'rgba(255,120,60,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, cy, 22 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a5a30';
+    ctx.lineWidth = Math.max(1.4, 2 * s);
+    ctx.beginPath();
+    ctx.moveTo(x, y + 10 * s);
+    ctx.lineTo(x, cy - 9 * s);
+    ctx.stroke();
+    const g2 = ctx.createLinearGradient(x - 10 * s, 0, x + 10 * s, 0);
+    g2.addColorStop(0, '#e04a3a');
+    g2.addColorStop(0.5, '#ff8a5c');
+    g2.addColorStop(1, '#d63a2a');
+    ctx.fillStyle = g2;
+    ctx.beginPath();
+    ctx.ellipse(x, cy, 9 * s, 11 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffd166';
+    rr(x - 5 * s, cy - 12 * s, 10 * s, 2.6 * s, 1); ctx.fill();
+    rr(x - 5 * s, cy + 9.5 * s, 10 * s, 2.6 * s, 1); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,225,150,.75)';
+    ctx.lineWidth = Math.max(1, 1.6 * s);
+    ctx.beginPath();
+    ctx.moveTo(x, cy + 12 * s);
+    ctx.lineTo(x, cy + 18 * s);
+    ctx.stroke();
+  }
+
   function drawDecor() {
     for (const d of decor) {
       if (d.type === 'tree') drawTree(d.x, d.y, d.s);
@@ -2088,6 +2218,10 @@
       else if (d.type === 'lavender') drawLavender(d.x, d.y, d.s);
       else if (d.type === 'candy') drawCandy(d.x, d.y, d.s);
       else if (d.type === 'neon') drawNeon(d.x, d.y, d.s);
+      else if (d.type === 'sakura') drawSakura(d.x, d.y, d.s);
+      else if (d.type === 'aurora') drawAurora(d.x, d.y, d.s);
+      else if (d.type === 'coral') drawCoral(d.x, d.y, d.s);
+      else if (d.type === 'lantern') drawLantern(d.x, d.y, d.s);
       else drawFlower(d.x, d.y, d.s, d.color, d.phase);
     }
   }
@@ -2641,6 +2775,108 @@
       ctx.fillStyle = '#2b303b';
       rr(-w * 0.44, h * 0.12, w * 0.16, h * 0.20, 2); ctx.fill();
       rr(w * 0.28, h * 0.12, w * 0.16, h * 0.20, 2); ctx.fill();
+    }
+
+    // 加长礼车：三排侧窗 + 镀铬腰线 + 车头立标
+    if (kind === 'limo') {
+      ctx.fillStyle = 'rgba(205,225,245,.38)';
+      for (let i = 0; i < 3; i++) {
+        rr(-w * 0.40, -h * 0.32 + i * h * 0.17, w * 0.80, h * 0.09, 3);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(230,240,255,.75)';
+      rr(-w * 0.5, h * 0.02, w, h * 0.02, 0); ctx.fill();
+      ctx.fillStyle = '#f5d76e';
+      ctx.beginPath();
+      ctx.arc(0, -h * 0.46, w * 0.035, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 小巴：多排侧窗 + 车顶线路牌
+    if (kind === 'minibus') {
+      ctx.fillStyle = 'rgba(35,50,70,.55)';
+      rr(-w * 0.36, -h * 0.40, w * 0.72, h * 0.08, 4); ctx.fill();
+      rr(-w * 0.36, -h * 0.18, w * 0.72, h * 0.08, 4); ctx.fill();
+      rr(-w * 0.36, h * 0.02, w * 0.72, h * 0.08, 4); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      rr(-w * 0.22, -h * 0.49, w * 0.44, h * 0.035, 2); ctx.fill();
+      ctx.fillStyle = '#2b303b';
+      rr(-w * 0.44, h * 0.34, w * 0.88, h * 0.05, 2); ctx.fill();
+    }
+
+    // 清扫车：车头双刷 + 水雾
+    if (kind === 'sweeper') {
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = '#f7f9fb';
+        ctx.beginPath();
+        ctx.arc(s * w * 0.26, -h * 0.46, w * 0.11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#9aa3b5';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(s * w * 0.26, -h * 0.46);
+        ctx.arc(s * w * 0.26, -h * 0.46, w * 0.11, t * 3, t * 3 + Math.PI * 2 / 3);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(220,240,255,.6)';
+      for (let i = 0; i < 5; i++) {
+        const ph = Math.sin(t * 5 + i * 1.7);
+        ctx.beginPath();
+        ctx.arc(-w * 0.4 + i * w * 0.2, h * 0.30 + ph * h * 0.06, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 推土机：履带 + 推土铲
+    if (kind === 'bulldozer') {
+      ctx.fillStyle = '#2b303b';
+      rr(-w * 0.58, -h * 0.46, w * 0.16, h * 0.92, 3); ctx.fill();
+      rr(w * 0.42, -h * 0.46, w * 0.16, h * 0.92, 3); ctx.fill();
+      ctx.fillStyle = '#c9d2dd';
+      rr(-w * 0.62, -h * 0.50, w * 1.24, h * 0.08, 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,70,80,.5)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(40,55,75,.55)';
+      rr(-w * 0.16, -h * 0.16, w * 0.32, h * 0.12, 2); ctx.fill();
+    }
+
+    // 联合收割机：割台 + 驾驶室 + 粮仓
+    if (kind === 'harvester') {
+      ctx.fillStyle = '#e8d24a';
+      rr(-w * 0.56, -h * 0.50, w * 1.12, h * 0.07, 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(120,100,20,.5)';
+      ctx.lineWidth = 1.2;
+      for (let i = -3; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * w * 0.14, -h * 0.50);
+        ctx.lineTo(i * w * 0.14, -h * 0.43);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(40,55,75,.5)';
+      rr(-w * 0.18, -h * 0.28, w * 0.36, h * 0.10, 2); ctx.fill();
+      ctx.fillStyle = '#3d6b2a';
+      rr(-w * 0.44, h * 0.06, w * 0.88, h * 0.34, 3); ctx.fill();
+    }
+
+    // 汽车吊：前伸吊臂 + 支腿
+    if (kind === 'crane') {
+      ctx.strokeStyle = '#f2c94c';
+      ctx.lineWidth = Math.max(2, w * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.18, h * 0.10);
+      ctx.lineTo(-w * 0.30, -h * 0.52);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(80,70,40,.55)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.18, h * 0.10);
+      ctx.lineTo(-w * 0.30, -h * 0.52);
+      ctx.stroke();
+      ctx.fillStyle = '#2b303b';
+      rr(-w * 0.56, h * 0.18, w * 0.14, h * 0.16, 2); ctx.fill();
+      rr(w * 0.42, h * 0.18, w * 0.14, h * 0.16, 2); ctx.fill();
     }
 
     // 警灯 / 警示灯
@@ -3652,7 +3888,8 @@
     'bus', 'taxi', 'van', 'tanker', 'tow', 'garbage',
     'sports', 'pickup', 'school', 'rv', 'container', 'icecream',
     'motorcycle', 'tuktuk', 'classic', 'excavator', 'roller', 'pumptruck',
-    'doublebus', 'mail', 'delivery', 'fridge', 'tractor', 'forklift'
+    'doublebus', 'mail', 'delivery', 'fridge', 'tractor', 'forklift',
+    'limo', 'minibus', 'sweeper', 'bulldozer', 'harvester', 'crane'
   ];
   const TRAFFIC_SPECS = {
     car: { w: 1.00, h: 1.90, body: ['#7aa6d4', '#3d6390'] },
@@ -3684,7 +3921,13 @@
     delivery: { w: 1.06, h: 2.30, body: ['#c98a4b', '#8f5e2f'] },
     fridge: { w: 1.12, h: 2.45, body: ['#f4f8fb', '#c3d2de'] },
     tractor: { w: 1.00, h: 2.10, body: ['#d9534f', '#a33a37'] },
-    forklift: { w: 1.05, h: 2.00, body: ['#f2a33c', '#c47a1a'] }
+    forklift: { w: 1.05, h: 2.00, body: ['#f2a33c', '#c47a1a'] },
+    limo: { w: 1.20, h: 3.00, body: ['#1c1f27', '#0c0e13'] },
+    minibus: { w: 1.10, h: 2.40, body: ['#5aa8d8', '#2f79a8'] },
+    sweeper: { w: 1.10, h: 2.20, body: ['#5fb56f', '#357a44'] },
+    bulldozer: { w: 1.14, h: 2.30, body: ['#f2c03c', '#c48f14'] },
+    harvester: { w: 1.10, h: 2.40, body: ['#6fb54a', '#43802b'] },
+    crane: { w: 1.10, h: 2.60, body: ['#e8b23a', '#b98518'] }
   };
   let quizRowSeq = 0;
 
