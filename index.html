@@ -652,8 +652,55 @@
       plant: 'lantern', flower: ['#ffd166', '#ff7a59'], weather: ['clear', 'wind'] }
   ];
 
+  // 国内品牌车标用内联 SVG 简笔绘制，离线可用、不额外请求图片
+  function svgLogo(inner, w, h) {
+    return 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h +
+      '" viewBox="0 0 ' + w + ' ' + h + '">' + inner + '</svg>'
+    );
+  }
+
   // 车型与真实车标（车标取自公开车标素材库；商标归各品牌所有，本项目仅个人非商业使用）
   const BRANDS = [
+    {
+      id: 'byd', brand: '比亚迪', model: '汉 EV', ratio: 2.06,
+      body: '#f4f6f9', body2: '#c9d1db', accent: '#d71920',
+      logo: svgLogo('<ellipse cx="60" cy="30" rx="55" ry="26" fill="none" stroke="#d71920" stroke-width="6"/>' +
+        '<text x="60" y="40" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="700" fill="#d71920" text-anchor="middle">BYD</text>', 120, 60)
+    },
+    {
+      id: 'nio', brand: '蔚来', model: 'ET5', ratio: 2.08,
+      body: '#2f6bd8', body2: '#1c4596', accent: '#8fe0ff',
+      logo: svgLogo('<path d="M6 38 Q50 2 94 38 L72 38 Q50 18 28 38 Z" fill="#e8f4ff"/>' +
+        '<path d="M50 74 L18 40 L38 40 L50 54 L62 40 L82 40 Z" fill="#e8f4ff"/>', 100, 78)
+    },
+    {
+      id: 'xpeng', brand: '小鹏', model: 'P7', ratio: 2.08,
+      body: '#eef1f5', body2: '#c4cbd6', accent: '#12233c',
+      logo: svgLogo('<path d="M10 16 L34 50 L10 84 L28 84 L50 56 L72 84 L90 84 L66 50 L90 16 L72 16 L50 44 L28 16 Z" fill="#12233c"/>', 100, 100)
+    },
+    {
+      id: 'lixiang', brand: '理想', model: 'L9', ratio: 1.64,
+      body: '#dcd7c7', body2: '#b3ab94', accent: '#1c8f6a',
+      logo: svgLogo('<text x="50" y="46" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#3f4a4f" text-anchor="middle">Li</text>', 100, 60)
+    },
+    {
+      id: 'xiaomi', brand: '小米', model: 'SU7', ratio: 2.06,
+      body: '#2b7ec9', body2: '#1d5c9c', accent: '#ff6900',
+      logo: svgLogo('<rect x="8" y="8" width="84" height="84" rx="19" fill="#ff6900"/>' +
+        '<text x="50" y="65" font-family="Arial,Helvetica,sans-serif" font-size="40" font-weight="700" fill="#fff" text-anchor="middle">mi</text>', 100, 100)
+    },
+    {
+      id: 'wuling', brand: '五菱', model: '宏光 MINI', ratio: 1.52,
+      body: '#f2f4f7', body2: '#cad0d8', accent: '#c8102e',
+      logo: svgLogo('<text x="50" y="68" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="900" fill="#c8102e" text-anchor="middle">W</text>', 100, 84)
+    },
+    {
+      id: 'hongqi', brand: '红旗', model: 'H9', ratio: 2.02,
+      body: '#1a1d24', body2: '#0c0e13', accent: '#c8102e',
+      logo: svgLogo('<rect x="8" y="10" width="84" height="50" rx="7" fill="#c8102e"/>' +
+        '<path d="M18 24 H82 M18 34 H82 M18 44 H82" stroke="#f2c94c" stroke-width="4"/>', 100, 70)
+    },
     {
       id: 'ferrari', brand: '法拉利', model: '488 GTB', ratio: 2.10,
       body: '#d0021b', body2: '#8c0013', accent: '#f5d020',
@@ -1162,7 +1209,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-05.1';
+  const APP_VERSION = '2026-11-08.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2214,6 +2261,7 @@
 
   function drawDecor() {
     for (const d of decor) {
+      if (view3d && d.y < 0) continue;
       if (view3d) begin3d(d.y);
       if (d.type === 'tree') drawTree(d.x, d.y, d.s);
       else if (d.type === 'cactus') drawCactus(d.x, d.y, d.s);
@@ -3128,6 +3176,13 @@
 
   function badgeSpec(id) {
     const S = {
+      byd: { y: -0.396, w: 0.26 },
+      nio: { y: -0.390, w: 0.22 },
+      xpeng: { y: -0.394, w: 0.22 },
+      lixiang: { y: -0.398, w: 0.20 },
+      xiaomi: { y: -0.372, w: 0.22 },
+      wuling: { y: -0.398, w: 0.20 },
+      hongqi: { y: -0.396, w: 0.24, glow: true },
       ferrari: { y: -0.372, w: 0.22 },
       lamborghini: { y: -0.372, w: 0.20 },
       mercedes: { y: -0.398, w: 0.18, glow: true },
@@ -3708,6 +3763,13 @@
   }
 
   const PAINTERS = {
+    byd: paint86,
+    nio: paint86,
+    xpeng: paint86,
+    lixiang: paintGClass,
+    xiaomi: paintFerrari,
+    wuling: paintGClass,
+    hongqi: paint86,
     ferrari: paintFerrari,
     lamborghini: paintLamborghini,
     mercedes: paintGClass,
@@ -3832,25 +3894,24 @@
   }
 
   // ---------- 伪 3D 投影 ----------
-  function horizonY() { return H * 0.28; }
+  function horizonY() { return H * 0.30; }
 
-  function projY(y) {
-    const hz = horizonY(), CY = carY;
-    if (y <= 0) return hz;
-    if (y <= CY) return hz + (CY - hz) * (y / CY);
-    return CY + (H - CY) * Math.min(1, (y - CY) / Math.max(1, H - CY));
-  }
-
-  function projK(y) {
+  // 屏幕 y 与缩放系数必须同源，这样车道线、路缘石和路面梯形才会对齐
+  function projT(y) {
     const CY = carY;
-    if (y <= 0) return 0.30;
-    if (y <= CY) {
-      const t = y / CY;
-      return 0.30 + 0.70 * Math.pow(t, 1.35);
+    const hz = horizonY();
+    const t0 = Math.max(1, CY) / H;
+    const t = Math.max(0, Math.min(1, y / H));
+    if (t <= t0) {
+      const r = Math.pow(t / t0, 1.55);
+      return { y: hz + (CY - hz) * r, k: 0.30 + 0.70 * r };
     }
-    const t = Math.min(1, (y - CY) / Math.max(1, H - CY));
-    return 1 + 0.18 * t;
+    const u = Math.min(1, (t - t0) / Math.max(0.0001, 1 - t0));
+    return { y: CY + (H - CY) * u, k: 1 + 0.28 * u };
   }
+
+  function projY(y) { return projT(y).y; }
+  function projK(y) { return projT(y).k; }
 
   function projX(x, k) { return W / 2 + (x - W / 2) * k; }
 
@@ -3870,23 +3931,81 @@
     ctx.restore();
   }
 
+  // 立体视角地平线配色：[天顶, 地平线]
+  const SKY = {
+    city: ['#79c6ee', '#dcf2ff'],
+    desert: ['#f4b96a', '#ffe4bd'],
+    snow: ['#9fc4e8', '#eef8ff'],
+    beach: ['#7ecfee', '#ffe8c8'],
+    night: ['#0b1330', '#273759'],
+    rain: ['#5c7180', '#a9bac1'],
+    forest: ['#7bc0e6', '#d9f2e0'],
+    mountain: ['#8fb6d8', '#e2eef5'],
+    countryside: ['#8eccef', '#e9f6da'],
+    harbor: ['#66c1e2', '#d2eff8'],
+    tunnel: ['#23262d', '#3c414b'],
+    construction: ['#c4d9e2', '#ece2cb'],
+    park: ['#88cfee', '#e6f7dd'],
+    grassland: ['#86d2f0', '#f2fce0'],
+    space: ['#07071a', '#231d44'],
+    volcano: ['#331716', '#7c2b1f'],
+    bamboo: ['#94d2cd', '#e4f7d9'],
+    amusement: ['#ffc9e3', '#fff0f8'],
+    glacier: ['#86bee8', '#eaf8ff'],
+    lavender: ['#b2c4f0', '#f1e9ff'],
+    candy: ['#ffc9e4', '#fff4fb'],
+    neon: ['#0b0820', '#2a1440'],
+    sakura: ['#ffc9e1', '#fff2f9'],
+    aurora: ['#0a1332', '#26406e'],
+    ocean: ['#0b4268', '#207fa8'],
+    festival: ['#241520', '#5b2b23']
+  };
+
+  function shadeHex(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    if (amt < 0) { const f = 1 + amt; r *= f; g *= f; b *= f; }
+    else { r += (255 - r) * amt; g += (255 - g) * amt; b += (255 - b) * amt; }
+    return 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ')';
+  }
+
+  // 地平线上的远山剪影
+  function drawHills(hz, color, amp, freq, phase) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-8, hz + 2);
+    for (let x = -8; x <= W + 8; x += 12) {
+      const h = amp * (0.52 + 0.48 * Math.sin(x * freq + phase));
+      ctx.lineTo(x, hz - h);
+    }
+    ctx.lineTo(W + 8, hz + 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function drawGrass3d() {
     const th = curTheme();
-    const gg = ctx.createLinearGradient(0, 0, 0, H);
-    gg.addColorStop(0, th.grass[0]);
+    const hz = horizonY();
+    const sky = SKY[th.id] || ['#8fc8ea', '#e6f5ff'];
+
+    // 天空
+    const sg = ctx.createLinearGradient(0, 0, 0, hz);
+    sg.addColorStop(0, sky[0]);
+    sg.addColorStop(1, sky[1]);
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, W, hz + 1);
+
+    // 远山：两层不同深浅，给地平线一点纵深
+    drawHills(hz, shadeHex(th.grass[1], -0.30), Math.max(10, hz * 0.30), 0.013, 0.9);
+    drawHills(hz, shadeHex(th.grass[1], -0.14), Math.max(6, hz * 0.15), 0.021, 2.6);
+
+    // 草地：地平线附近偏亮（雾化），越靠近镜头越浓
+    const gg = ctx.createLinearGradient(0, hz, 0, H);
+    gg.addColorStop(0, shadeHex(th.grass[0], 0.42));
+    gg.addColorStop(0.28, th.grass[0]);
     gg.addColorStop(1, th.grass[1]);
     ctx.fillStyle = gg;
-    ctx.fillRect(0, 0, W, H);
-
-    // 地平线附近的雾，拉开纵深
-    const hz = horizonY();
-    const fogH = Math.min(120, H * 0.18);
-    const hg = ctx.createLinearGradient(0, hz - fogH * 0.5, 0, hz + fogH * 0.5);
-    hg.addColorStop(0, 'rgba(255,255,255,.26)');
-    hg.addColorStop(0.5, 'rgba(255,255,255,.12)');
-    hg.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = hg;
-    ctx.fillRect(0, hz - fogH * 0.5, W, fogH);
+    ctx.fillRect(0, hz, W, H - hz);
 
     // 两侧草地条纹随距离收拢
     const period = 140;
@@ -3912,6 +4031,15 @@
       ctx.closePath();
       ctx.fill();
     }
+
+    // 地平线附近的薄雾
+    const fogH = Math.min(120, H * 0.18);
+    const hg = ctx.createLinearGradient(0, hz - fogH, 0, hz + fogH * 0.6);
+    hg.addColorStop(0, 'rgba(255,255,255,0)');
+    hg.addColorStop(0.55, 'rgba(255,255,255,.20)');
+    hg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, hz - fogH, W, fogH * 1.6);
   }
 
   function drawCurb3d(side, colors) {
@@ -3942,13 +4070,18 @@
     const lf = projX(roadLeft, kFar), rf = projX(roadRight, kFar);
     const ln = projX(roadLeft, kNear), rn = projX(roadRight, kNear);
 
+    // 路面：远端偏亮（雾化），近端稍微压暗，强化纵深
+    const rg = ctx.createLinearGradient(0, hz, 0, H);
+    rg.addColorStop(0, shadeHex(th.road, 0.42));
+    rg.addColorStop(0.25, th.road);
+    rg.addColorStop(1, shadeHex(th.road, -0.10));
     ctx.beginPath();
     ctx.moveTo(lf, hz);
     ctx.lineTo(rf, hz);
     ctx.lineTo(rn, H);
     ctx.lineTo(ln, H);
     ctx.closePath();
-    ctx.fillStyle = th.road;
+    ctx.fillStyle = rg;
     ctx.fill();
 
     ctx.save();
@@ -3995,6 +4128,14 @@
         ctx.fill();
       }
     }
+
+    // 地平线附近的雾，让远端路面自然淡出
+    const fogH = Math.min(150, H * 0.24);
+    const fg = ctx.createLinearGradient(0, hz, 0, hz + fogH);
+    fg.addColorStop(0, 'rgba(255,255,255,.48)');
+    fg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, hz, W, fogH);
   }
 
   function drawGrass() {
@@ -4671,6 +4812,7 @@
     }
 
     for (const o of objects) {
+      if (view3d && o.y < 0) continue;
       if (view3d) begin3d(o.y);
       if (o.type === 'star') {
         drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
