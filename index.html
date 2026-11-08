@@ -1270,7 +1270,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-08.5';
+  const APP_VERSION = '2026-11-09.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1589,6 +1589,7 @@
     car.w = clamp(roadWidth * 0.17, 46, 78);
     car.h = car.w * (brand.ratio || 2.0);
     carY = Math.max(H * 0.40, Math.min(H * 0.68, H - ctrl - 44 - car.h * 0.55));
+    camSync();
 
     // 屏幕越大，速度越快，单局时长保持一致
     state.scale = clamp(H / 800, 0.72, 1.18);
@@ -2321,9 +2322,18 @@
   }
 
   function drawDecor() {
+    if (view3d) {
+      // 真 3D：远的先画，近的后画
+      const list = decor.slice().sort(function (a, b) { return b.y - a.y; });
+      for (const d of list) {
+        if (d.y + 24 < camHorizon) continue;
+        // 跑到车后（更靠近镜头）的装饰会被透视放得极大，直接不画
+        if (d.y > carY + 36) continue;
+        drawProp3d(d);
+      }
+      return;
+    }
     for (const d of decor) {
-      if (view3d && d.y < 0) continue;
-      if (view3d) begin3d(d.y);
       if (d.type === 'tree') drawTree(d.x, d.y, d.s);
       else if (d.type === 'cactus') drawCactus(d.x, d.y, d.s);
       else if (d.type === 'pine') drawPine(d.x, d.y, d.s);
@@ -2349,7 +2359,6 @@
       else if (d.type === 'coral') drawCoral(d.x, d.y, d.s);
       else if (d.type === 'lantern') drawLantern(d.x, d.y, d.s);
       else drawFlower(d.x, d.y, d.s, d.color, d.phase);
-      if (view3d) ctx.restore();
     }
   }
 
@@ -5217,6 +5226,7 @@
   };
 
   function drawCar() {
+    if (view3d) { drawCar3d(); return; }
     const b = getBrand();
     const w = car.w, h = car.h;
     const bob = Math.sin(state.time * 7) * 0.9 + (state.mode === 'ready' ? Math.sin(state.time * 2) * 1.6 : 0);
@@ -5329,43 +5339,22 @@
     }
   }
 
-  // ---------- 伪 3D 投影 ----------
-  function horizonY() { return H * 0.30; }
+  // ---------- 真 3D：透视相机 + 立体几何 ----------
+  // 世界单位 = 车所在行的像素；相机固定在车后方，做真透视投影
+  const CAM_PITCH = 0.26;
+  let camF = 1, camSt = 0, camCt = 1, camHc = 0, camZC = 0, camHorizon = 0;
 
-  // 屏幕 y 与缩放系数必须同源，这样车道线、路缘石和路面梯形才会对齐
-  function projT(y) {
-    const CY = carY;
-    const hz = horizonY();
-    const t0 = Math.max(1, CY) / H;
-    const t = Math.max(0, Math.min(1, y / H));
-    if (t <= t0) {
-      const r = Math.pow(t / t0, 1.55);
-      return { y: hz + (CY - hz) * r, k: 0.30 + 0.70 * r };
-    }
-    const u = Math.min(1, (t - t0) / Math.max(0.0001, 1 - t0));
-    return { y: CY + (H - CY) * u, k: 1 + 0.28 * u };
+  function camSync() {
+    camSt = Math.sin(CAM_PITCH);
+    camCt = Math.cos(CAM_PITCH);
+    camF = Math.max(200, H * 0.86);
+    const A = H / 2 - carY;
+    camZC = camF * camCt + A * camSt;
+    camHc = camF * camSt - A * camCt;
+    camHorizon = H / 2 - camF * camSt / camCt;
   }
 
-  function projY(y) { return projT(y).y; }
-  function projK(y) { return projT(y).k; }
-
-  function projX(x, k) { return W / 2 + (x - W / 2) * k; }
-
-  // 以物体自身为锚点做透视缩放
-  function begin3d(y) {
-    const k = projK(y);
-    ctx.save();
-    ctx.translate(W / 2, projY(y));
-    ctx.scale(k, k);
-    ctx.translate(-W / 2, -y);
-  }
-
-  function with3d(y, fn) {
-    if (!view3d) { fn(); return; }
-    begin3d(y);
-    fn();
-    ctx.restore();
-  }
+  function horizonY() { return camHorizon; }
 
   // 立体视角地平线配色：[天顶, 地平线]
   const SKY = {
@@ -5419,23 +5408,290 @@
     ctx.fill();
   }
 
+  // 屏幕行 → 世界深度
+  function depthOf(sy) {
+    const m = (H / 2 - sy) / camF;
+    const den = m * camCt - camSt;
+    if (den > -1e-3) return 1e6;
+    return -camHc * (camCt + m * camSt) / den;
+  }
+
+  // 该深度处 1 世界单位对应的屏幕像素
+  function pxAt(z) {
+    const zt = z * camCt + camHc * camSt;
+    return zt > 8 ? camF / zt : 0;
+  }
+
+  function pr(x, y, z) {
+    const zt = z * camCt + camHc * camSt;
+    if (zt < 8) return null;
+    const yt = (y - camHc) * camCt + z * camSt;
+    return { x: W / 2 + x * camF / zt, y: H / 2 - yt * camF / zt, k: camF / zt };
+  }
+
+  function poly3(pts, fill, edge, lw) {
+    ctx.beginPath();
+    let first = true;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pr(pts[i][0], pts[i][1], pts[i][2]);
+      if (!p) return;
+      if (first) { ctx.moveTo(p.x, p.y); first = false; }
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = lw || 1; ctx.stroke(); }
+  }
+
+  // 立方体：后脸 + 顶面 + 朝相机的侧面
+  function box3(x0, x1, y0, y1, z0, z1, top, side, back) {
+    poly3([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], back);
+    poly3([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], top);
+    if ((x0 + x1) * 0.5 >= 0) {
+      poly3([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], side);
+    } else {
+      poly3([[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]], side);
+    }
+  }
+
+  // 地面椭圆（阴影 / 水洼）
+  function groundEllipse(cx, cz, rx, rz, fill) {
+    const pts = [];
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * rx, 0.5, cz + Math.sin(a) * rz]);
+    }
+    poly3(pts, fill);
+  }
+
+  // 立体圆锥（树冠 / 雪糕筒 / 石头）
+  function cone3(cx, cz, r, y0, y1, colA, colB, seg) {
+    seg = seg || 12;
+    for (let i = 0; i < seg; i++) {
+      const a0 = i / seg * Math.PI * 2;
+      const a1 = (i + 1) / seg * Math.PI * 2;
+      poly3([
+        [cx + Math.cos(a0) * r, y0, cz + Math.sin(a0) * r],
+        [cx + Math.cos(a1) * r, y0, cz + Math.sin(a1) * r],
+        [cx, y1, cz]
+      ], i % 2 ? colA : colB);
+    }
+  }
+
+  // 通用立体车：玩家与交通车共用
+  function carMesh(x, zRear, len, wid, hei, col, opt) {
+    const o = opt || {};
+    const hw = wid * 0.5;
+    const yBase = hei * 0.18;
+    const yBelt = hei * (o.belt || 0.58);
+    const zF = zRear + len;
+    const cabR = zRear + len * (o.cabRear != null ? o.cabRear : 0.20);
+    const cabF = zRear + len * (o.cabFront != null ? o.cabFront : 0.62);
+    const cw = hw * (o.cabW || 0.80);
+    const roof = hei * 0.99;
+
+    groundEllipse(x, zRear + len * 0.5, hw * 1.16, len * 0.56, 'rgba(0,0,0,.24)');
+
+    // 轮胎
+    const wr = wid * 0.115;
+    for (const zc of [zRear + len * 0.20, zRear + len * 0.79]) {
+      for (const s of [-1, 1]) {
+        const cx = x + s * (hw - wr * 0.22);
+        box3(cx - wr, cx + wr, 0, yBelt * 0.70, zc - wr * 1.3, zc + wr * 1.3,
+          '#22262e', '#15181e', '#181c22');
+      }
+    }
+
+    // 车身
+    box3(x - hw, x + hw, yBase, yBelt, zRear, zF,
+      shadeHex(col, 0.18), shadeHex(col, -0.26), shadeHex(col, -0.38));
+
+    // 尾灯
+    const rz = zRear - 0.8;
+    for (const s of [-1, 1]) {
+      poly3([
+        [x + s * hw * 0.40, yBelt * 0.94, rz], [x + s * hw * 0.86, yBelt * 0.94, rz],
+        [x + s * hw * 0.86, yBelt * 0.70, rz], [x + s * hw * 0.40, yBelt * 0.70, rz]
+      ], o.tail || '#e8433e');
+    }
+
+    // 座舱
+    box3(x - cw, x + cw, yBelt, roof, cabR, cabF,
+      shadeHex(col, 0.10), shadeHex(col, -0.32), shadeHex(col, -0.44));
+
+    // 后风挡
+    poly3([
+      [x - cw * 0.88, roof * 0.94, cabR - 0.9], [x + cw * 0.88, roof * 0.94, cabR - 0.9],
+      [x + cw * 0.82, yBelt + hei * 0.05, cabR - 0.9], [x - cw * 0.82, yBelt + hei * 0.05, cabR - 0.9]
+    ], 'rgba(26,38,56,.80)');
+
+    // 车顶玻璃 / 饰条
+    if (o.glass) {
+      poly3([
+        [x - cw * 0.74, roof + 0.5, cabR + len * 0.06], [x + cw * 0.74, roof + 0.5, cabR + len * 0.06],
+        [x + cw * 0.74, roof + 0.5, cabF - len * 0.08], [x - cw * 0.74, roof + 0.5, cabF - len * 0.08]
+      ], 'rgba(30,46,68,.34)');
+    }
+    if (o.accent) {
+      // 车顶两侧饰条（俯角下中央长条会被压成一个方块，所以做成两侧边条）
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * cw * 0.44, roof + 0.8, cabR + len * 0.08], [x + s * cw * 0.62, roof + 0.8, cabR + len * 0.08],
+          [x + s * cw * 0.62, roof + 0.8, cabF - len * 0.10], [x + s * cw * 0.44, roof + 0.8, cabF - len * 0.10]
+        ], o.accent);
+      }
+    }
+
+    // 车尾品牌车标
+    if (o.badge && o.badge.naturalWidth) {
+      const img = o.badge;
+      const bw = wid * 0.42;
+      const bh = bw * img.naturalHeight / Math.max(1, img.naturalWidth);
+      const p = pr(x, yBelt * 0.56, rz - 0.4);
+      if (p) {
+        const sw = bw * p.k, sh2 = bh * p.k;
+        if (sw > 3 && sh2 > 2) {
+          ctx.save();
+          ctx.globalAlpha *= 0.96;
+          ctx.drawImage(img, p.x - sw / 2, p.y - sh2 / 2, sw, sh2);
+          ctx.restore();
+        }
+      }
+    }
+  }
+
+  function drawCar3d() {
+    const b = getBrand();
+    const wid = car.w, len = car.h;
+    const hei = wid * (b.id === 'wuling' ? 1.00 : 0.76);
+    const zRear = camZC - len * 0.5;
+    const x = state.carX - W / 2;
+
+    ctx.save();
+    if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.55;
+    carMesh(x, zRear, len, wid, hei, b.body, {
+      belt: 0.56,
+      cabRear: 0.18,
+      cabFront: 0.62,
+      cabW: 0.80,
+      glass: true,
+      accent: b.accent,
+      badge: logoImgs[b.id + ':badge'] || logoImgs[b.id]
+    });
+    ctx.restore();
+  }
+
+  // 路边装饰：按类型给成立体体积
+  function drawProp3d(d) {
+    const th = curTheme();
+    const z = depthOf(d.y);
+    if (!(z > 0) || z > 8000) return;
+    const k = pxAt(z);
+    if (k <= 0.01) return;
+    const x = d.x - W / 2;
+    const s = d.s;
+    const t = d.type;
+    const leaf = shadeHex(th.grass[1], -0.44);
+    const leaf2 = shadeHex(th.grass[1], -0.24);
+
+    if (t === 'lamp' || t === 'turbine' || t === 'crane' || t === 'planet' || t === 'balloon') {
+      const hh = 92 * s;
+      box3(x - 2 * s, x + 2 * s, 0, hh, z - 2 * s, z + 2 * s, '#aab3bf', '#7e8794', '#6d7683');
+      if (t === 'lamp') {
+        poly3([[x - 9 * s, hh, z], [x + 9 * s, hh, z], [x + 9 * s, hh + 6 * s, z], [x - 9 * s, hh + 6 * s, z]], '#ffe9a8');
+      } else if (t === 'planet') {
+        poly3([[x - 20 * s, hh, z], [x + 20 * s, hh, z], [x + 16 * s, hh + 26 * s, z], [x - 16 * s, hh + 26 * s, z]], leaf2);
+      } else {
+        poly3([[x - 14 * s, hh, z], [x + 14 * s, hh, z], [x + 10 * s, hh + 20 * s, z], [x - 10 * s, hh + 20 * s, z]], '#dfe8f2');
+      }
+      return;
+    }
+
+    if (t === 'rock' || t === 'iceberg' || t === 'lava' || t === 'coral') {
+      cone3(x, z, 22 * s, 0, 26 * s, '#a9b3bd', '#8b96a2', 8);
+      return;
+    }
+
+    if (t === 'flower' || t === 'wheat' || t === 'lavender') {
+      box3(x - 1.4 * s, x + 1.4 * s, 0, 18 * s, z - 1.4 * s, z + 1.4 * s, leaf, leaf, shadeHex(th.grass[1], -0.52));
+      cone3(x, z, 7 * s, 18 * s, 26 * s, d.color || '#ffd166', d.color || '#ffce4d', 8);
+      return;
+    }
+
+    // 树：树干 + 两层树冠
+    box3(x - 3 * s, x + 3 * s, 0, 32 * s, z - 3 * s, z + 3 * s, '#8a6642', '#6f4f31', '#5f4128');
+    cone3(x, z, 24 * s, 30 * s, 92 * s, leaf2, leaf, 10);
+  }
+
+  // 关卡物件：星星 / 道具 / 交通车 / 雪糕筒 / 石头
+  function drawObject3d(o) {
+    const z = depthOf(o.y);
+    if (!(z > 0) || z > 8000) return;
+    const k = pxAt(z);
+    if (k <= 0.02) return;
+    const x = o.x - W / 2;
+
+    if (o.type === 'star') {
+      const g = pr(x, 0, z);
+      if (!g) return;
+      groundEllipse(x, z, o.r * 0.60, o.r * 0.34, 'rgba(0,0,0,.16)');
+      drawChar(o.x, g.y - o.r * k * 0.95, o.r * k, o.ch, state.time * 2.2 + o.phase);
+      return;
+    }
+
+    if (o.type === 'power') {
+      const g = pr(x, 0, z);
+      if (!g) return;
+      groundEllipse(x, z, o.s * 0.52, o.s * 0.30, 'rgba(0,0,0,.16)');
+      drawPower(o.x, g.y - o.s * k * 0.92, o.s * k, o.kind, state.time + o.phase);
+      return;
+    }
+
+    if (o.type === 'traffic') {
+      const spec = TRAFFIC_SPECS[o.kind] || TRAFFIC_SPECS.car;
+      const big = o.kind === 'truck' || o.kind === 'cement';
+      carMesh(x, z - o.h * 0.5, o.h, o.w, o.w * (big ? 0.96 : 0.80), spec.body[0], {
+        belt: big ? 0.50 : 0.58,
+        cabRear: big ? 0.08 : 0.22,
+        cabFront: big ? 0.30 : 0.64,
+        cabW: 0.80,
+        glass: true,
+        tail: '#ff5a4a'
+      });
+      return;
+    }
+
+    if (o.type === 'cone') {
+      // o.s 是屏幕像素尺寸（车所在行 1 世界单位 = 1 像素），换算成世界尺寸
+      const r = o.s * 0.30, hh = o.s * 0.70;
+      groundEllipse(x, z, r * 1.4, r * 0.7, 'rgba(0,0,0,.20)');
+      cone3(x, z, r, 0, hh, '#ff8a2b', '#e06e12', 10);
+      poly3([
+        [x - r * 0.62, hh * 0.52, z + r * 0.62], [x + r * 0.62, hh * 0.52, z + r * 0.62],
+        [x + r * 0.40, hh * 0.70, z + r * 0.40], [x - r * 0.40, hh * 0.70, z + r * 0.40]
+      ], 'rgba(255,255,255,.85)');
+      return;
+    }
+
+    const r = o.s * 0.46;
+    groundEllipse(x, z, r * 1.2, r * 0.7, 'rgba(0,0,0,.20)');
+    cone3(x, z, r, 0, o.s * 0.56, '#9aa3ad', '#7d8791', 8);
+  }
+
   function drawGrass3d() {
     const th = curTheme();
-    const hz = horizonY();
+    const hz = camHorizon;
     const sky = SKY[th.id] || ['#8fc8ea', '#e6f5ff'];
 
-    // 天空
-    const sg = ctx.createLinearGradient(0, 0, 0, hz);
+    const sg = ctx.createLinearGradient(0, Math.max(0, hz - H * 0.5), 0, hz);
     sg.addColorStop(0, sky[0]);
     sg.addColorStop(1, sky[1]);
     ctx.fillStyle = sg;
     ctx.fillRect(0, 0, W, hz + 1);
 
-    // 远山：两层不同深浅，给地平线一点纵深
-    drawHills(hz, shadeHex(th.grass[1], -0.30), Math.max(10, hz * 0.30), 0.013, 0.9);
-    drawHills(hz, shadeHex(th.grass[1], -0.14), Math.max(6, hz * 0.15), 0.021, 2.6);
+    drawHills(hz, shadeHex(th.grass[1], -0.30), Math.max(10, H * 0.09), 0.013, 0.9);
+    drawHills(hz, shadeHex(th.grass[1], -0.14), Math.max(6, H * 0.045), 0.021, 2.6);
 
-    // 草地：地平线附近偏亮（雾化），越靠近镜头越浓
     const gg = ctx.createLinearGradient(0, hz, 0, H);
     gg.addColorStop(0, shadeHex(th.grass[0], 0.42));
     gg.addColorStop(0.28, th.grass[0]);
@@ -5443,32 +5699,19 @@
     ctx.fillStyle = gg;
     ctx.fillRect(0, hz, W, H - hz);
 
-    // 两侧草地条纹随距离收拢
-    const period = 140;
+    // 草地条纹（贴地立体条带）
+    const period = 40;
     const start = (grassOffset % period) - period;
-    ctx.fillStyle = th.stripe;
     for (let wy = start; wy < H + period; wy += period) {
-      const a = Math.max(0, wy), b = Math.min(H, wy + period / 2);
+      const a = Math.max(hz + 1, wy), b = Math.min(H, wy + period * 0.5);
       if (b <= a) continue;
-      const k1 = projK(a), k2 = projK(b);
-      const y1 = projY(a), y2 = projY(b);
-      ctx.beginPath();
-      ctx.moveTo(0, y1);
-      ctx.lineTo(projX(roadLeft - 14, k1), y1);
-      ctx.lineTo(projX(roadLeft - 14, k2), y2);
-      ctx.lineTo(0, y2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(projX(roadRight + 14, k1), y1);
-      ctx.lineTo(W, y1);
-      ctx.lineTo(W, y2);
-      ctx.lineTo(projX(roadRight + 14, k2), y2);
-      ctx.closePath();
-      ctx.fill();
+      const z1 = depthOf(a), z2 = depthOf(b);
+      if (z1 >= 8000 || z2 >= 8000) continue;
+      const hw = roadWidth / 2 + 14;
+      poly3([[-9000, 0.2, z2], [-hw, 0.2, z2], [-hw, 0.2, z1], [-9000, 0.2, z1]], th.stripe);
+      poly3([[hw, 0.2, z2], [9000, 0.2, z2], [9000, 0.2, z1], [hw, 0.2, z1]], th.stripe);
     }
 
-    // 地平线附近的薄雾
     const fogH = Math.min(120, H * 0.18);
     const hg = ctx.createLinearGradient(0, hz - fogH, 0, hz + fogH * 0.6);
     hg.addColorStop(0, 'rgba(255,255,255,0)');
@@ -5478,97 +5721,59 @@
     ctx.fillRect(0, hz - fogH, W, fogH * 1.6);
   }
 
-  function drawCurb3d(side, colors) {
-    const baseX = side < 0 ? roadLeft - 14 : roadRight;
-    const start = (curbOffset % 56) - 56;
-    for (let wy = start; wy < H + 56; wy += 56) {
-      for (let seg = 0; seg < 2; seg++) {
-        const a = Math.max(0, wy + seg * 28), b = Math.min(H, wy + seg * 28 + 28);
-        if (b <= a) continue;
-        const k1 = projK(a), k2 = projK(b);
-        const y1 = projY(a), y2 = projY(b);
-        ctx.fillStyle = colors[seg];
-        ctx.beginPath();
-        ctx.moveTo(projX(baseX, k1), y1);
-        ctx.lineTo(projX(baseX + 14, k1), y1);
-        ctx.lineTo(projX(baseX + 14, k2), y2);
-        ctx.lineTo(projX(baseX, k2), y2);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-  }
-
   function drawRoad3d() {
     const th = curTheme();
-    const hz = horizonY();
-    const kFar = projK(0), kNear = projK(H);
-    const lf = projX(roadLeft, kFar), rf = projX(roadRight, kFar);
-    const ln = projX(roadLeft, kNear), rn = projX(roadRight, kNear);
+    const hz = camHorizon;
+    const HW = roadWidth / 2;
+    const zN = 200, zF = 9000;
 
-    // 路面：远端偏亮（雾化），近端稍微压暗，强化纵深
     const rg = ctx.createLinearGradient(0, hz, 0, H);
-    rg.addColorStop(0, shadeHex(th.road, 0.42));
-    rg.addColorStop(0.25, th.road);
-    rg.addColorStop(1, shadeHex(th.road, -0.10));
-    ctx.beginPath();
-    ctx.moveTo(lf, hz);
-    ctx.lineTo(rf, hz);
-    ctx.lineTo(rn, H);
-    ctx.lineTo(ln, H);
-    ctx.closePath();
-    ctx.fillStyle = rg;
-    ctx.fill();
+    rg.addColorStop(0, shadeHex(th.road, 0.46));
+    rg.addColorStop(0.22, th.road);
+    rg.addColorStop(1, shadeHex(th.road, -0.12));
+    poly3([[-HW, 0.6, zN], [HW, 0.6, zN], [HW, 0.6, zF], [-HW, 0.6, zF]], rg);
 
-    ctx.save();
-    ctx.clip();
-    const eg = ctx.createLinearGradient(lf, 0, rf, 0);
-    eg.addColorStop(0, th.edge);
-    eg.addColorStop(0.2, 'rgba(0,0,0,0)');
-    eg.addColorStop(0.8, 'rgba(0,0,0,0)');
-    eg.addColorStop(1, th.edge);
-    ctx.fillStyle = eg;
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
+    poly3([[-HW + 3, 0.7, zN], [-HW + 8, 0.7, zN], [-HW + 8, 0.7, zF], [-HW + 3, 0.7, zF]], 'rgba(255,255,255,.55)');
+    poly3([[HW - 8, 0.7, zN], [HW - 3, 0.7, zN], [HW - 3, 0.7, zF], [HW - 8, 0.7, zF]], 'rgba(255,255,255,.55)');
 
-    ctx.strokeStyle = 'rgba(255,255,255,.55)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(projX(roadLeft + 3, kFar), hz);
-    ctx.lineTo(projX(roadLeft + 3, kNear), H);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(projX(roadRight - 3, kFar), hz);
-    ctx.lineTo(projX(roadRight - 3, kNear), H);
-    ctx.stroke();
-
-    drawCurb3d(-1, th.curb);
-    drawCurb3d(1, th.curb);
-
-    const dashH = 34, gap = 38, period = dashH + gap;
+    // 车道虚线
+    const period = 46, dash = 20;
     const start = (dashOffset % period) - period;
-    ctx.fillStyle = 'rgba(255,255,255,.62)';
     for (let i = 1; i < LANES; i++) {
-      const x = roadLeft + i * laneW;
+      const x = -HW + i * laneW;
       for (let wy = start; wy < H + period; wy += period) {
-        const a = Math.max(0, wy), b = Math.min(H, wy + dashH);
+        const a = Math.max(hz + 1.5, wy), b = Math.min(H, wy + dash);
         if (b <= a) continue;
-        const k1 = projK(a), k2 = projK(b);
-        const y1 = projY(a), y2 = projY(b);
-        ctx.beginPath();
-        ctx.moveTo(projX(x - 3, k1), y1);
-        ctx.lineTo(projX(x + 3, k1), y1);
-        ctx.lineTo(projX(x + 3, k2), y2);
-        ctx.lineTo(projX(x - 3, k2), y2);
-        ctx.closePath();
-        ctx.fill();
+        const z1 = depthOf(a), z2 = depthOf(b);
+        if (z1 >= 8000 || z2 >= 8000) continue;
+        poly3([[x - 3, 0.8, z2], [x + 3, 0.8, z2], [x + 3, 0.8, z1], [x - 3, 0.8, z1]], 'rgba(255,255,255,.68)');
       }
     }
 
-    // 地平线附近的雾，让远端路面自然淡出
+    // 立体路缘石
+    const seg = 26;
+    for (const side of [-1, 1]) {
+      const x0 = side < 0 ? -HW - 14 : HW;
+      const x1 = x0 + 14;
+      const st2 = (curbOffset % (seg * 2)) - seg * 2;
+      for (let wy = st2; wy < H + seg * 2; wy += seg * 2) {
+        for (let s2 = 0; s2 < 2; s2++) {
+          const a = Math.max(hz + 1.5, wy + s2 * seg), b = Math.min(H, wy + (s2 + 1) * seg);
+          if (b <= a) continue;
+          const z1 = depthOf(a), z2 = depthOf(b);
+          if (z1 >= 8000 || z2 >= 8000) continue;
+          const col = th.curb[s2 % th.curb.length];
+          poly3([[x0, 13, z2], [x1, 13, z2], [x1, 13, z1], [x0, 13, z1]], shadeHex(col, 0.20));
+          const inX = side < 0 ? x1 : x0;
+          poly3([[inX, 0, z2], [inX, 0, z1], [inX, 13, z1], [inX, 13, z2]], shadeHex(col, -0.20));
+        }
+      }
+    }
+
+    // 远端雾
     const fogH = Math.min(150, H * 0.24);
     const fg = ctx.createLinearGradient(0, hz, 0, hz + fogH);
-    fg.addColorStop(0, 'rgba(255,255,255,.48)');
+    fg.addColorStop(0, 'rgba(255,255,255,.50)');
     fg.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = fg;
     ctx.fillRect(0, hz, W, fogH);
@@ -6122,19 +6327,20 @@
     for (let i = 0; i < n; i++) {
       const y = ((i * 173 + state.distance * 0.8) % (H + 160)) - 80;
       const x = roadLeft + 30 + ((i * 0.37 + 0.13) % 1) * Math.max(10, roadRight - roadLeft - 60);
+      if (view3d) {
+        const z = depthOf(y);
+        if (y > camHorizon && z > 0 && z < 8000) {
+          groundEllipse(x - W / 2, z, roadWidth * 0.14, 26, 'rgba(170,205,240,.26)');
+        }
+        continue;
+      }
       ctx.fillStyle = 'rgba(170,205,240,.20)';
-      with3d(y, function () {
-        ctx.beginPath();
-        ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      ctx.beginPath();
+      ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.22)';
       ctx.lineWidth = 1.5;
-      with3d(y, function () {
-        ctx.beginPath();
-        ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      });
+      ctx.stroke();
     }
   }
 
@@ -6247,21 +6453,28 @@
       ctx.fillRect(0, 0, W, H);
     }
 
-    for (const o of objects) {
-      if (view3d && o.y < 0) continue;
-      if (view3d) begin3d(o.y);
-      if (o.type === 'star') {
-        drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
-      } else if (o.type === 'power') {
-        drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
-      } else if (o.type === 'traffic') {
-        drawTraffic(o);
-      } else if (o.type === 'cone') {
-        drawCone(o.x, o.y, o.s);
-      } else {
-        drawRock(o.x, o.y, o.s);
+    if (view3d) {
+      const list = objects.slice().sort(function (a, b) { return b.y - a.y; });
+      for (const o of list) {
+        if (o.y + 20 < camHorizon) continue;
+        // 已从车旁经过（更靠近镜头）的物件会被透视放得极大，直接不画
+        if (o.y > carY + 46) continue;
+        drawObject3d(o);
       }
-      if (view3d) ctx.restore();
+    } else {
+      for (const o of objects) {
+        if (o.type === 'star') {
+          drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
+        } else if (o.type === 'power') {
+          drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
+        } else if (o.type === 'traffic') {
+          drawTraffic(o);
+        } else if (o.type === 'cone') {
+          drawCone(o.x, o.y, o.s);
+        } else {
+          drawRock(o.x, o.y, o.s);
+        }
+      }
     }
 
     // 道具光环
