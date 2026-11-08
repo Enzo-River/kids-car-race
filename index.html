@@ -1240,7 +1240,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-08.3';
+  const APP_VERSION = '2026-11-08.4';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -6382,6 +6382,11 @@
     if (W < 2 || H < 2 || (canvas.width <= 1 || canvas.height <= 1) ||
         (cw > 1 && ch > 1 && (Math.abs(cw - W) > 1 || Math.abs(ch - H) > 1))) {
       resize();
+    }
+    if (W < 2 || H < 2) {
+      // 视口暂为 0（微信恢复/首帧未完成布局）：跳过本帧，避免透视计算出 NaN
+      requestAnimationFrame(frame);
+      return;
     }
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
