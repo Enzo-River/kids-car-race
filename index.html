@@ -665,41 +665,37 @@
     {
       id: 'byd', brand: '比亚迪', model: '汉 EV', ratio: 2.06,
       body: '#f4f6f9', body2: '#c9d1db', accent: '#d71920',
-      logo: svgLogo('<ellipse cx="60" cy="30" rx="55" ry="26" fill="none" stroke="#d71920" stroke-width="6"/>' +
-        '<text x="60" y="40" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="700" fill="#d71920" text-anchor="middle">BYD</text>', 120, 60)
+      logo: 'data:image/png;base64,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',
     },
     {
       id: 'nio', brand: '蔚来', model: 'ET5', ratio: 2.08,
       body: '#2f6bd8', body2: '#1c4596', accent: '#8fe0ff',
-      logo: svgLogo('<path d="M6 38 Q50 2 94 38 L72 38 Q50 18 28 38 Z" fill="#e8f4ff"/>' +
-        '<path d="M50 74 L18 40 L38 40 L50 54 L62 40 L82 40 Z" fill="#e8f4ff"/>', 100, 78)
+      logo: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHYAAABuCAMAAADF/BfVAAAA/1BMVEUAAABMaXEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACWsI9yAAAAQHRSTlP+AHSoMc8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANGxVkwAAAtJJREFUeNrtmst2IyEMRKtL0v//8jhO4rFjGr2gs4nWhnskMKCqxpENVVLEvkKEVE1PghySYhiF3eB7sDckpmEJMqJMQyBMdCHWyzOfM1Yl+hSBlF0sUQgXjA3Qj2ADmy5vGDzBqqAVphUs0Q7msYIFIUmsGtaEZrDEsmAcu5B6Umjspo652LSZHC72U0dcXEAdcLF3Xc+4uIT6xsU11J//3xesYmPoKdZwFRe7N/HTRTjGEpuDQyy2hw6wsh9r71jFBcE3rF2BfZQZV+2n13Rx2X56SRfVZD/b2+rZjMLKmjw6aT3teOfpIp3se3+TesfzCWvNpirTFeoDywWdHFPpInFA2bR9jL7o7Rurzc4iebzqF5ZrqJmJEN1QDIkc0SojWOMQNcjVO5ZrKhznyh0rC6mh2eyOtXKXOozQdIgsLY+MLhmZD4HVsJx6KoE1Q+BXzGE1kAf8tUgmG0j3htXVyUbS1QA2r43bAqykqf4uJbi8xoEqi4/N19ivskDW19jfyz6WFaxXZfOwdhwb0jVY4/lUXl0HK0c5ZI7leXw+/ZXp8Ad6zkjRLuAvOSPSwTa6XmkYMlt8Ag/b7PClhm3rCvJLPpDksUs0lKwPtEq5kRx2mV4kv2Q/yZ/9NMIu1wFD9tMG9TFgP23RPP/sp2vsJznHbtWy5QybpVqdW/aBjOkPB2SEZWUKKXLRopaHoTe8OhBNanEoCp6XNI4YvhZZGgcs8y4f0hafdK7Kn65XOF3pPEfk/X9rnScZkwZu8riQ1rOao8OxJ2czZc4jY+RIrz3U8Q2kvVaZiQ4/cd+6+glr9+18eZv2k83eUtbTihiVLhFU7aQp6er8wap77Cd6z3NtqnEMyVSIqKPSlM4Zab20qTwyIMnB952laRVotK1+4TYtirE0DE+WLWm7rGkX/wcWFWU6SivmHxaUdWzOtfe5+NdQz1kU/z7k76MRnI3+B9oGGfbks3igAAAAAElFTkSuQmCC',
     },
     {
       id: 'xpeng', brand: '小鹏', model: 'P7', ratio: 2.08,
       body: '#eef1f5', body2: '#c4cbd6', accent: '#12233c',
-      logo: svgLogo('<path d="M10 16 L34 50 L10 84 L28 84 L50 56 L72 84 L90 84 L66 50 L90 16 L72 16 L50 44 L28 16 Z" fill="#12233c"/>', 100, 100)
+      logo: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAABCCAMAAACowC5GAAAA/1BMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD64ociAAAAQHRSTlMA/ZLQL01srgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAyW3I6gAAAm5JREFUeNrFWVmigyAMNBvc/8ZP7PJUICQsNn9tlZlCJhvbxpgsJJPtEZMD7IDl/SOcDdfD4xmP9i/ihQHJg/AAMX1H8BgFoQL+xgDPULjDA/H7B3iCgsQMRioHc2wOz4XnHB6k6hovQfBa+KviSg8ATjoIKf2/twN+jQAW7UIZ/o6fS+HtjWGQAmNlYW5qZAYFDmTFL4lxlEIV/iKAfwtQpzAXHoIpTl9cxi0IBR6q/yfCLAqiLaWkXIW1h0KI6jrauakMjJFJUF2EdM8B3dqRiXX4ogBtUni/r1NgpMYC7CxZShSUl1vwIO6iyUGhDQ+mgBKhTSF0bL695jUwyCgEA7wqQI8U8rBggjfjK3mpXDkK2Z535DQjg0PUTD66xmBqZBAb4dsrAI8YX3Zr7abh26TgIIA9xWSMRDRKgCjGOFJfM28szHtLjWmlO6M7AaLjsb3V39/h9PZ847ODnAngtgKuoZEzgbAMkNN2HnMNvB/C9QjSARzDFknHxqODlHSaLT/UnZBeLtg1/MEfyzD8OBAtCMUyNExRkpH1WU8yZF9+s1UDjqELm/LAuSaaXJD8uiQzCLBUF+MsMXaX5RJphhSkDS/1nni8MWFPMdzjvw0ptCrMGMZa82ZzSjA+IWhQoG4BxjBnQIF9AvANqtSwgB0ZyD2q444hVYCpk0JtVCK+ANA7Ma4Pi4qDUpoMr+5CzoCHBmP+XSBbAJhxY1CZWUZDAJh2YUFNMeJwP99BAVUBzL43K1GQOv6SazuqZcbCxSU/cW37EWOWgRf2mFgSY1x3XdimgNn1/fIO/1YzpRyEX5NHBgy8t/Af4+0Pmi8VU1/Guj8AAAAASUVORK5CYII=',
     },
     {
       id: 'lixiang', brand: '理想', model: 'L9', ratio: 1.64,
       body: '#dcd7c7', body2: '#b3ab94', accent: '#1c8f6a',
-      logo: svgLogo('<text x="50" y="46" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#3f4a4f" text-anchor="middle">Li</text>', 100, 60)
+      logo: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAA1CAMAAAC+5xM/AAAA/1BMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD64ociAAAAQHRSTlP+AdQpSXiNrwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZKEWSQAAAZxJREFUeNrFmdt2xSAIROdw/f8/7uW0q31QAqIJ78mCEbaj4vVw4PkEOBGzr1lYEsFRAgK6CtDsD4JUEEcKUOIPPvvcchl4lECqilkJnEsAEjWhd0rQrgRILuS0BGpK8DWGLQm6fYjsQnYl0AhE1imhKcGbhJ0SsqNoUQJ6xyhytBc8RyMUFpJPjCIKVRyhESoLeYJGeO2QIDuKUQI9CXyZRij1MjVHcfD9P0vWoEmDRij28ms3jVDsZd8tAaq9rJtHEeVelh6NKEqAW+ZGTa/DlKODibW8xYaTUbKXXY4dzZK9DPqUko+cDZO9/JPGX3wvi1EqNEpAsBi8SCMsbitjwix4I6wydVxWnUZYBcq4rDqNsMzUcVnlYwqW7c1YgrI3wvrGNi7Li7siGhvb0O9UvRE67mIoQdEYoONyOxL80gitzX0DjdBzWJ1RlPii0m6i0fym1O6hUXBVq7fQKLorZlqVoECj+LLazo/ixW250FEaeeK6XumsBIn3AvVzo+i5BwtWo1M0Sr+YsKiZk1+b3jeQJWWQ4Y8/2XwAGwUQ3DSV/jkAAAAASUVORK5CYII=',
     },
     {
       id: 'xiaomi', brand: '小米', model: 'SU7', ratio: 2.06,
       body: '#2b7ec9', body2: '#1d5c9c', accent: '#ff6900',
-      logo: svgLogo('<rect x="8" y="8" width="84" height="84" rx="19" fill="#ff6900"/>' +
-        '<text x="50" y="65" font-family="Arial,Helvetica,sans-serif" font-size="40" font-weight="700" fill="#fff" text-anchor="middle">mi</text>', 100, 100)
+      logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgcng9IjQuNiIgZmlsbD0iI2ZmZmZmZiIvPjxwYXRoIGZpbGw9IiNmZjY5MDAiIGQ9Ik0xMiAwQzguMDE2IDAgNC43NTYuMjU1IDIuNDkzIDIuNTE2LjIzIDQuNzc2IDAgOC4wMzMgMCAxMi4wMTJjMCAzLjk4LjIzIDcuMjM1IDIuNDk0IDkuNDk3QzQuNzU3IDIzLjc3IDguMDE3IDI0IDEyIDI0YzMuOTgzIDAgNy4yNDMtLjIzIDkuNTA2LTIuNDkxQzIzLjc3IDE5LjI0NyAyNCAxNS45OSAyNCAxMi4wMTJjMC0zLjk4NC0uMjMzLTcuMjQzLTIuNTAyLTkuNTA0QzE5LjIzNC4yNTIgMTUuOTc4IDAgMTIgMHpNNC45MDYgNy40MDVoNS42MjRjMS40NyAwIDMuMDA3LjA2OCAzLjc2NC44MjcuNzQ2Ljc0Ni44MjcgMi4yMzMuODMgMy42NzZ2NC41NGEuMTUuMTUgMCAwIDEtLjE1Mi4xNDdoLTEuOTQ3YS4xNS4xNSAwIDAgMS0uMTUyLS4xNDhWMTEuODNjLS4wMDItLjgwNi0uMDQ4LTEuNjM0LS40NjQtMi4wNTEtLjM1OC0uMzYtMS4wMjYtLjQ0MS0xLjcyLS40NThINy4xNThhLjE1LjE1IDAgMCAwLS4xNTEuMTQ3djYuOThhLjE1LjE1IDAgMCAxLS4xNTIuMTQ4SDQuOTA2YS4xNS4xNSAwIDAgMS0uMTUtLjE0OFY3LjU1NGEuMTUuMTUgMCAwIDEgLjE1LS4xNDl6bTEyLjEzMSAwaDEuOTQ5YS4xNS4xNSAwIDAgMSAuMTUuMTV2OC44OTJhLjE1LjE1IDAgMCAxLS4xNS4xNDhoLTEuOTQ5YS4xNS4xNSAwIDAgMS0uMTUxLS4xNDhWNy41NTRhLjE1LjE1IDAgMCAxIC4xNTEtLjE0OXpNOC45MiAxMC45NDhoMi4wNDZjLjA4MyAwIC4xNS4wNjYuMTUuMTQ3djUuMzUyYS4xNS4xNSAwIDAgMS0uMTUuMTQ4SDguOTJhLjE1LjE1IDAgMCAxLS4xNTItLjE0OHYtNS4zNTJhLjE1LjE1IDAgMCAxIC4xNTItLjE0N1oiLz48L3N2Zz4=',
     },
     {
       id: 'wuling', brand: '五菱', model: '宏光 MINI', ratio: 1.52,
       body: '#f2f4f7', body2: '#cad0d8', accent: '#c8102e',
-      logo: svgLogo('<text x="50" y="68" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="900" fill="#c8102e" text-anchor="middle">W</text>', 100, 84)
+      logo: 'data:image/png;base64,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',
     },
     {
       id: 'hongqi', brand: '红旗', model: 'H9', ratio: 2.02,
       body: '#1a1d24', body2: '#0c0e13', accent: '#c8102e',
-      logo: svgLogo('<rect x="8" y="10" width="84" height="50" rx="7" fill="#c8102e"/>' +
-        '<path d="M18 24 H82 M18 34 H82 M18 44 H82" stroke="#f2c94c" stroke-width="4"/>', 100, 70)
+      logo: 'data:image/png;base64,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',
     },
     {
       id: 'ferrari', brand: '法拉利', model: '488 GTB', ratio: 2.10,
@@ -1209,7 +1205,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-08.1';
+  const APP_VERSION = '2026-11-08.2';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3177,12 +3173,12 @@
   function badgeSpec(id) {
     const S = {
       byd: { y: -0.396, w: 0.26 },
-      nio: { y: -0.390, w: 0.22 },
-      xpeng: { y: -0.394, w: 0.22 },
+      nio: { y: -0.390, w: 0.22, glow: true },
+      xpeng: { y: -0.394, w: 0.24 },
       lixiang: { y: -0.398, w: 0.20 },
       xiaomi: { y: -0.372, w: 0.22 },
-      wuling: { y: -0.398, w: 0.20 },
-      hongqi: { y: -0.396, w: 0.24, glow: true },
+      wuling: { y: -0.438, w: 0.14 },
+      hongqi: { y: -0.446, w: 0.11, glow: true },
       ferrari: { y: -0.372, w: 0.22 },
       lamborghini: { y: -0.372, w: 0.20 },
       mercedes: { y: -0.398, w: 0.18, glow: true },
@@ -3762,14 +3758,535 @@
     sideMirror(1, w, h, -h * 0.21);
   }
 
+  // 比亚迪 汉 EV：低趴溜背轿车，龙颜前脸 + 贯穿式尾灯
+  function paintHan(b, w, h) {
+    wheels4(w, h, 0.305, 0.312, 0.455);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.50);
+    ctx.bezierCurveTo(-w * 0.155, -h * 0.498, -w * 0.32, -h * 0.476, -w * 0.418, -h * 0.392);
+    ctx.bezierCurveTo(-w * 0.458, -h * 0.312, -w * 0.462, -h * 0.14, -w * 0.474, -h * 0.02);
+    ctx.bezierCurveTo(-w * 0.488, h * 0.11, -w * 0.486, h * 0.31, -w * 0.462, h * 0.415);
+    ctx.bezierCurveTo(-w * 0.428, h * 0.474, -w * 0.30, h * 0.497, -w * 0.168, h * 0.50);
+    ctx.lineTo(w * 0.168, h * 0.50);
+    ctx.bezierCurveTo(w * 0.30, h * 0.497, w * 0.428, h * 0.474, w * 0.462, h * 0.415);
+    ctx.bezierCurveTo(w * 0.486, h * 0.31, w * 0.488, h * 0.11, w * 0.474, -h * 0.02);
+    ctx.bezierCurveTo(w * 0.462, -h * 0.14, w * 0.458, -h * 0.312, w * 0.418, -h * 0.392);
+    ctx.bezierCurveTo(w * 0.32, -h * 0.476, w * 0.155, -h * 0.498, 0, -h * 0.50);
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    ctx.strokeStyle = 'rgba(0,0,0,.16)';
+    ctx.lineWidth = Math.max(0.8, w * 0.011);
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * w * 0.11, -h * 0.478);
+      ctx.quadraticCurveTo(s * w * 0.135, -h * 0.36, s * w * 0.15, -h * 0.268);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#1c2026';
+    rr(-w * 0.135, -h * 0.486, w * 0.27, h * 0.028, w * 0.012);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200,220,240,.28)';
+    ctx.lineWidth = Math.max(0.6, w * 0.006);
+    ctx.stroke();
+
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(s * w * 0.302, -h * 0.448);
+      ctx.rotate(s * 0.24);
+      lamp(-w * 0.105, -h * 0.012, w * 0.21, h * 0.024, '#e9f5ff');
+      ctx.restore();
+    }
+
+    glassPanel(-w * 0.286, -h * 0.262, w * 0.572, h * 0.138, w * 0.085);
+    ctx.fillStyle = b.body;
+    rr(-w * 0.265, -h * 0.118, w * 0.53, h * 0.192, w * 0.068);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.12)';
+    ctx.lineWidth = Math.max(0.8, w * 0.01);
+    ctx.stroke();
+    glassPanel(-w * 0.238, h * 0.062, w * 0.476, h * 0.092, w * 0.045);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.246 : -w * 0.402, -h * 0.112, w * 0.156, h * 0.198, w * 0.055);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#7d838f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.378 : -w * 0.412, h * 0.135, w * 0.034, h * 0.012, w * 0.006);
+      ctx.fill();
+      rr(s > 0 ? w * 0.378 : -w * 0.412, h * 0.235, w * 0.034, h * 0.012, w * 0.006);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#191c20';
+    rr(-w * 0.415, h * 0.432, w * 0.83, h * 0.046, w * 0.012);
+    ctx.fill();
+    ctx.fillStyle = '#e23b34';
+    rr(-w * 0.388, h * 0.441, w * 0.776, h * 0.017, w * 0.008);
+    ctx.fill();
+
+    sideMirror(-1, w, h, -h * 0.205);
+    sideMirror(1, w, h, -h * 0.205);
+  }
+
+  // 蔚来 ET5：短前悬溜背、分体大灯、全景玻璃顶 + 车顶激光雷达
+  function paintET5(b, w, h) {
+    wheels4(w, h, 0.312, 0.300, 0.452);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.50);
+    ctx.bezierCurveTo(-w * 0.17, -h * 0.497, -w * 0.305, -h * 0.476, -w * 0.396, -h * 0.398);
+    ctx.bezierCurveTo(-w * 0.438, -h * 0.318, -w * 0.454, -h * 0.14, -w * 0.468, -h * 0.01);
+    ctx.bezierCurveTo(-w * 0.482, h * 0.13, -w * 0.482, h * 0.30, -w * 0.458, h * 0.41);
+    ctx.bezierCurveTo(-w * 0.420, h * 0.472, -w * 0.30, h * 0.497, -w * 0.165, h * 0.50);
+    ctx.lineTo(w * 0.165, h * 0.50);
+    ctx.bezierCurveTo(w * 0.30, h * 0.497, w * 0.420, h * 0.472, w * 0.458, h * 0.41);
+    ctx.bezierCurveTo(w * 0.482, h * 0.30, w * 0.482, h * 0.13, w * 0.468, -h * 0.01);
+    ctx.bezierCurveTo(w * 0.454, -h * 0.14, w * 0.438, -h * 0.318, w * 0.396, -h * 0.398);
+    ctx.bezierCurveTo(w * 0.305, -h * 0.476, w * 0.17, -h * 0.497, 0, -h * 0.50);
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    ctx.fillStyle = '#1d2229';
+    rr(-w * 0.20, -h * 0.487, w * 0.40, h * 0.019, w * 0.008);
+    ctx.fill();
+
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(s * w * 0.315, -h * 0.446);
+      ctx.rotate(s * 0.28);
+      lamp(-w * 0.09, -h * 0.010, w * 0.18, h * 0.020, '#e6f4ff');
+      ctx.restore();
+      ctx.fillStyle = '#dff1ff';
+      rr(s > 0 ? w * 0.298 : -w * 0.372, -h * 0.412, w * 0.074, h * 0.030, w * 0.014);
+      ctx.fill();
+    }
+
+    glassPanel(-w * 0.288, -h * 0.286, w * 0.576, h * 0.162, w * 0.10);
+    glassPanel(-w * 0.262, -h * 0.114, w * 0.524, h * 0.238, w * 0.045);
+    ctx.strokeStyle = 'rgba(220,240,255,.18)';
+    ctx.lineWidth = Math.max(1, w * 0.014);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.15, -h * 0.075);
+    ctx.lineTo(w * 0.10, h * 0.075);
+    ctx.stroke();
+    glassPanel(-w * 0.230, h * 0.142, w * 0.460, h * 0.086, w * 0.04);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.248 : -w * 0.404, -h * 0.120, w * 0.156, h * 0.220, w * 0.06);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#12181d';
+    rr(-w * 0.052, -h * 0.276, w * 0.104, h * 0.036, w * 0.018);
+    ctx.fill();
+    ctx.fillStyle = '#3c4a56';
+    rr(-w * 0.032, -h * 0.271, w * 0.048, h * 0.014, w * 0.007);
+    ctx.fill();
+
+    ctx.fillStyle = '#191c20';
+    rr(-w * 0.400, h * 0.436, w * 0.80, h * 0.042, w * 0.011);
+    ctx.fill();
+    ctx.fillStyle = '#e9423c';
+    rr(-w * 0.372, h * 0.446, w * 0.744, h * 0.014, w * 0.007);
+    ctx.fill();
+
+    sideMirror(-1, w, h, -h * 0.200);
+    sideMirror(1, w, h, -h * 0.200);
+  }
+
+  // 小鹏 P7：超低风阻水滴形、连续玻璃顶、前后贯穿灯带
+  function paintP7(b, w, h) {
+    wheels4(w, h, 0.312, 0.300, 0.458);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.50);
+    ctx.bezierCurveTo(-w * 0.16, -h * 0.497, -w * 0.295, -h * 0.474, -w * 0.382, -h * 0.392);
+    ctx.bezierCurveTo(-w * 0.428, -h * 0.30, -w * 0.448, -h * 0.12, -w * 0.462, h * 0.01);
+    ctx.bezierCurveTo(-w * 0.478, h * 0.14, -w * 0.476, h * 0.31, -w * 0.452, h * 0.41);
+    ctx.bezierCurveTo(-w * 0.410, h * 0.472, -w * 0.290, h * 0.497, -w * 0.150, h * 0.50);
+    ctx.lineTo(w * 0.150, h * 0.50);
+    ctx.bezierCurveTo(w * 0.290, h * 0.497, w * 0.410, h * 0.472, w * 0.452, h * 0.41);
+    ctx.bezierCurveTo(w * 0.476, h * 0.31, w * 0.478, h * 0.14, w * 0.462, h * 0.01);
+    ctx.bezierCurveTo(w * 0.448, -h * 0.12, w * 0.428, -h * 0.30, w * 0.382, -h * 0.392);
+    ctx.bezierCurveTo(w * 0.295, -h * 0.474, w * 0.16, -h * 0.497, 0, -h * 0.50);
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    ctx.fillStyle = '#1a1e24';
+    rr(-w * 0.300, -h * 0.490, w * 0.60, h * 0.020, w * 0.009);
+    ctx.fill();
+    ctx.fillStyle = '#eaf6ff';
+    rr(-w * 0.285, -h * 0.486, w * 0.57, h * 0.010, w * 0.005);
+    ctx.fill();
+
+    glassPanel(-w * 0.278, -h * 0.272, w * 0.556, h * 0.150, w * 0.10);
+    glassPanel(-w * 0.252, -h * 0.112, w * 0.504, h * 0.236, w * 0.05);
+    ctx.strokeStyle = 'rgba(220,240,255,.16)';
+    ctx.lineWidth = Math.max(1, w * 0.013);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.14, -h * 0.06);
+    ctx.lineTo(w * 0.10, h * 0.085);
+    ctx.stroke();
+    glassPanel(-w * 0.222, h * 0.132, w * 0.444, h * 0.088, w * 0.04);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.238 : -w * 0.394, -h * 0.118, w * 0.156, h * 0.204, w * 0.058);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = b.accent;
+    ctx.lineWidth = Math.max(1, w * 0.018);
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * w * 0.418, -h * 0.20);
+      ctx.quadraticCurveTo(s * w * 0.442, h * 0.02, s * w * 0.430, h * 0.27);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#191c20';
+    rr(-w * 0.372, h * 0.436, w * 0.744, h * 0.040, w * 0.011);
+    ctx.fill();
+    ctx.fillStyle = '#e9423c';
+    rr(-w * 0.350, h * 0.445, w * 0.700, h * 0.014, w * 0.007);
+    ctx.fill();
+
+    sideMirror(-1, w, h, -h * 0.198);
+    sideMirror(1, w, h, -h * 0.198);
+  }
+
+  // 理想 L9：大型方正 SUV、星环贯穿灯、双天窗与车顶行李架
+  function paintL9(b, w, h) {
+    const tw = w * 0.17, th = h * 0.093;
+    for (const s of [-1, 1]) {
+      tire(s * w * 0.458, -h * 0.318, tw, th);
+      tire(s * w * 0.458, h * 0.300, tw, th);
+    }
+
+    rr(-w * 0.478, -h * 0.494, w * 0.956, h * 0.988, w * 0.10);
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    ctx.fillStyle = '#171b20';
+    rr(-w * 0.408, -h * 0.484, w * 0.816, h * 0.034, w * 0.012);
+    ctx.fill();
+    ctx.fillStyle = '#f2fbff';
+    rr(-w * 0.384, -h * 0.478, w * 0.768, h * 0.013, w * 0.006);
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.404 : -w * 0.438, -h * 0.474, w * 0.034, h * 0.062, w * 0.011);
+      ctx.fillStyle = '#f2fbff';
+      ctx.fill();
+    }
+
+    glassPanel(-w * 0.330, -h * 0.335, w * 0.660, h * 0.150, w * 0.07);
+    glassPanel(-w * 0.278, -h * 0.168, w * 0.556, h * 0.318, w * 0.045);
+    ctx.strokeStyle = 'rgba(220,240,255,.16)';
+    ctx.lineWidth = Math.max(1, w * 0.013);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.17, -h * 0.11);
+    ctx.lineTo(w * 0.11, h * 0.10);
+    ctx.stroke();
+    glassPanel(-w * 0.268, h * 0.176, w * 0.536, h * 0.100, w * 0.045);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.290 : -w * 0.446, -h * 0.150, w * 0.156, h * 0.310, w * 0.055);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#2b2f36';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.380 : -w * 0.396, -h * 0.200, w * 0.016, h * 0.420, w * 0.007);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#171b20';
+    rr(-w * 0.410, h * 0.438, w * 0.820, h * 0.034, w * 0.012);
+    ctx.fill();
+    ctx.fillStyle = '#e9423c';
+    rr(-w * 0.386, h * 0.446, w * 0.772, h * 0.014, w * 0.006);
+    ctx.fill();
+
+    ctx.fillStyle = '#12181d';
+    rr(-w * 0.050, -h * 0.298, w * 0.100, h * 0.032, w * 0.016);
+    ctx.fill();
+
+    sideMirror(-1, w, h, -h * 0.200);
+    sideMirror(1, w, h, -h * 0.200);
+  }
+
+  // 小米 SU7：低趴宽体、水滴大灯、车顶激光雷达、光环尾灯
+  function paintSU7(b, w, h) {
+    wheels4(w, h, 0.312, 0.302, 0.458);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.50);
+    ctx.bezierCurveTo(-w * 0.16, -h * 0.498, -w * 0.29, -h * 0.480, -w * 0.386, -h * 0.404);
+    ctx.bezierCurveTo(-w * 0.432, -h * 0.320, -w * 0.445, -h * 0.160, -w * 0.462, -h * 0.020);
+    ctx.bezierCurveTo(-w * 0.482, h * 0.115, -w * 0.484, h * 0.300, -w * 0.470, h * 0.400);
+    ctx.bezierCurveTo(-w * 0.440, h * 0.465, -w * 0.305, h * 0.496, -w * 0.165, h * 0.50);
+    ctx.lineTo(w * 0.165, h * 0.50);
+    ctx.bezierCurveTo(w * 0.305, h * 0.496, w * 0.440, h * 0.465, w * 0.470, h * 0.400);
+    ctx.bezierCurveTo(w * 0.484, h * 0.300, w * 0.482, h * 0.115, w * 0.462, -h * 0.020);
+    ctx.bezierCurveTo(w * 0.445, -h * 0.160, w * 0.432, -h * 0.320, w * 0.386, -h * 0.404);
+    ctx.bezierCurveTo(w * 0.29, -h * 0.480, w * 0.16, -h * 0.498, 0, -h * 0.50);
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    ctx.strokeStyle = 'rgba(0,0,0,.15)';
+    ctx.lineWidth = Math.max(0.8, w * 0.011);
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * w * 0.108, -h * 0.478);
+      ctx.quadraticCurveTo(s * w * 0.132, -h * 0.360, s * w * 0.148, -h * 0.270);
+      ctx.stroke();
+    }
+
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(s * w * 0.298, -h * 0.452);
+      ctx.rotate(s * 0.10);
+      ctx.fillStyle = '#17202a';
+      rr(-w * 0.092, -h * 0.020, w * 0.184, h * 0.040, w * 0.020);
+      ctx.fill();
+      ctx.fillStyle = '#eef8ff';
+      rr(-w * 0.075, -h * 0.013, w * 0.150, h * 0.024, w * 0.012);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = '#1c2026';
+    rr(-w * 0.150, -h * 0.487, w * 0.300, h * 0.020, w * 0.009);
+    ctx.fill();
+
+    glassPanel(-w * 0.278, -h * 0.268, w * 0.556, h * 0.140, w * 0.09);
+    glassPanel(-w * 0.252, -h * 0.110, w * 0.504, h * 0.232, w * 0.05);
+    ctx.strokeStyle = 'rgba(220,240,255,.16)';
+    ctx.lineWidth = Math.max(1, w * 0.013);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.14, -h * 0.055);
+    ctx.lineTo(w * 0.10, h * 0.075);
+    ctx.stroke();
+    glassPanel(-w * 0.228, h * 0.136, w * 0.456, h * 0.090, w * 0.042);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.244 : -w * 0.400, -h * 0.114, w * 0.156, h * 0.204, w * 0.058);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#12181d';
+    rr(-w * 0.060, -h * 0.268, w * 0.120, h * 0.032, w * 0.016);
+    ctx.fill();
+    ctx.fillStyle = '#3c4a56';
+    rr(-w * 0.038, -h * 0.263, w * 0.052, h * 0.013, w * 0.006);
+    ctx.fill();
+
+    ctx.fillStyle = '#1a1e24';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * w * 0.398, h * 0.095);
+      ctx.lineTo(s * w * 0.452, h * 0.070);
+      ctx.lineTo(s * w * 0.452, h * 0.175);
+      ctx.lineTo(s * w * 0.400, h * 0.195);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#191c20';
+    rr(-w * 0.402, h * 0.430, w * 0.804, h * 0.044, w * 0.011);
+    ctx.fill();
+    ctx.fillStyle = '#e9423c';
+    rr(-w * 0.380, h * 0.438, w * 0.760, h * 0.013, w * 0.006);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,120,110,.55)';
+    rr(-w * 0.350, h * 0.457, w * 0.700, h * 0.008, w * 0.004);
+    ctx.fill();
+
+    sideMirror(-1, w, h, -h * 0.198);
+    sideMirror(1, w, h, -h * 0.198);
+  }
+
+  // 五菱 宏光 MINI EV：短小方盒子、四轮贴近四角、方正灯组
+  function paintMiniEV(b, w, h) {
+    const tw = w * 0.135, th = h * 0.080;
+    for (const s of [-1, 1]) {
+      tire(s * w * 0.425, -h * 0.330, tw, th);
+      tire(s * w * 0.425, h * 0.325, tw, th);
+    }
+
+    rr(-w * 0.472, -h * 0.490, w * 0.944, h * 0.980, w * 0.095);
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    glassPanel(-w * 0.360, -h * 0.358, w * 0.720, h * 0.122, w * 0.045);
+
+    ctx.fillStyle = b.body;
+    rr(-w * 0.398, -h * 0.236, w * 0.796, h * 0.342, w * 0.045);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.10)';
+    ctx.lineWidth = Math.max(0.8, w * 0.010);
+    ctx.stroke();
+
+    glassPanel(-w * 0.356, h * 0.108, w * 0.712, h * 0.112, w * 0.042);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.335 : -w * 0.445, -h * 0.228, w * 0.110, h * 0.328, w * 0.032);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = b.accent;
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.442 : -w * 0.450, -h * 0.060, w * 0.008, h * 0.200, w * 0.004);
+      ctx.fill();
+    }
+
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#1a1d23';
+      rr(s > 0 ? w * 0.286 : -w * 0.401, -h * 0.450, w * 0.115, h * 0.052, w * 0.018);
+      ctx.fill();
+      ctx.fillStyle = '#f7f4e4';
+      rr(s > 0 ? w * 0.298 : -w * 0.389, -h * 0.443, w * 0.091, h * 0.038, w * 0.012);
+      ctx.fill();
+      ctx.fillStyle = '#f2a13a';
+      rr(s > 0 ? w * 0.352 : -w * 0.370, -h * 0.435, w * 0.030, h * 0.022, w * 0.007);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#1a1d23';
+    rr(-w * 0.250, -h * 0.486, w * 0.500, h * 0.016, w * 0.007);
+    ctx.fill();
+
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#c21f24';
+      rr(s > 0 ? w * 0.342 : -w * 0.394, h * 0.392, w * 0.052, h * 0.078, w * 0.014);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#1a1d23';
+    rr(-w * 0.250, h * 0.470, w * 0.500, h * 0.016, w * 0.007);
+    ctx.fill();
+
+    sideMirror(-1, w, h, -h * 0.265);
+    sideMirror(1, w, h, -h * 0.265);
+  }
+
+  // 红旗 H9：长车头、直瀑式中网、红色旗标线、贯穿尾灯
+  function paintH9(b, w, h) {
+    wheels4(w, h, 0.312, 0.302, 0.455);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.50);
+    ctx.bezierCurveTo(-w * 0.17, -h * 0.498, -w * 0.32, -h * 0.482, -w * 0.420, -h * 0.404);
+    ctx.bezierCurveTo(-w * 0.458, -h * 0.330, -w * 0.464, -h * 0.150, -w * 0.474, -h * 0.020);
+    ctx.bezierCurveTo(-w * 0.488, h * 0.120, -w * 0.486, h * 0.310, -w * 0.468, h * 0.412);
+    ctx.bezierCurveTo(-w * 0.436, h * 0.472, -w * 0.305, h * 0.496, -w * 0.170, h * 0.50);
+    ctx.lineTo(w * 0.170, h * 0.50);
+    ctx.bezierCurveTo(w * 0.305, h * 0.496, w * 0.436, h * 0.472, w * 0.468, h * 0.412);
+    ctx.bezierCurveTo(w * 0.486, h * 0.310, w * 0.488, h * 0.120, w * 0.474, -h * 0.020);
+    ctx.bezierCurveTo(w * 0.464, -h * 0.150, w * 0.458, -h * 0.330, w * 0.420, -h * 0.404);
+    ctx.bezierCurveTo(w * 0.32, -h * 0.482, w * 0.17, -h * 0.498, 0, -h * 0.50);
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad(b, w);
+    ctx.fill();
+    outline(w);
+
+    ctx.fillStyle = '#1d2128';
+    rr(-w * 0.225, -h * 0.492, w * 0.450, h * 0.076, w * 0.016);
+    ctx.fill();
+    ctx.strokeStyle = '#c9cdd6';
+    ctx.lineWidth = Math.max(1, w * 0.014);
+    ctx.stroke();
+    ctx.strokeStyle = '#8f96a1';
+    ctx.lineWidth = Math.max(0.7, w * 0.007);
+    for (let i = -3; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(w * i * 0.052, -h * 0.486);
+      ctx.lineTo(w * i * 0.052, -h * 0.424);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = b.accent;
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.438);
+    ctx.lineTo(w * 0.013, -h * 0.286);
+    ctx.lineTo(-w * 0.013, -h * 0.286);
+    ctx.closePath();
+    ctx.fill();
+
+    for (const s of [-1, 1]) {
+      ctx.save();
+      ctx.translate(s * w * 0.318, -h * 0.448);
+      ctx.rotate(s * 0.18);
+      lamp(-w * 0.090, -h * 0.011, w * 0.180, h * 0.022, '#f0f6ff');
+      ctx.restore();
+    }
+
+    glassPanel(-w * 0.278, -h * 0.282, w * 0.556, h * 0.128, w * 0.070);
+    ctx.fillStyle = b.body;
+    rr(-w * 0.262, -h * 0.160, w * 0.524, h * 0.270, w * 0.055);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.16)';
+    ctx.lineWidth = Math.max(0.8, w * 0.010);
+    ctx.stroke();
+    glassPanel(-w * 0.238, h * 0.118, w * 0.476, h * 0.170, w * 0.050);
+
+    ctx.fillStyle = '#1b262f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.250 : -w * 0.406, -h * 0.152, w * 0.156, h * 0.258, w * 0.055);
+      ctx.fill();
+      ctx.strokeStyle = '#d4d7dc';
+      ctx.lineWidth = Math.max(0.7, w * 0.009);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#7d838f';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.378 : -w * 0.412, h * 0.160, w * 0.034, h * 0.012, w * 0.006);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#191c20';
+    rr(-w * 0.420, h * 0.428, w * 0.840, h * 0.048, w * 0.012);
+    ctx.fill();
+    ctx.fillStyle = '#e23b34';
+    rr(-w * 0.392, h * 0.438, w * 0.784, h * 0.016, w * 0.007);
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.362 : -w * 0.396, h * 0.418, w * 0.034, h * 0.062, w * 0.010);
+      ctx.fill();
+    }
+
+    sideMirror(-1, w, h, -h * 0.205);
+    sideMirror(1, w, h, -h * 0.205);
+  }
+
   const PAINTERS = {
-    byd: paint86,
-    nio: paint86,
-    xpeng: paint86,
-    lixiang: paintGClass,
-    xiaomi: paintFerrari,
-    wuling: paintGClass,
-    hongqi: paint86,
+    byd: paintHan,
+    nio: paintET5,
+    xpeng: paintP7,
+    lixiang: paintL9,
+    xiaomi: paintSU7,
+    wuling: paintMiniEV,
+    hongqi: paintH9,
     ferrari: paintFerrari,
     lamborghini: paintLamborghini,
     mercedes: paintGClass,
