@@ -90,6 +90,10 @@
     border-radius:999px;background:transparent;color:#9298b0;font-family:inherit;
     font-size:clamp(13px,2.8vmin,16px);font-weight:700;cursor:pointer;}
   .ghost-btn:active{color:#5a5f79;}
+  .ghost-btn.danger{color:#e05a4a;}
+  .big-btn.danger{background:linear-gradient(180deg,#ff7b6b,#ec4b3a);
+    box-shadow:0 8px 0 #bb3225,0 10px 22px rgba(187,50,37,.3);}
+  .big-btn.danger:active{box-shadow:0 4px 0 #bb3225;}
   .hint{margin:clamp(8px,2vh,16px) 0 0;font-size:clamp(12px,2.4vmin,14px);
     line-height:1.7;color:#9a9db2;}
   .tiny{margin:6px 0 0;font-size:clamp(10px,1.9vmin,12px);color:#b6bacb;line-height:1.5;}
@@ -149,6 +153,16 @@
   .char-cell:active{transform:scale(.95);}
   .char-cell b{font-size:clamp(22px,5vmin,30px);color:#3b2f27;line-height:1.1;}
   .char-cell i{font-style:normal;font-size:clamp(10px,2vmin,12px);color:#a09a86;font-weight:700;}
+
+  .level-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+    margin:12px 0 4px;max-height:54vh;overflow-y:auto;overscroll-behavior:contain;}
+  .level-btn{border:2px solid #f0e6cc;background:#fff;border-radius:14px;padding:8px 4px;
+    font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .level-btn:active{transform:scale(.96);}
+  .level-btn.on{border-color:#ffb43d;background:#fff6e2;box-shadow:0 3px 0 #e59b2a;}
+  .level-btn b{font-size:clamp(14px,3vmin,17px);color:#3b2f27;line-height:1.2;}
+  .level-btn i{font-style:normal;font-size:clamp(10px,2vmin,12px);color:#a09a86;font-weight:700;}
+  .level-btn em{font-style:normal;font-size:clamp(10px,2vmin,12px);color:#e8a11a;font-weight:900;}
   .empty-tip{color:#a09a86;font-size:clamp(12px,2.4vmin,14px);margin:14px 0;}
 
   .set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -290,8 +304,10 @@
         <button class="mode-btn" data-view="3d">立体视角</button>
       </div>
       <button class="big-btn" id="startBtn">开始 ▶</button>
+      <button class="ghost-btn" id="levelBtn">选关 · 可重玩已通过的关卡</button>
       <button class="ghost-btn" id="learnedBtn">我认识的字 · 0</button>
       <button class="ghost-btn" id="settingsBtn">家长设置</button>
+      <button class="ghost-btn danger" id="resetBtn">重置进度</button>
       <button class="ghost-btn" id="voiceTest">🔊 测试语音</button>
       <p class="hint">按住 ◀ ▶ 左右移动 · 也可拖动小车</p>
       <p class="voice-note" id="voiceWarn" hidden></p>
@@ -334,6 +350,25 @@
       <div class="char-grid" id="learnedGrid"></div>
       <button class="ghost-btn" id="sheetBtn">生成可打印字卡</button>
       <button class="ghost-btn" id="learnedClose">返回</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="levelScreen">
+    <div class="card small">
+      <h1>选关</h1>
+      <p class="sub">点一关再回去开始，已经通过的关卡都能重玩</p>
+      <div class="level-grid" id="levelGrid"></div>
+      <button class="ghost-btn" id="levelClose">返回</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="resetScreen">
+    <div class="card small">
+      <div class="logo">⚠️</div>
+      <h1>重置进度</h1>
+      <p class="sub">会清空关卡进度、最好成绩、我认识的字和易错字；音量、语速、天气、自建字表等设置会保留。确定要重置吗？</p>
+      <button class="big-btn danger" id="resetOk">确定重置</button>
+      <button class="ghost-btn" id="resetCancel">取消</button>
     </div>
   </div>
 
@@ -414,6 +449,11 @@
   const runNoteEl = document.getElementById('runNote');
   const settingsBtnEl = document.getElementById('settingsBtn');
   const settingsScreen = document.getElementById('settingsScreen');
+  const levelBtnEl = document.getElementById('levelBtn');
+  const levelScreen = document.getElementById('levelScreen');
+  const levelGridEl = document.getElementById('levelGrid');
+  const resetBtnEl = document.getElementById('resetBtn');
+  const resetScreen = document.getElementById('resetScreen');
   const setRateEl = document.getElementById('setRate');
   const setBgmEl = document.getElementById('setBgm');
   const setCharsEl = document.getElementById('setChars');
@@ -1306,7 +1346,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-09.2';
+  const APP_VERSION = '2026-11-09.3';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2499,6 +2539,21 @@
     ctx.beginPath();
     ctx.ellipse(0, h * 0.03, w * 0.56, h * 0.47, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // 品牌车：直接复用车库里的专属车身轮廓
+    if (kind === 'brand') {
+      const b = brandById[o.brandId] || BRANDS[0];
+      (PAINTERS[b.id] || paintFerrari)(b, w, h);
+      const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+      if (img && img.naturalWidth) {
+        const spec = badgeSpec(b.id);
+        const dw = w * spec.w;
+        const dh = dw * img.naturalHeight / img.naturalWidth;
+        ctx.drawImage(img, -dw / 2, h * spec.y - dh / 2, dw, dh);
+      }
+      ctx.restore();
+      return;
+    }
 
     // 轮胎
     ctx.fillStyle = '#2b303b';
@@ -6234,6 +6289,22 @@
     }
 
     if (o.type === 'traffic') {
+      if (o.kind === 'brand') {
+        const b = brandById[o.brandId] || BRANDS[0];
+        const tallCar = b.id === 'wuling' || b.ratio < 1.90;
+        const hei = o.w * (b.id === 'wuling' ? 1.00 : (tallCar ? 0.90 : 0.76));
+        carMesh(x, z - o.h * 0.5, o.h, o.w, hei, b.body, {
+          belt: tallCar ? 0.52 : 0.56,
+          cabRear: tallCar ? 0.12 : 0.18,
+          cabFront: tallCar ? 0.72 : 0.62,
+          cabW: 0.80,
+          glass: true,
+          accent: b.accent,
+          badge: logoImgs[b.id + ':badge'] || logoImgs[b.id],
+          tail: '#e8435a'
+        });
+        return;
+      }
       const spec = TRAFFIC_SPECS[o.kind] || TRAFFIC_SPECS.car;
       const big = o.kind === 'truck' || o.kind === 'cement';
       carMesh(x, z - o.h * 0.5, o.h, o.w, o.w * (big ? 0.96 : 0.80), spec.body[0], {
@@ -6508,6 +6579,27 @@
   }
   function spawnTraffic() {
     const lane = Math.floor(Math.random() * LANES);
+
+    // 约 45% 的概率换成品牌车：用各自的配色、造型和车标
+    if (Math.random() < 0.45) {
+      const b = BRANDS[(Math.random() * BRANDS.length) | 0];
+      const w = Math.min(laneW * 0.86, car.w * 1.0);
+      objects.push({
+        type: 'traffic',
+        kind: 'brand',
+        brandId: b.id,
+        x: roadLeft + (lane + 0.5) * laneW,
+        y: -w * b.ratio - 50,
+        w,
+        h: w * b.ratio,
+        v: car.w * (0.8 + Math.random() * 0.7),
+        phase: rand(0, Math.PI * 2),
+        dead: false
+      });
+      sfxTraffic('car');
+      return;
+    }
+
     const kind = TRAFFIC_KINDS[(Math.random() * TRAFFIC_KINDS.length) | 0];
     const spec = TRAFFIC_SPECS[kind];
     const w = Math.min(laneW * 0.86, car.w * spec.w);
@@ -7129,6 +7221,57 @@
     tone(700, 0.12, 'triangle', 0.07, 0.09);
   });
 
+  // ---------- 选关 ----------
+  function renderLevels() {
+    const maxLv = Math.max(1, Math.min(99, state.level));
+    let html = '';
+    for (let n = 1; n <= maxLv; n++) {
+      const th = themeOf(n);
+      const best = bestStars[n] || 0;
+      html += '<button class="level-btn' + (n === state.level ? ' on' : '') + '" data-lv="' + n +
+        '" type="button"><b>第 ' + n + ' 关</b><i>' + th.name + '</i><em>' +
+        (best ? '★'.repeat(best) : '未通关') + '</em></button>';
+    }
+    levelGridEl.innerHTML = html;
+  }
+
+  levelGridEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.level-btn');
+    if (!btn) return;
+    const n = parseInt(btn.dataset.lv, 10);
+    if (!(n >= 1 && n <= state.level)) return;
+    state.level = n;
+    saveProgress();
+    updateLevelChip();
+    buildCharDeck(n);
+    layout();
+    renderLevels();
+    tone(620, 0.09, 'triangle', 0, 0.09);
+  });
+
+  // ---------- 重置进度 ----------
+  function resetProgress() {
+    state.level = 1;
+    for (const k in bestStars) delete bestStars[k];
+    learned.clear();
+    wrongChars.clear();
+    daily = { day: todayKey(), count: 0 };
+    try {
+      ['car-race-level', 'car-race-best', 'car-race-learned',
+        'car-race-wrong', 'car-race-daily', 'car-race-days']
+        .forEach(k => localStorage.removeItem(k));
+    } catch (err) { /* ignore */ }
+    saveProgress();
+    updateLearnedBtn();
+    renderDaily();
+    updateLevelChip();
+    renderLevels();
+    buildCharDeck(1);
+    layout();
+    resetScreen.classList.add('hidden');
+    tone(420, 0.12, 'sine', 0, 0.1);
+  }
+
   // ---------- 道具状态条 ----------
   function updateEffects() {
     const parts = [];
@@ -7414,6 +7557,7 @@
     progressEl.classList.add('hidden');
     updateLevelChip();
     renderGarage();
+    renderLevels();
     updateLearnedBtn();
     layout();
   }
@@ -7641,6 +7785,22 @@
 
   // 家长设置
   settingsBtnEl.addEventListener('click', openSettings);
+
+  // 选关
+  levelBtnEl.addEventListener('click', () => {
+    renderLevels();
+    levelScreen.classList.remove('hidden');
+  });
+  document.getElementById('levelClose').addEventListener('click', () => {
+    levelScreen.classList.add('hidden');
+  });
+
+  // 重置进度（二次确认）
+  resetBtnEl.addEventListener('click', () => resetScreen.classList.remove('hidden'));
+  document.getElementById('resetCancel').addEventListener('click', () => {
+    resetScreen.classList.add('hidden');
+  });
+  document.getElementById('resetOk').addEventListener('click', resetProgress);
   document.getElementById('setSave').addEventListener('click', saveSettings);
   document.getElementById('setClose').addEventListener('click', () => {
     settingsScreen.classList.add('hidden');
@@ -7756,6 +7916,7 @@
     } catch (e) { /* 隐私模式等场景忽略 */ }
   })();
   renderGarage();
+  renderLevels();
   updateLevelChip();
   resize();
   requestAnimationFrame(frame);
