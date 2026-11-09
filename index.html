@@ -25,7 +25,10 @@
   .pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.9);border-radius:999px;
     padding:4px clamp(12px,3vw,18px) 4px 10px;box-shadow:0 4px 0 rgba(0,0,0,.14);}
   .pill .ico{font-size:clamp(21px,5.4vmin,30px);line-height:1;}
+  .pill .star{font-size:clamp(15px,3.2vmin,19px);line-height:1;}
   .pill .num{font-size:clamp(19px,5vmin,27px);font-weight:900;color:#4a3b1c;min-width:30px;}
+  .pill .num.bump{animation:numBump .3s cubic-bezier(.2,1.7,.5,1);}
+  @keyframes numBump{0%{transform:scale(1)}45%{transform:scale(1.45);color:#e08a12}100%{transform:scale(1)}}
   #mute{pointer-events:auto;width:clamp(40px,9vmin,54px);height:clamp(40px,9vmin,54px);
     border:none;border-radius:50%;background:rgba(255,255,255,.9);
     box-shadow:0 4px 0 rgba(0,0,0,.14);font-size:clamp(19px,4.6vmin,26px);
@@ -54,6 +57,7 @@
     backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:10;
     touch-action:pan-y;overscroll-behavior:contain;}
   .overlay.hidden{display:none;}
+  #exitScreen{z-index:20;}
   .hud.hidden,.progress.hidden{display:none;}
   .card{width:min(92vw,720px);max-height:calc(100dvh - clamp(20px,6vmin,52px));
     overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
@@ -267,7 +271,7 @@
 
   <div class="hud hidden" id="hud">
     <button class="pill" id="charPill" aria-label="重听刚才的汉字">
-      <span class="ico" id="lastChar">字</span><span class="num" id="starCount">0</span>
+      <span class="ico" id="lastChar">字</span><span class="star">⭐</span><span class="num" id="starCount">0</span>
     </button>
     <div class="hud-right">
       <button id="pause" aria-label="暂停">⏸</button>
@@ -340,6 +344,16 @@
       <p class="sub">小车在路边等你</p>
       <button class="big-btn" id="resumeBtn">继续 ▶</button>
       <button class="ghost-btn" id="quitBtn"><span class="fill"></span>长按 2 秒回车库</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="exitScreen">
+    <div class="card small">
+      <div class="logo">🚪</div>
+      <h1>要离开游戏吗？</h1>
+      <p class="sub">进度会自动保存，下次回来还能接着玩</p>
+      <button class="big-btn" id="exitStay">继续玩</button>
+      <button class="ghost-btn danger" id="exitLeave">退出游戏</button>
     </div>
   </div>
 
@@ -1346,7 +1360,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-09.3';
+  const APP_VERSION = '2026-11-09.4';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1471,7 +1485,7 @@
       finished = true;
       audioBusy = false;
       duckBgm(false);
-      setTimeout(pumpAudio, 420);
+      setTimeout(pumpAudio, 60);
     };
     a.onended = done;
     a.onerror = done;
@@ -1483,7 +1497,7 @@
   }
   function speakAudio(word) {
     audioQueue.push(word);
-    if (audioQueue.length > 3) audioQueue.splice(0, audioQueue.length - 3);
+    if (audioQueue.length > 2) audioQueue.splice(0, audioQueue.length - 2);
     pumpAudio();
   }
 
@@ -1507,9 +1521,9 @@
       clearTimeout(watchdog);
       if (token !== speechToken) return;
       speechBusy = false;
-      speechNextAt = performance.now() + 520;
+      speechNextAt = performance.now() + 110;
       if (!speechQueue.length) duckBgm(false);
-      setTimeout(pumpSpeech, 540);
+      setTimeout(pumpSpeech, 130);
     };
     try {
       const u = new SpeechSynthesisUtterance(word);
@@ -1562,7 +1576,8 @@
       return;
     }
     speechQueue.push(word);
-    if (speechQueue.length > 5) speechQueue.splice(0, speechQueue.length - 5);
+    // 只保留最新的两个：连续吃字时听到的字最多落后一个，不会越积越多
+    if (speechQueue.length > 2) speechQueue.splice(0, speechQueue.length - 2);
     pumpSpeech();
   }
   // 重听：清空队列，立即读当前字
@@ -6746,6 +6761,9 @@
     if (wrongChars.has(o.ch)) { wrongChars.delete(o.ch); saveWrong(); }
     saveLearned();
     starsEl.textContent = String(state.stars);
+    starsEl.classList.remove('bump');
+    void starsEl.offsetWidth;
+    starsEl.classList.add('bump');
     lastCharEl.textContent = o.ch;
     burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
     toasts.push({ x: o.x, y: o.y - 8, text: info.c, sub: info.p, life: 1.0, ttl: 1.0, color: '#f5a623' });
@@ -7425,6 +7443,9 @@
     state.lastSpoken = '';
     state.pendingCollect = [];
     state.uniqueChars = new Set();
+    // 清掉上一局可能残留的朗读，避免新一局开头听到上一局的字
+    speechQueue = [];
+    audioQueue = [];
     state.goalChars = Math.min(18, 10 + state.level * 2);
     state.collectCD = 0;
     state.flash = 0;
@@ -7467,6 +7488,8 @@
   function finishGame() {
     if (state.mode !== 'playing') return;
     state.mode = 'finish';
+    speechQueue = [];
+    audioQueue = [];
     releaseWake();
     syncAmbience();
     state.fxSig = '';
@@ -7801,6 +7824,56 @@
     resetScreen.classList.add('hidden');
   });
   document.getElementById('resetOk').addEventListener('click', resetProgress);
+
+  // 返回/退出确认：拦截浏览器返回手势，先问一句再走
+  let exitWasPlaying = false;
+  let leavingPage = false;
+  const exitScreenEl = document.getElementById('exitScreen');
+  function guardHistory() {
+    try { history.pushState({ carRaceGuard: 1 }, ''); } catch (e) { /* ignore */ }
+  }
+  function showExitConfirm() {
+    if (!exitScreenEl.classList.contains('hidden')) return;
+    exitWasPlaying = state.mode === 'playing';
+    if (exitWasPlaying) pauseGame();
+    exitScreenEl.classList.remove('hidden');
+  }
+  window.addEventListener('popstate', () => {
+    if (leavingPage) return;
+    guardHistory();
+    showExitConfirm();
+  });
+  document.getElementById('exitStay').addEventListener('click', () => {
+    exitScreenEl.classList.add('hidden');
+    if (exitWasPlaying) resumeGame();
+    exitWasPlaying = false;
+  });
+  document.getElementById('exitLeave').addEventListener('click', () => {
+    exitScreenEl.classList.add('hidden');
+    exitWasPlaying = false;
+    leavingPage = true;
+    try { history.back(); } catch (e) { /* ignore */ }
+    // 没有上一页可返回时，退回到开始页，避免卡在弹窗里
+    setTimeout(() => {
+      if (!leavingPage) return;
+      leavingPage = false;
+      goGarage();
+      guardHistory();
+    }, 360);
+  });
+  // 屏幕中段的左右滑不再触发页面手势（画布上仍保留拖车手感）
+  let swipeX = 0, swipeY = 0;
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    swipeX = e.touches[0].clientX;
+    swipeY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1 || e.target === canvas) return;
+    const dx = e.touches[0].clientX - swipeX;
+    const dy = e.touches[0].clientY - swipeY;
+    if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.4) e.preventDefault();
+  }, { passive: false });
   document.getElementById('setSave').addEventListener('click', saveSettings);
   document.getElementById('setClose').addEventListener('click', () => {
     settingsScreen.classList.add('hidden');
@@ -7920,6 +7993,8 @@
   updateLevelChip();
   resize();
   requestAnimationFrame(frame);
+  // 给浏览器返回/左滑手势多加一层同页状态，退回时先弹确认
+  guardHistory();
 
   // 注册 Service Worker，支持离线与添加到主屏幕
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
