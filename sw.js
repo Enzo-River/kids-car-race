@@ -1,5 +1,5 @@
 // 小车大冒险 Service Worker：离线可玩
-const CACHE = 'car-race-v33';
+const CACHE = 'car-race-v34';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
