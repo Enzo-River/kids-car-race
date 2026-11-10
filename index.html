@@ -1362,7 +1362,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-10.4';
+  const APP_VERSION = '2026-11-10.5';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2560,12 +2560,7 @@
     ctx.translate(x, y);
 
     // 阴影（离屏贴图时不画，3D 里由路面上单独投影）
-    if (!forSprite) {
-      ctx.fillStyle = 'rgba(0,0,0,.20)';
-      ctx.beginPath();
-      ctx.ellipse(0, h * 0.03, w * 0.56, h * 0.47, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    if (!forSprite) carShadow(w, h);
 
     // 品牌车：直接复用车库里的专属车身轮廓
     if (kind === 'brand') {
@@ -2598,6 +2593,18 @@
     ctx.fillStyle = g;
     rr(-w * 0.5, -h * 0.5, w, h, Math.max(6, w * 0.15));
     ctx.fill();
+    // 车头受光、车尾压暗，补出车身弧面
+    ctx.save();
+    rr(-w * 0.5, -h * 0.5, w, h, Math.max(6, w * 0.15));
+    ctx.clip();
+    const vg = ctx.createLinearGradient(0, -h * 0.5, 0, h * 0.5);
+    vg.addColorStop(0, 'rgba(255,255,255,.18)');
+    vg.addColorStop(0.30, 'rgba(255,255,255,.05)');
+    vg.addColorStop(0.70, 'rgba(0,0,0,.10)');
+    vg.addColorStop(1, 'rgba(0,0,0,.26)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
+    ctx.restore();
     ctx.strokeStyle = 'rgba(0,0,0,.28)';
     ctx.lineWidth = Math.max(1.2, w * 0.022);
     ctx.stroke();
@@ -3305,12 +3312,33 @@
 
   // ---------- 车身绘制（俯视，按真实车型比例与造型） ----------
   function bodyGrad(b, w) {
-    const g = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
+    // 斜向清漆高光 + 两侧压暗，俯视下也能看出车漆的弧面
+    const g = ctx.createLinearGradient(-w * 0.52, -w * 0.54, w * 0.52, w * 0.54);
     g.addColorStop(0, b.body2);
-    g.addColorStop(0.28, b.body);
-    g.addColorStop(0.72, b.body);
+    g.addColorStop(0.24, b.body);
+    g.addColorStop(0.43, b.body);
+    g.addColorStop(0.50, shadeHex(b.body, 0.24));
+    g.addColorStop(0.57, b.body);
+    g.addColorStop(0.78, b.body);
     g.addColorStop(1, b.body2);
     return g;
+  }
+
+  // 柔和接地阴影：中心深、边缘透明，避免一圈生硬的黑椭圆
+  function carShadow(w, h) {
+    const rx = w * 0.58, ry = h * 0.50;
+    ctx.save();
+    ctx.translate(0, h * 0.03);
+    ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, rx * 0.30, 0, 0, rx);
+    g.addColorStop(0, 'rgba(0,0,0,.30)');
+    g.addColorStop(0.50, 'rgba(0,0,0,.16)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   function outline(w, alpha) {
@@ -3347,6 +3375,25 @@
     ctx.strokeStyle = 'rgba(8,12,16,.45)';
     ctx.lineWidth = Math.max(0.7, gw * 0.018);
     ctx.stroke();
+    // 玻璃上的天空反光：柔和斜向光带 + 顶部天光，避免硬边白条像划痕
+    ctx.save();
+    ctx.beginPath();
+    rr(x, y, gw, gh, r);
+    ctx.clip();
+    const sg = ctx.createLinearGradient(x - gw * 0.25, y + gh, x + gw * 0.85, y - gh * 0.15);
+    sg.addColorStop(0, 'rgba(255,255,255,0)');
+    sg.addColorStop(0.30, 'rgba(255,255,255,.05)');
+    sg.addColorStop(0.44, 'rgba(255,255,255,.24)');
+    sg.addColorStop(0.58, 'rgba(255,255,255,.06)');
+    sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(x, y, gw, gh);
+    const tg = ctx.createLinearGradient(0, y, 0, y + gh * 0.6);
+    tg.addColorStop(0, 'rgba(255,255,255,.15)');
+    tg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = tg;
+    ctx.fillRect(x, y, gw, gh * 0.6);
+    ctx.restore();
   }
 
   function sideMirror(s, w, h, ytop) {
@@ -5900,10 +5947,7 @@
     ctx.save();
     ctx.translate(state.carX, carY + bob);
 
-    ctx.fillStyle = 'rgba(0,0,0,.20)';
-    ctx.beginPath();
-    ctx.ellipse(0, h * 0.02, w * 0.58, h * 0.50, 0, 0, Math.PI * 2);
-    ctx.fill();
+    carShadow(w, h);
 
     ctx.rotate(state.tilt * 0.12);
     if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.5;
