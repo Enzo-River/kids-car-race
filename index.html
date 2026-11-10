@@ -423,7 +423,7 @@
   const lerp = (a, b, t) => a + (b - a) * t;
 
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');
   const starsEl = document.getElementById('starCount');
   const muteBtn = document.getElementById('mute');
   const hudEl = document.getElementById('hud');
@@ -1362,7 +1362,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-10.1';
+  const APP_VERSION = '2026-11-10.2';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2546,7 +2546,7 @@
     ctx.restore();
   }
 
-  function drawTraffic(o) {
+  function drawTraffic(o, forSprite) {
     const x = o.x, y = o.y, w = o.w, h = o.h, kind = o.kind;
     const spec = TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car;
     const t = state.time;
@@ -2554,11 +2554,13 @@
     ctx.save();
     ctx.translate(x, y);
 
-    // 阴影
-    ctx.fillStyle = 'rgba(0,0,0,.20)';
-    ctx.beginPath();
-    ctx.ellipse(0, h * 0.03, w * 0.56, h * 0.47, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // 阴影（离屏贴图时不画，3D 里由路面上单独投影）
+    if (!forSprite) {
+      ctx.fillStyle = 'rgba(0,0,0,.20)';
+      ctx.beginPath();
+      ctx.ellipse(0, h * 0.03, w * 0.56, h * 0.47, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // 品牌车：直接复用车库里的专属车身轮廓
     if (kind === 'brand') {
@@ -6137,108 +6139,83 @@
     }
   }
 
-  // 通用立体车：玩家与交通车共用
-  function carMesh(x, zRear, len, wid, hei, col, opt) {
-    const o = opt || {};
-    const hw = wid * 0.5;
-    const yBase = hei * 0.18;
-    const yBelt = hei * (o.belt || 0.58);
-    const zF = zRear + len;
-    const cabR = zRear + len * (o.cabRear != null ? o.cabRear : 0.20);
-    const cabF = zRear + len * (o.cabFront != null ? o.cabFront : 0.62);
-    const cw = hw * (o.cabW || 0.80);
-    const roof = hei * 0.99;
-
-    groundEllipse(x, zRear + len * 0.5, hw * 1.16, len * 0.56, 'rgba(0,0,0,.24)');
-
-    // 轮胎
-    const wr = wid * 0.115;
-    for (const zc of [zRear + len * 0.20, zRear + len * 0.79]) {
-      for (const s of [-1, 1]) {
-        const cx = x + s * (hw - wr * 0.22);
-        box3(cx - wr, cx + wr, 0, yBelt * 0.70, zc - wr * 1.3, zc + wr * 1.3,
-          '#22262e', '#15181e', '#181c22');
-      }
-    }
-
-    // 车身
-    box3(x - hw, x + hw, yBase, yBelt, zRear, zF,
-      shadeHex(col, 0.18), shadeHex(col, -0.26), shadeHex(col, -0.38));
-
-    // 尾灯
-    const rz = zRear - 0.8;
-    for (const s of [-1, 1]) {
-      poly3([
-        [x + s * hw * 0.40, yBelt * 0.94, rz], [x + s * hw * 0.86, yBelt * 0.94, rz],
-        [x + s * hw * 0.86, yBelt * 0.70, rz], [x + s * hw * 0.40, yBelt * 0.70, rz]
-      ], o.tail || '#e8433e');
-    }
-
-    // 座舱
-    box3(x - cw, x + cw, yBelt, roof, cabR, cabF,
-      shadeHex(col, 0.10), shadeHex(col, -0.32), shadeHex(col, -0.44));
-
-    // 后风挡
-    poly3([
-      [x - cw * 0.88, roof * 0.94, cabR - 0.9], [x + cw * 0.88, roof * 0.94, cabR - 0.9],
-      [x + cw * 0.82, yBelt + hei * 0.05, cabR - 0.9], [x - cw * 0.82, yBelt + hei * 0.05, cabR - 0.9]
-    ], 'rgba(26,38,56,.80)');
-
-    // 车顶玻璃 / 饰条
-    if (o.glass) {
-      poly3([
-        [x - cw * 0.74, roof + 0.5, cabR + len * 0.06], [x + cw * 0.74, roof + 0.5, cabR + len * 0.06],
-        [x + cw * 0.74, roof + 0.5, cabF - len * 0.08], [x - cw * 0.74, roof + 0.5, cabF - len * 0.08]
-      ], 'rgba(30,46,68,.34)');
-    }
-    if (o.accent) {
-      // 车顶两侧饰条（俯角下中央长条会被压成一个方块，所以做成两侧边条）
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * cw * 0.44, roof + 0.8, cabR + len * 0.08], [x + s * cw * 0.62, roof + 0.8, cabR + len * 0.08],
-          [x + s * cw * 0.62, roof + 0.8, cabF - len * 0.10], [x + s * cw * 0.44, roof + 0.8, cabF - len * 0.10]
-        ], o.accent);
-      }
-    }
-
-    // 车尾品牌车标
-    if (o.badge && o.badge.naturalWidth) {
-      const img = o.badge;
-      const bw = wid * 0.42;
-      const bh = bw * img.naturalHeight / Math.max(1, img.naturalWidth);
-      const p = pr(x, yBelt * 0.56, rz - 0.4);
-      if (p) {
-        const sw = bw * p.k, sh2 = bh * p.k;
-        if (sw > 3 && sh2 > 2) {
-          ctx.save();
-          ctx.globalAlpha *= 0.96;
-          ctx.drawImage(img, p.x - sw / 2, p.y - sh2 / 2, sw, sh2);
-          ctx.restore();
+  // 车辆俯视画布：把 2D 车漆画法渲染到离屏画布，3D 里按深度缩放贴到路面上
+  const carSprites = {};
+  const SPRITE_PAD = 1.14;
+  function vehicleSprite(kind, brandId) {
+    const isBrand = kind === 'brand';
+    const key = isBrand ? 'b:' + brandId : 't:' + kind;
+    if (carSprites[key]) return carSprites[key];
+    const b = isBrand ? (brandById[brandId] || BRANDS[0]) : null;
+    const ratio = isBrand ? (b.ratio || 2.0) : ((TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car).h);
+    const pad = isBrand ? SPRITE_PAD : 1.16;
+    const w = isBrand ? 180 : 120;
+    const h = Math.round(w * ratio);
+    const cw = Math.round(w * pad), ch = Math.round(h * pad);
+    const c = document.createElement('canvas');
+    c.width = cw; c.height = ch;
+    const g = c.getContext('2d');
+    const real = ctx;
+    ctx = g;
+    try {
+      g.translate(cw / 2, ch / 2);
+      if (isBrand) {
+        (PAINTERS[b.id] || paintFerrari)(b, w, h);
+        const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+        if (img && img.naturalWidth) {
+          const spec = badgeSpec(b.id);
+          const dw = w * spec.w;
+          const dh = dw * img.naturalHeight / img.naturalWidth;
+          if (spec.glow) {
+            const gr = g.createRadialGradient(0, h * spec.y, 0, 0, h * spec.y, dw * 0.85);
+            gr.addColorStop(0, 'rgba(255,255,255,.26)');
+            gr.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = gr;
+            g.beginPath();
+            g.arc(0, h * spec.y, dw * 0.85, 0, Math.PI * 2);
+            g.fill();
+          }
+          g.drawImage(img, -dw / 2, h * spec.y - dh / 2, dw, dh);
         }
+      } else {
+        drawTraffic({ x: 0, y: 0, w: w, h: h, kind: kind, phase: 0 }, true);
       }
+    } finally {
+      ctx = real;
     }
+    const sp = { cv: c, w: w, h: h, pad: pad };
+    carSprites[key] = sp;
+    return sp;
+  }
+
+  // 车辆 3D 投影：用 2D 俯视车漆画布按深度缩放，保留真实车型
+  function drawVehicleSprite3d(sp, x, zRear, len, wid) {
+    const zc = zRear + len * 0.5;
+    const k = pxAt(zc);
+    if (k <= 0) return;
+    const g = pr(x, 0, zc);
+    const zb = zRear - len * (sp.pad - 1) * 0.5;
+    const gb = pr(x, 0, zb);
+    if (!g || !gb) return;
+    groundEllipse(x, zc, wid * 0.66, len * 0.52, 'rgba(0,0,0,.22)');
+    const dw = wid * k * sp.pad;
+    const dh = len * k * 0.86 * sp.pad;
+    ctx.drawImage(sp.cv, g.x - dw / 2, gb.y - dh, dw, dh);
+  }
+
+  function drawBrandCar3d(b, x, zRear, len, wid) {
+    drawVehicleSprite3d(vehicleSprite('brand', b.id), x, zRear, len, wid);
   }
 
   function drawCar3d() {
     const b = getBrand();
-    const wid = car.w, len = car.h;
-    // 车身高度按车型比例：越"短胖"（比值小）越高，SUV/MPV 明显比轿车高
-    const tallCar = b.id === 'wuling' || b.ratio < 1.90;
-    const hei = wid * (b.id === 'wuling' ? 1.00 : (tallCar ? 0.90 : 0.76));
+    const len = car.h, wid = car.w;
     const zRear = camZC - len * 0.5;
     const x = state.carX - W / 2;
 
     ctx.save();
     if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.55;
-    carMesh(x, zRear, len, wid, hei, b.body, {
-      belt: tallCar ? 0.52 : 0.56,
-      cabRear: tallCar ? 0.12 : 0.18,
-      cabFront: tallCar ? 0.72 : 0.62,
-      cabW: 0.80,
-      glass: true,
-      accent: b.accent,
-      badge: logoImgs[b.id + ':badge'] || logoImgs[b.id]
-    });
+    drawBrandCar3d(b, x, zRear, len, wid);
     ctx.restore();
   }
 
@@ -6323,32 +6300,7 @@
     }
 
     if (o.type === 'traffic') {
-      if (o.kind === 'brand') {
-        const b = brandById[o.brandId] || BRANDS[0];
-        const tallCar = b.id === 'wuling' || b.ratio < 1.90;
-        const hei = o.w * (b.id === 'wuling' ? 1.00 : (tallCar ? 0.90 : 0.76));
-        carMesh(x, z - o.h * 0.5, o.h, o.w, hei, b.body, {
-          belt: tallCar ? 0.52 : 0.56,
-          cabRear: tallCar ? 0.12 : 0.18,
-          cabFront: tallCar ? 0.72 : 0.62,
-          cabW: 0.80,
-          glass: true,
-          accent: b.accent,
-          badge: logoImgs[b.id + ':badge'] || logoImgs[b.id],
-          tail: '#e8435a'
-        });
-        return;
-      }
-      const spec = TRAFFIC_SPECS[o.kind] || TRAFFIC_SPECS.car;
-      const big = o.kind === 'truck' || o.kind === 'cement';
-      carMesh(x, z - o.h * 0.5, o.h, o.w, o.w * (big ? 0.96 : 0.80), spec.body[0], {
-        belt: big ? 0.50 : 0.58,
-        cabRear: big ? 0.08 : 0.22,
-        cabFront: big ? 0.30 : 0.64,
-        cabW: 0.80,
-        glass: true,
-        tail: '#ff5a4a'
-      });
+      drawVehicleSprite3d(vehicleSprite(o.kind, o.brandId), x, z - o.h * 0.5, o.h, o.w);
       return;
     }
 
@@ -6397,7 +6349,7 @@
       const a = Math.max(hz + 1, wy), b = Math.min(H, wy + period * 0.5);
       if (b <= a) continue;
       const z1 = depthOf(a), z2 = depthOf(b);
-      if (z1 >= 8000 || z2 >= 8000) continue;
+      if (z1 >= 30000 || z2 >= 30000) continue;
       const hw = roadWidth / 2 + 14;
       poly3([[-9000, 0.2, z2], [-hw, 0.2, z2], [-hw, 0.2, z1], [-9000, 0.2, z1]], th.stripe);
       poly3([[hw, 0.2, z2], [9000, 0.2, z2], [9000, 0.2, z1], [hw, 0.2, z1]], th.stripe);
@@ -6416,7 +6368,7 @@
     const th = curTheme();
     const hz = camHorizon;
     const HW = roadWidth / 2;
-    const zN = 200, zF = 9000;
+    const zN = 200, zF = 60000;
 
     const rg = ctx.createLinearGradient(0, hz, 0, H);
     rg.addColorStop(0, shadeHex(th.road, 0.46));
@@ -6436,7 +6388,7 @@
         const a = Math.max(hz + 1.5, wy), b = Math.min(H, wy + dash);
         if (b <= a) continue;
         const z1 = depthOf(a), z2 = depthOf(b);
-        if (z1 >= 8000 || z2 >= 8000) continue;
+        if (z1 >= 30000 || z2 >= 30000) continue;
         poly3([[x - 3, 0.8, z2], [x + 3, 0.8, z2], [x + 3, 0.8, z1], [x - 3, 0.8, z1]], 'rgba(255,255,255,.68)');
       }
     }
@@ -6452,7 +6404,7 @@
           const a = Math.max(hz + 1.5, wy + s2 * seg), b = Math.min(H, wy + (s2 + 1) * seg);
           if (b <= a) continue;
           const z1 = depthOf(a), z2 = depthOf(b);
-          if (z1 >= 8000 || z2 >= 8000) continue;
+          if (z1 >= 30000 || z2 >= 30000) continue;
           const col = th.curb[s2 % th.curb.length];
           poly3([[x0, 13, z2], [x1, 13, z2], [x1, 13, z1], [x0, 13, z1]], shadeHex(col, 0.20));
           const inX = side < 0 ? x1 : x0;
@@ -6467,7 +6419,7 @@
     for (let wy = ps; wy < H; wy += postGap) {
       const a = Math.max(hz + 2, wy);
       const z = depthOf(a);
-      if (!(z > 0) || z > 7200) continue;
+      if (!(z > 0) || z > 20000) continue;
       for (const side of [-1, 1]) {
         const bx = side * (HW + 26);
         box3(bx - 3.5, bx + 3.5, 0, 42, z - 3.5, z + 3.5, '#f4f8fc', '#cdd7e1', '#b3bfcb');
