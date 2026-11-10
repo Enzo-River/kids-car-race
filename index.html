@@ -1105,6 +1105,7 @@
   function setView(is3d) {
     view3d = is3d;
     try { localStorage.setItem('car-race-view3d', is3d ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (W > 0 && H > 0) buildDecor();
     viewSwitchEl.querySelectorAll('.mode-btn').forEach(b => {
       b.classList.toggle('on', (b.dataset.view === '3d') === is3d);
     });
@@ -1188,6 +1189,7 @@
   let grassOffset = 0;
   let dashOffset = 0;
   let curbOffset = 0;
+  let postOffset = 0;
 
   // ---------- 声音 ----------
   let actx = null;
@@ -1360,7 +1362,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-09.4';
+  const APP_VERSION = '2026-11-10.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1712,15 +1714,20 @@
   function buildDecor() {
     decor = [];
     const th = curTheme();
-    const count = 12;
+    // 3D 视角下 y 是屏幕行，地平线附近压缩了整段远路，
+    // 所以需要更多装饰，并让它们从地平线一路分布到屏幕下缘之外，
+    // 这样路两侧的景观会连续地由远及近滑过。
+    const count = view3d ? 52 : 12;
+    const yStart = view3d ? camHorizon + 4 : -H;
+    const yEnd = view3d ? H + 40 : H;
     for (let i = 0; i < count; i++) {
       const side = i % 2 === 0 ? -1 : 1;
       decor.push({
         side,
         x: decorX(side),
-        y: rand(-H, H),
+        y: rand(yStart, yEnd),
         s: rand(0.6, 1.05),
-        type: Math.random() < 0.62 ? th.plant : 'flower',
+        type: Math.random() < 0.72 ? th.plant : 'flower',
         color: th.flower[(Math.random() * th.flower.length) | 0],
         phase: rand(0, Math.PI * 2)
       });
@@ -2414,12 +2421,10 @@
 
   function drawDecor() {
     if (view3d) {
-      // 真 3D：远的先画，近的后画
-      const list = decor.slice().sort(function (a, b) { return b.y - a.y; });
+      // 真 3D：远的先画，近的后画（y 越大 = 离镜头越近）
+      const list = decor.slice().sort(function (a, b) { return a.y - b.y; });
       for (const d of list) {
-        if (d.y + 24 < camHorizon) continue;
-        // 跑到车后（更靠近镜头）的装饰会被透视放得极大，直接不画
-        if (d.y > carY + 36) continue;
+        if (d.y < camHorizon - 10) continue;
         drawProp3d(d);
       }
       return;
@@ -6239,12 +6244,26 @@
 
   // 路边装饰：按类型给成立体体积
   function drawProp3d(d) {
-    const th = curTheme();
     const z = depthOf(d.y);
     if (!(z > 0) || z > 8000) return;
-    const k = pxAt(z);
-    if (k <= 0.01) return;
     const x = d.x - W / 2;
+    const g = pr(x, 0, z);
+    if (!g) return;
+    // 已经滑出画面两侧 / 底部（更靠近镜头）才跳过，交给滚动回收。
+    // 不能在车身行直接截断，否则屏幕下半段会突然变得空荡。
+    if (g.x < -W * 0.8 || g.x > W * 1.8) return;
+    if (g.y > H + 320 * d.s) return;
+    // 远端淡入：配合地平线雾带自然浮现，而不是从屏幕中间"长出来"
+    const alpha = clamp((8000 - z) / 2600, 0, 1);
+    if (alpha < 0.02) return;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    paintProp3d(d, z, x);
+    ctx.restore();
+  }
+
+  function paintProp3d(d, z, x) {
+    const th = curTheme();
     const s = d.s;
     const t = d.type;
     const leaf = shadeHex(th.grass[1], -0.44);
@@ -6439,6 +6458,21 @@
           const inX = side < 0 ? x1 : x0;
           poly3([[inX, 0, z2], [inX, 0, z1], [inX, 13, z1], [inX, 13, z2]], shadeHex(col, -0.20));
         }
+      }
+    }
+
+    // 路侧反光柱：一路排到远处，强化纵深与速度感
+    const postGap = 74;
+    const ps = (postOffset % postGap) - postGap;
+    for (let wy = ps; wy < H; wy += postGap) {
+      const a = Math.max(hz + 2, wy);
+      const z = depthOf(a);
+      if (!(z > 0) || z > 7200) continue;
+      for (const side of [-1, 1]) {
+        const bx = side * (HW + 26);
+        box3(bx - 3.5, bx + 3.5, 0, 42, z - 3.5, z + 3.5, '#f4f8fc', '#cdd7e1', '#b3bfcb');
+        poly3([[bx - 4.2, 26, z - 3.6], [bx + 4.2, 26, z - 3.6], [bx + 4.2, 33, z - 3.6], [bx - 4.2, 33, z - 3.6]],
+          side < 0 ? '#ff6b6b' : '#ffd166');
       }
     }
 
@@ -6885,6 +6919,7 @@
     grassOffset += sp * dt * 0.35;
     curbOffset += sp * dt;
     dashOffset += sp * dt;
+    postOffset += sp * dt;
 
     // 转向
     if (playing) {
@@ -6986,13 +7021,13 @@
     // 装饰滚动
     for (const d of decor) {
       d.y += sp * dt;
-      if (d.y > H + 60) {
-        d.y = -60;
+      if (d.y > (view3d ? H + 120 : H + 60)) {
+        d.y = view3d ? camHorizon + rand(4, 46) : -60;
         d.side = Math.random() < 0.5 ? -1 : 1;
         d.x = decorX(d.side);
         d.s = rand(0.6, 1.05);
         const th = curTheme();
-        d.type = Math.random() < 0.62 ? th.plant : 'flower';
+        d.type = Math.random() < 0.72 ? th.plant : 'flower';
         d.color = th.flower[(Math.random() * th.flower.length) | 0];
       }
     }
