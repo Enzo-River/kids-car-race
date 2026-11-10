@@ -1362,7 +1362,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-10.2';
+  const APP_VERSION = '2026-11-10.3';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2419,6 +2419,35 @@
     ctx.stroke();
   }
 
+  // 路边景物统一画法（2D 直接画，3D 按投影缩放后当立牌画）
+  function paintDecor2d(d, x, y, s) {
+    if (d.type === 'tree') drawTree(x, y, s);
+    else if (d.type === 'cactus') drawCactus(x, y, s);
+    else if (d.type === 'pine') drawPine(x, y, s);
+    else if (d.type === 'palm') drawPalm(x, y, s);
+    else if (d.type === 'birch') drawBirch(x, y, s);
+    else if (d.type === 'rock') drawBoulder(x, y, s);
+    else if (d.type === 'wheat') drawWheat(x, y, s);
+    else if (d.type === 'boat') drawBoat(x, y, s);
+    else if (d.type === 'lamp') drawTunnelLamp(x, y, s);
+    else if (d.type === 'crane') drawCrane(x, y, s);
+    else if (d.type === 'blossom') drawBlossom(x, y, s);
+    else if (d.type === 'turbine') drawTurbine(x, y, s);
+    else if (d.type === 'planet') drawPlanet(x, y, s);
+    else if (d.type === 'lava') drawLava(x, y, s);
+    else if (d.type === 'bamboo') drawBamboo(x, y, s);
+    else if (d.type === 'balloon') drawBalloon(x, y, s);
+    else if (d.type === 'iceberg') drawIceberg(x, y, s);
+    else if (d.type === 'lavender') drawLavender(x, y, s);
+    else if (d.type === 'candy') drawCandy(x, y, s);
+    else if (d.type === 'neon') drawNeon(x, y, s);
+    else if (d.type === 'sakura') drawSakura(x, y, s);
+    else if (d.type === 'aurora') drawAurora(x, y, s);
+    else if (d.type === 'coral') drawCoral(x, y, s);
+    else if (d.type === 'lantern') drawLantern(x, y, s);
+    else drawFlower(x, y, s, d.color, d.phase);
+  }
+
   function drawDecor() {
     if (view3d) {
       // 真 3D：远的先画，近的后画（y 越大 = 离镜头越近）
@@ -2430,31 +2459,7 @@
       return;
     }
     for (const d of decor) {
-      if (d.type === 'tree') drawTree(d.x, d.y, d.s);
-      else if (d.type === 'cactus') drawCactus(d.x, d.y, d.s);
-      else if (d.type === 'pine') drawPine(d.x, d.y, d.s);
-      else if (d.type === 'palm') drawPalm(d.x, d.y, d.s);
-      else if (d.type === 'birch') drawBirch(d.x, d.y, d.s);
-      else if (d.type === 'rock') drawBoulder(d.x, d.y, d.s);
-      else if (d.type === 'wheat') drawWheat(d.x, d.y, d.s);
-      else if (d.type === 'boat') drawBoat(d.x, d.y, d.s);
-      else if (d.type === 'lamp') drawTunnelLamp(d.x, d.y, d.s);
-      else if (d.type === 'crane') drawCrane(d.x, d.y, d.s);
-      else if (d.type === 'blossom') drawBlossom(d.x, d.y, d.s);
-      else if (d.type === 'turbine') drawTurbine(d.x, d.y, d.s);
-      else if (d.type === 'planet') drawPlanet(d.x, d.y, d.s);
-      else if (d.type === 'lava') drawLava(d.x, d.y, d.s);
-      else if (d.type === 'bamboo') drawBamboo(d.x, d.y, d.s);
-      else if (d.type === 'balloon') drawBalloon(d.x, d.y, d.s);
-      else if (d.type === 'iceberg') drawIceberg(d.x, d.y, d.s);
-      else if (d.type === 'lavender') drawLavender(d.x, d.y, d.s);
-      else if (d.type === 'candy') drawCandy(d.x, d.y, d.s);
-      else if (d.type === 'neon') drawNeon(d.x, d.y, d.s);
-      else if (d.type === 'sakura') drawSakura(d.x, d.y, d.s);
-      else if (d.type === 'aurora') drawAurora(d.x, d.y, d.s);
-      else if (d.type === 'coral') drawCoral(d.x, d.y, d.s);
-      else if (d.type === 'lantern') drawLantern(d.x, d.y, d.s);
-      else drawFlower(d.x, d.y, d.s, d.color, d.phase);
+      paintDecor2d(d, d.x, d.y, d.s);
     }
   }
 
@@ -6183,24 +6188,109 @@
     } finally {
       ctx = real;
     }
-    const sp = { cv: c, w: w, h: h, pad: pad };
+    const sp = {
+      cv: c, w: w, h: h, pad: pad,
+      sx: Math.round((cw - w) / 2), sy: Math.round((ch - h) / 2),
+      sideC: isBrand ? (b.body2 || b.body || '#8a8f99')
+        : (TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car).body[1],
+      hgtK: spriteHeightK(kind)
+    };
     carSprites[key] = sp;
     return sp;
   }
 
-  // 车辆 3D 投影：用 2D 俯视车漆画布按深度缩放，保留真实车型
+  // 车身高度 / 车宽：跑车低矮，卡车公交更高
+  function spriteHeightK(kind) {
+    if (kind === 'brand') return 0.31;
+    const h = (TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car).h;
+    return clamp(0.16 + (h - 1.75) * 0.28, 0.32, 0.55);
+  }
+
+  // 车底柔和投影：屏幕空间径向渐变，避免硬边黑椭圆像一块灰板
+  function vehicleShadow(x, zc, wid, len) {
+    const p = pr(x, 0, zc);
+    const pn = pr(x, 0, zc - len * 0.5);
+    const pf = pr(x, 0, zc + len * 0.5);
+    const pl = pr(x - wid * 0.5, 0, zc);
+    const prt = pr(x + wid * 0.5, 0, zc);
+    if (!p || !pn || !pf || !pl || !prt) return;
+    const rxs = Math.abs(prt.x - pl.x) / 2 + 0.5;
+    const rys = Math.abs(pf.y - pn.y) / 2 + 0.5;
+    if (rxs < 0.5 || rys < 0.5) return;
+    ctx.save();
+    ctx.translate(p.x, (pn.y + pf.y) / 2);
+    ctx.scale(1, rys / rxs);
+    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rxs);
+    gr.addColorStop(0, 'rgba(0,0,0,.26)');
+    gr.addColorStop(0.62, 'rgba(0,0,0,.17)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(0, 0, rxs, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 车辆 3D：把俯视车漆贴图按透视铺到车顶平面，再补出车尾立面，
+  // 这样车有真实体积和近大远小的车宽，而不是一块竖起来的贴纸。
   function drawVehicleSprite3d(sp, x, zRear, len, wid) {
+    const zFront = zRear + len;
     const zc = zRear + len * 0.5;
-    const k = pxAt(zc);
-    if (k <= 0) return;
-    const g = pr(x, 0, zc);
-    const zb = zRear - len * (sp.pad - 1) * 0.5;
-    const gb = pr(x, 0, zb);
-    if (!g || !gb) return;
-    groundEllipse(x, zc, wid * 0.66, len * 0.52, 'rgba(0,0,0,.22)');
-    const dw = wid * k * sp.pad;
-    const dh = len * k * 0.86 * sp.pad;
-    ctx.drawImage(sp.cv, g.x - dw / 2, gb.y - dh, dw, dh);
+    if (pxAt(zc) <= 0.02) return;
+    const hgt = wid * (sp.hgtK || 0.34);
+    // 车顶只铺到 86% 车长，最后一段由车尾立面接管，避免尾灯被画两遍
+    const uEnd = 0.86;
+    const zFace = zRear + len * (1 - uEnd);
+
+    const tRL = pr(x - wid / 2, hgt, zFace);
+    const tRR = pr(x + wid / 2, hgt, zFace);
+    const tFL = pr(x - wid / 2, hgt, zFront);
+    const tFR = pr(x + wid / 2, hgt, zFront);
+    const bL = pr(x - wid / 2, 0, zFace);
+    const bR = pr(x + wid / 2, 0, zFace);
+    if (!tRL || !tRR || !tFL || !tFR || !bL || !bR) return;
+    if (Math.min(tFL.y, tFR.y) > H + 60 || Math.max(tRL.y, tRR.y) < -60) return;
+
+    // 车底投影
+    vehicleShadow(x, zc, wid * 1.04, len);
+
+    // 车尾立面：车身色垫底 + 贴图最后一段（尾灯 / 保险杠），圆角收边
+    const rwF = tRR.x - tRL.x;
+    const rhF = bL.y - tRL.y;
+    if (rwF > 0.5 && rhF > 0.5) {
+      const x0 = tRL.x + rwF * 0.035, x1 = tRR.x - rwF * 0.035;
+      rr(x0, tRL.y, x1 - x0, rhF, Math.min(rwF * 0.18, rhF * 0.5));
+      ctx.fillStyle = shadeHex(sp.sideC || '#8a8f99', -0.22);
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.drawImage(sp.cv, sp.sx, sp.sy + sp.h * uEnd, sp.w, sp.h * (1 - uEnd),
+        x0, tRL.y, x1 - x0, rhF);
+      // 底部压暗，形成接地暗部，避免车看起来悬空
+      const gd = ctx.createLinearGradient(0, tRL.y + rhF * 0.6, 0, bL.y);
+      gd.addColorStop(0, 'rgba(0,0,0,0)');
+      gd.addColorStop(1, 'rgba(0,0,0,.34)');
+      ctx.fillStyle = gd;
+      ctx.fillRect(x0, tRL.y + rhF * 0.55, x1 - x0, rhF * 0.45);
+      ctx.restore();
+    }
+
+    // 车顶：逐条带贴图，远端窄、近端宽，得到真正的梯形透视
+    const rows = clamp(Math.round((tRL.y - tFL.y) / 4.2), 8, 20);
+    for (let i = 0; i < rows; i++) {
+      const u0 = (i / rows) * uEnd, u1 = ((i + 1) / rows) * uEnd;
+      const za = zFront - len * u0, zb = zFront - len * u1;
+      const aL = pr(x - wid / 2, hgt, za), aR = pr(x + wid / 2, hgt, za);
+      const cL = pr(x - wid / 2, hgt, zb), cR = pr(x + wid / 2, hgt, zb);
+      if (!aL || !aR || !cL || !cR) continue;
+      const hBand = cL.y - aL.y;
+      if (hBand < 0.5) continue;
+      const wAvg = ((aR.x - aL.x) + (cR.x - cL.x)) * 0.5;
+      const cx = ((aL.x + aR.x) + (cL.x + cR.x)) * 0.25;
+      ctx.drawImage(sp.cv,
+        sp.sx, sp.sy + sp.h * u0, sp.w, sp.h * (u1 - u0),
+        cx - wAvg / 2, aL.y - 0.4, wAvg, hBand + 0.8);
+    }
   }
 
   function drawBrandCar3d(b, x, zRear, len, wid) {
@@ -6219,60 +6309,26 @@
     ctx.restore();
   }
 
-  // 路边装饰：按类型给成立体体积
+  // 路边景物 3D：锚在投影后的地面点，按透视缩放成立牌，
+  // 复用 2D 的精细画法（层叠树冠、花瓣、棕榈叶），不再是低多边形圆锥。
   function drawProp3d(d) {
     const z = depthOf(d.y);
-    if (!(z > 0) || z > 8000) return;
+    if (!(z > 0) || z > 14000) return;
     const x = d.x - W / 2;
-    const g = pr(x, 0, z);
-    if (!g) return;
+    const base = pr(x, 0, z);
+    if (!base) return;
     // 已经滑出画面两侧 / 底部（更靠近镜头）才跳过，交给滚动回收。
-    // 不能在车身行直接截断，否则屏幕下半段会突然变得空荡。
-    if (g.x < -W * 0.8 || g.x > W * 1.8) return;
-    if (g.y > H + 320 * d.s) return;
+    if (base.x < -W * 0.9 || base.x > W * 1.9) return;
+    if (base.y > H + 240) return;
+    const sc = d.s * base.k;
+    if (sc < 0.03) return;
     // 远端淡入：配合地平线雾带自然浮现，而不是从屏幕中间"长出来"
-    const alpha = clamp((8000 - z) / 2600, 0, 1);
+    const alpha = clamp((14000 - z) / 3400, 0, 1);
     if (alpha < 0.02) return;
     ctx.save();
     ctx.globalAlpha *= alpha;
-    paintProp3d(d, z, x);
+    paintDecor2d(d, base.x, base.y, sc);
     ctx.restore();
-  }
-
-  function paintProp3d(d, z, x) {
-    const th = curTheme();
-    const s = d.s;
-    const t = d.type;
-    const leaf = shadeHex(th.grass[1], -0.44);
-    const leaf2 = shadeHex(th.grass[1], -0.24);
-
-    if (t === 'lamp' || t === 'turbine' || t === 'crane' || t === 'planet' || t === 'balloon') {
-      const hh = 92 * s;
-      box3(x - 2 * s, x + 2 * s, 0, hh, z - 2 * s, z + 2 * s, '#aab3bf', '#7e8794', '#6d7683');
-      if (t === 'lamp') {
-        poly3([[x - 9 * s, hh, z], [x + 9 * s, hh, z], [x + 9 * s, hh + 6 * s, z], [x - 9 * s, hh + 6 * s, z]], '#ffe9a8');
-      } else if (t === 'planet') {
-        poly3([[x - 20 * s, hh, z], [x + 20 * s, hh, z], [x + 16 * s, hh + 26 * s, z], [x - 16 * s, hh + 26 * s, z]], leaf2);
-      } else {
-        poly3([[x - 14 * s, hh, z], [x + 14 * s, hh, z], [x + 10 * s, hh + 20 * s, z], [x - 10 * s, hh + 20 * s, z]], '#dfe8f2');
-      }
-      return;
-    }
-
-    if (t === 'rock' || t === 'iceberg' || t === 'lava' || t === 'coral') {
-      cone3(x, z, 22 * s, 0, 26 * s, '#a9b3bd', '#8b96a2', 8);
-      return;
-    }
-
-    if (t === 'flower' || t === 'wheat' || t === 'lavender') {
-      box3(x - 1.4 * s, x + 1.4 * s, 0, 18 * s, z - 1.4 * s, z + 1.4 * s, leaf, leaf, shadeHex(th.grass[1], -0.52));
-      cone3(x, z, 7 * s, 18 * s, 26 * s, d.color || '#ffd166', d.color || '#ffce4d', 8);
-      return;
-    }
-
-    // 树：树干 + 两层树冠
-    box3(x - 3 * s, x + 3 * s, 0, 32 * s, z - 3 * s, z + 3 * s, '#8a6642', '#6f4f31', '#5f4128');
-    cone3(x, z, 24 * s, 30 * s, 92 * s, leaf2, leaf, 10);
   }
 
   // 关卡物件：星星 / 道具 / 交通车 / 雪糕筒 / 石头
@@ -6342,18 +6398,21 @@
     ctx.fillStyle = gg;
     ctx.fillRect(0, hz, W, H - hz);
 
-    // 草地条纹（贴地立体条带）
-    const period = 40;
-    const start = (grassOffset % period) - period;
-    for (let wy = start; wy < H + period; wy += period) {
-      const a = Math.max(hz + 1, wy), b = Math.min(H, wy + period * 0.5);
-      if (b <= a) continue;
-      const z1 = depthOf(a), z2 = depthOf(b);
-      if (z1 >= 30000 || z2 >= 30000) continue;
-      const hw = roadWidth / 2 + 14;
-      poly3([[-9000, 0.2, z2], [-hw, 0.2, z2], [-hw, 0.2, z1], [-9000, 0.2, z1]], th.stripe);
-      poly3([[hw, 0.2, z2], [9000, 0.2, z2], [9000, 0.2, z1], [hw, 0.2, z1]], th.stripe);
+    // 草地条纹：按世界深度铺，向地平线自然收敛（屏幕等距会造成"平贴纸"感）
+    const bandLen = 130;
+    const phase = grassOffset % (bandLen * 2);
+    const hw = roadWidth / 2 + 16;
+    for (let z0 = 160 - phase; z0 < 7000; z0 += bandLen * 2) {
+      const zA = Math.max(160, z0 + bandLen);
+      const zB = z0 + bandLen * 2;
+      if (zB <= zA) continue;
+      poly3([[-4200, 0.2, zB], [-hw, 0.2, zB], [-hw, 0.2, zA], [-4200, 0.2, zA]], th.stripe);
+      poly3([[hw, 0.2, zB], [4200, 0.2, zB], [4200, 0.2, zA], [hw, 0.2, zA]], th.stripe);
     }
+
+    // 路肩接地暗部：让路面和草地之间有过渡，不再是一条硬边
+    poly3([[-hw, 0.25, 200], [-hw + 11, 0.25, 200], [-hw + 11, 0.25, 9000], [-hw, 0.25, 9000]], 'rgba(0,0,0,.10)');
+    poly3([[hw - 11, 0.25, 200], [hw, 0.25, 200], [hw, 0.25, 9000], [hw - 11, 0.25, 9000]], 'rgba(0,0,0,.10)');
 
     const fogH = Math.min(120, H * 0.18);
     const hg = ctx.createLinearGradient(0, hz - fogH, 0, hz + fogH * 0.6);
@@ -6393,38 +6452,50 @@
       }
     }
 
-    // 立体路缘石
-    const seg = 26;
+    // 路缘石：按世界长度分段，红白块随透视收敛，不再是等高的平面带
+    const segLen = 38;
+    const cOff = curbOffset % (segLen * 2);
+    const curbH = 9;
     for (const side of [-1, 1]) {
       const x0 = side < 0 ? -HW - 14 : HW;
       const x1 = x0 + 14;
-      const st2 = (curbOffset % (seg * 2)) - seg * 2;
-      for (let wy = st2; wy < H + seg * 2; wy += seg * 2) {
+      const inX = side < 0 ? x1 : x0;
+      for (let z0 = 120 - cOff; z0 < 2600; z0 += segLen * 2) {
         for (let s2 = 0; s2 < 2; s2++) {
-          const a = Math.max(hz + 1.5, wy + s2 * seg), b = Math.min(H, wy + (s2 + 1) * seg);
-          if (b <= a) continue;
-          const z1 = depthOf(a), z2 = depthOf(b);
-          if (z1 >= 30000 || z2 >= 30000) continue;
+          const zA = Math.max(120, z0 + s2 * segLen);
+          const zB = z0 + (s2 + 1) * segLen;
+          if (zB <= zA) continue;
           const col = th.curb[s2 % th.curb.length];
-          poly3([[x0, 13, z2], [x1, 13, z2], [x1, 13, z1], [x0, 13, z1]], shadeHex(col, 0.20));
-          const inX = side < 0 ? x1 : x0;
-          poly3([[inX, 0, z2], [inX, 0, z1], [inX, 13, z1], [inX, 13, z2]], shadeHex(col, -0.20));
+          poly3([[x0, curbH, zB], [x1, curbH, zB], [x1, curbH, zA], [x0, curbH, zA]], shadeHex(col, 0.16));
+          poly3([[inX, 0, zB], [inX, 0, zA], [inX, curbH, zA], [inX, curbH, zB]], shadeHex(col, -0.28));
         }
       }
     }
 
-    // 路侧反光柱：一路排到远处，强化纵深与速度感
-    const postGap = 74;
-    const ps = (postOffset % postGap) - postGap;
-    for (let wy = ps; wy < H; wy += postGap) {
-      const a = Math.max(hz + 2, wy);
-      const z = depthOf(a);
-      if (!(z > 0) || z > 20000) continue;
+    // 路侧反光柱：按世界间距排布，带接地阴影，不再像悬空的白棍
+    const postGap = 110;
+    const pOff = postOffset % postGap;
+    for (let z0 = 200 - pOff; z0 < 2800; z0 += postGap) {
+      const z = Math.max(200, z0);
+      const k = pxAt(z);
+      if (k < 0.05) continue;
       for (const side of [-1, 1]) {
-        const bx = side * (HW + 26);
-        box3(bx - 3.5, bx + 3.5, 0, 42, z - 3.5, z + 3.5, '#f4f8fc', '#cdd7e1', '#b3bfcb');
-        poly3([[bx - 4.2, 26, z - 3.6], [bx + 4.2, 26, z - 3.6], [bx + 4.2, 33, z - 3.6], [bx - 4.2, 33, z - 3.6]],
-          side < 0 ? '#ff6b6b' : '#ffd166');
+        const bp = pr(side * (HW + 30), 0, z);
+        if (!bp) continue;
+        const hh = 34 * k, ww = Math.max(1.4, 5 * k);
+        ctx.fillStyle = 'rgba(0,0,0,.16)';
+        ctx.beginPath();
+        ctx.ellipse(bp.x, bp.y, ww * 1.4, ww * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#eef3f8';
+        rr(bp.x - ww / 2, bp.y - hh, ww, hh, ww / 2);
+        ctx.fill();
+        ctx.fillStyle = '#c6d0da';
+        ctx.fillRect(bp.x - ww / 2, bp.y - hh * 0.5, ww, hh * 0.08);
+        ctx.fillStyle = side < 0 ? '#ff6b6b' : '#ffd166';
+        ctx.fillRect(bp.x - ww / 2, bp.y - hh * 0.84, ww, hh * 0.18);
+        ctx.fillStyle = 'rgba(255,255,255,.7)';
+        ctx.fillRect(bp.x - ww * 0.34, bp.y - hh * 0.96, ww * 0.22, hh * 0.72);
       }
     }
 
