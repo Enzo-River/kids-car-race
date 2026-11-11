@@ -928,6 +928,7 @@
     invuln: 0,
     shake: 0,
     spawnAcc: 0,
+    trafficCD: 0,
     muted: false,
     brandId: 'ferrari',
     goal: GOAL,
@@ -1362,7 +1363,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-10.6';
+  const APP_VERSION = '2026-11-11.1';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -6914,7 +6915,15 @@
     state.lastCollectAt = state.time;
   }
   function spawnTraffic() {
-    const lane = Math.floor(Math.random() * LANES);
+    // 尽量不和刚出场的车挤在同一条车道
+    const busy = [];
+    for (const o of objects) {
+      if (o.type === 'traffic' && o.y < 280) busy.push(Math.floor((o.x - roadLeft) / laneW));
+    }
+    let lane = Math.floor(Math.random() * LANES);
+    if (busy.length < LANES) {
+      for (let i = 0; i < 10 && busy.indexOf(lane) >= 0; i++) lane = Math.floor(Math.random() * LANES);
+    }
 
     // 约 45% 的概率换成品牌车：用各自的配色、造型和车标
     if (Math.random() < 0.45) {
@@ -7247,6 +7256,15 @@
           spawnObject();
         }
         if (state.time - state.lastCollectAt > 3.2) spawnCatchup();
+
+        // 交通车辆单独补车：保证路上一直有车在跑，不会空荡荡
+        state.trafficCD -= dt;
+        let liveTraffic = 0;
+        for (const o of objects) if (o.type === 'traffic') liveTraffic++;
+        if (state.trafficCD <= 0 && state.distance > 600 && liveTraffic < 3) {
+          spawnTraffic();
+          state.trafficCD = Math.max(0.9, 2.4 - state.level * 0.07);
+        }
       }
 
       // 物体
@@ -7786,6 +7804,7 @@
     state.invuln = 0;
     state.shake = 0;
     state.spawnAcc = 0;
+    state.trafficCD = 0;
     objects = [];
     particles = [];
     toasts = [];
