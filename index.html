@@ -1362,7 +1362,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-10.5';
+  const APP_VERSION = '2026-11-10.6';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -6234,15 +6234,20 @@
     ctx.restore();
   }
 
-  // 车辆 3D：后视立面 + 透视车顶 + 侧面
-  // 之前把俯视车漆贴图直接铺到车顶平面上，低机位下会被压成“贴纸台阶”；
-  // 现在按真实车宽 / 车高 / 车长做体积化绘制，车尾细节画在投影后的立面上。
+  // 车辆 3D：按真实车身曲面分层绘制
+  // 车尾立面、后箱盖、倾斜后风挡、收窄的车顶和车身侧面都用渐变 / 圆角过渡，
+  // 不再是一摞硬边方块，避免低机位下的塑料模型感。
   function drawVehicle3d(st, x, zRear, len, wid) {
     const hgt = wid * st.hgtK;
-    const zFront = zRear + len;
     const zc = zRear + len * 0.5;
     const hw = wid / 2;
-    const cabinZ = zRear + len * (st.longRoof ? 0.88 : 0.60);
+    const isLong = !!st.longRoof;                         // 厢式 / 卡车 / 公交：车尾近乎垂直
+    const tailH = hgt * (isLong ? 0.95 : 0.78);           // 尾门顶边 / 后箱盖高度
+    const zDeck = zRear + len * (isLong ? 0.02 : 0.18);   // 后箱盖前缘
+    const zRoof0 = zRear + len * (isLong ? 0.04 : 0.44);  // 车顶后缘
+    const zRoof1 = zRear + len * (isLong ? 0.92 : 0.74);  // 车顶前缘
+    const rw0 = hw * (isLong ? 0.93 : 0.80);              // 车顶后缘半宽（厢式车侧壁近乎垂直）
+    const rf0 = hw * (isLong ? 0.88 : 0.66);              // 车顶前缘半宽
 
     const tL = pr(x - hw, hgt, zRear), tR = pr(x + hw, hgt, zRear);
     const bL = pr(x - hw, 0, zRear);
@@ -6250,126 +6255,307 @@
     const fw = tR.x - tL.x, fh = bL.y - tL.y;
     if (fw < 1.6 || fh < 1.2) return;
     if (bL.y < -30 || tL.y > H + 30) return;
+    const fine = fw >= 18;
+
+    const cBody = st.body;
+    const cLight = shadeHex(st.body, 0.20);
+    const cShade = shadeHex(st.body, -0.16);
+    const cDark = shadeHex(st.body, -0.38);
+    const cDeep = shadeHex(st.body, -0.62);
+
+    // 投影后的多边形填充：渐变按屏幕高度取，曲面过渡更自然
+    const gradPoly = (pts, c0, c1, c2) => {
+      const sp = [];
+      for (let i = 0; i < pts.length; i++) {
+        const p = pr(pts[i][0], pts[i][1], pts[i][2]);
+        if (!p) return;
+        sp.push(p);
+      }
+      let y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i < sp.length; i++) {
+        if (sp[i].y < y0) y0 = sp[i].y;
+        if (sp[i].y > y1) y1 = sp[i].y;
+      }
+      const g = ctx.createLinearGradient(0, y0, 0, Math.max(y1, y0 + 0.6));
+      g.addColorStop(0, c0);
+      g.addColorStop(c2 ? 0.55 : 1, c1);
+      if (c2) g.addColorStop(1, c2);
+      ctx.beginPath();
+      for (let i = 0; i < sp.length; i++) {
+        if (i) ctx.lineTo(sp[i].x, sp[i].y); else ctx.moveTo(sp[i].x, sp[i].y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    };
 
     // 车底投影
     vehicleShadow(x, zc, wid * 1.06, len);
 
-    // 车轮：先画，被车身圆角压住大半，只露出底部两侧
-    const wW = fw * 0.20, wH = Math.max(1.6, fh * 0.30);
-    ctx.fillStyle = '#20242c';
-    rr(tL.x - fw * 0.012, bL.y - wH, wW, wH, wW * 0.34); ctx.fill();
-    rr(tR.x - wW + fw * 0.012, bL.y - wH, wW, wH, wW * 0.34); ctx.fill();
-
-    // 侧面：补出车身厚度（只画朝向镜头中心的一侧）
-    const sideX = x >= 0 ? x - hw : x + hw;
-    if (Math.abs(x) > wid * 0.10 && fw > 4) {
-      poly3([[sideX, 0, zRear], [sideX, hgt + 1.2, zRear], [sideX, hgt + 1.2, cabinZ], [sideX, 0, cabinZ]],
-        shadeHex(st.body2, -0.16));
+    // 车轮：略微外露，胎壁带一点高光，避免底部两块死黑
+    const wW = fw * (isLong ? 0.15 : 0.17);
+    const wH = Math.max(1.6, fh * 0.24);
+    const wY = bL.y - wH * 0.55;
+    const wR = Math.max(1, wW * 0.32);
+    ctx.fillStyle = '#171a21';
+    rr(tL.x - fw * 0.012, wY, wW, wH, wR); ctx.fill();
+    rr(tR.x - wW + fw * 0.012, wY, wW, wH, wR); ctx.fill();
+    if (fine) {
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      rr(tL.x + wW * 0.30, wY + wH * 0.24, wW * 0.34, wH * 0.42, wW * 0.14); ctx.fill();
+      rr(tR.x - wW + wW * 0.36, wY + wH * 0.24, wW * 0.34, wH * 0.42, wW * 0.14); ctx.fill();
     }
 
-    // 车顶只覆盖座舱，不一直铺到车头（否则整车像一只方盒子）；
-    // 座舱比车身略窄，远端再收窄，车头部分被座舱挡住，符合低机位透视。
-    const fL = pr(x - hw, hgt, cabinZ), fR = pr(x + hw, hgt, cabinZ);
-    const rw0 = hw * 0.89, rf0 = hw * 0.72;
-    if (fL && fR) {
-      // 座舱两侧的车肩，填满车顶与车身侧面的高度差
-      poly3([[x - hw, hgt + 0.2, zRear], [x - rw0, hgt + 0.2, zRear],
-        [x - rf0, hgt + 0.2, cabinZ], [x - hw, hgt + 0.2, cabinZ]], shadeHex(st.body, -0.12));
-      poly3([[x + rw0, hgt + 0.2, zRear], [x + hw, hgt + 0.2, zRear],
-        [x + hw, hgt + 0.2, cabinZ], [x + rf0, hgt + 0.2, cabinZ]], shadeHex(st.body, -0.12));
-      poly3([[x - rw0 - 0.8, hgt, zRear], [x + rw0 + 0.8, hgt, zRear], [x + rf0 + 0.8, hgt, cabinZ], [x - rf0 - 0.8, hgt, cabinZ]],
-        shadeHex(st.body, 0.02));
-      poly3([[x - rw0 * 0.72, hgt + 0.4, zRear + len * 0.18], [x + rw0 * 0.72, hgt + 0.4, zRear + len * 0.18],
-        [x + rf0 * 0.72, hgt + 0.4, cabinZ - len * 0.10], [x - rf0 * 0.72, hgt + 0.4, cabinZ - len * 0.10]],
-        shadeHex(st.body, 0.15));
-      // 车顶两侧暗边，做出圆弧感
-      if (fw > 22) {
-        poly3([[x - rw0, hgt + 0.6, zRear], [x - rw0 * 0.84, hgt + 0.6, zRear],
-          [x - rf0 * 0.84, hgt + 0.6, cabinZ], [x - rf0, hgt + 0.6, cabinZ]], 'rgba(0,0,0,.13)');
-        poly3([[x + rw0 * 0.84, hgt + 0.6, zRear], [x + rw0, hgt + 0.6, zRear],
-          [x + rf0, hgt + 0.6, cabinZ], [x + rf0 * 0.84, hgt + 0.6, cabinZ]], 'rgba(0,0,0,.13)');
+    // 车身侧面：从地面经腰线一直收到车顶边，剪影连续，不再外翘成“翅膀”
+    // 只画朝向镜头中心的一侧，另一侧被车身挡住，画出来会“透”成一块斜板
+    if (Math.abs(x) > wid * 0.10 && fw > 4) {
+      const s = x >= 0 ? -1 : 1;
+      const sx = x + s * hw;
+      const pts = [
+        [sx, 0, zRear], [sx, hgt * 0.80, zRear],
+        [x + s * rw0, hgt, zRoof0], [x + s * rf0, hgt, zRoof1],
+        [sx, hgt * 0.80, zRoof1], [sx, 0, zRoof1]
+      ];
+      const sp = [];
+      let bad = false;
+      for (let i = 0; i < pts.length; i++) {
+        const p = pr(pts[i][0], pts[i][1], pts[i][2]);
+        if (!p) { bad = true; break; }
+        sp.push(p);
+      }
+      if (!bad) {
+        ctx.beginPath();
+        for (let i = 0; i < sp.length; i++) {
+          if (i) ctx.lineTo(sp[i].x, sp[i].y); else ctx.moveTo(sp[i].x, sp[i].y);
+        }
+        ctx.closePath();
+        let sy0 = Infinity, sy1 = -Infinity;
+        for (let i = 0; i < sp.length; i++) {
+          if (sp[i].y < sy0) sy0 = sp[i].y;
+          if (sp[i].y > sy1) sy1 = sp[i].y;
+        }
+        const sg = ctx.createLinearGradient(0, sy0, 0, Math.max(sy1, sy0 + 0.6));
+        sg.addColorStop(0, cShade);
+        sg.addColorStop(0.45, shadeHex(st.body, -0.30));
+        sg.addColorStop(1, cDeep);
+        ctx.fillStyle = sg;
+        ctx.fill();
+        if (fine) {
+          // 后侧窗：C 柱后面的一块暗玻璃
+          const q0 = pr(sx, hgt * 0.80, zRear), q1 = pr(x + s * rw0, hgt * 0.97, zRoof0);
+          const q2 = pr(x + s * rw0 * 0.86, hgt * 0.97, zRoof0);
+          const q3 = pr(sx, hgt * 0.80, zRear + len * 0.30);
+          if (q0 && q1 && q2 && q3) {
+            ctx.beginPath();
+            ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y);
+            ctx.lineTo(q2.x, q2.y); ctx.lineTo(q3.x, q3.y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(16,24,34,.62)';
+            ctx.fill();
+          }
+          // 腰线高光
+          const h1 = pr(sx, hgt * 0.64, zRear), h2 = pr(sx, hgt * 0.64, zRoof1);
+          if (h1 && h2) {
+            ctx.beginPath();
+            ctx.moveTo(h1.x, h1.y); ctx.lineTo(h2.x, h2.y);
+            ctx.strokeStyle = 'rgba(255,255,255,.20)';
+            ctx.lineWidth = Math.max(0.8, fw * 0.012);
+            ctx.stroke();
+          }
+        }
       }
     }
 
-    // 车尾立面
+    // 后箱盖：车身向后收的顶面，把车尾和座舱连起来
+    if (!isLong) {
+      gradPoly([[x - hw * 0.99, tailH, zRear], [x + hw * 0.99, tailH, zRear],
+        [x + hw * 0.90, tailH, zDeck], [x - hw * 0.90, tailH, zDeck]],
+        shadeHex(st.body, 0.14), shadeHex(st.body, 0.01));
+    }
+
+    // 后风挡：C 柱包边 + 倾斜玻璃（轿车）/ 垂直后窗（厢式车，画在尾门内）
+    const winPts = isLong ? null : [
+      [x - hw * 0.78, tailH + hgt * 0.03, zDeck], [x + hw * 0.78, tailH + hgt * 0.03, zDeck],
+      [x + hw * 0.66, hgt * 0.985, zRoof0], [x - hw * 0.66, hgt * 0.985, zRoof0]
+    ];
+    if (winPts) {
+      poly3([[x - hw * 0.97, tailH, zDeck], [x + hw * 0.97, tailH, zDeck],
+        [x + hw * 0.80, hgt * 0.995, zRoof0], [x - hw * 0.80, hgt * 0.995, zRoof0]], cShade);
+      gradPoly(winPts, '#3f566b', '#18212b', '#0f151c');
+      if (fw > 14) {
+        // 玻璃密封条
+        ctx.strokeStyle = 'rgba(14,18,24,.55)';
+        ctx.lineWidth = Math.max(0.7, fw * 0.010);
+        ctx.stroke();
+      }
+      // 玻璃天空反光
+      const a = pr(winPts[0][0], winPts[0][1], winPts[0][2]);
+      const b = pr(winPts[1][0], winPts[1][1], winPts[1][2]);
+      const c = pr(winPts[2][0], winPts[2][1], winPts[2][2]);
+      const d = pr(winPts[3][0], winPts[3][1], winPts[3][2]);
+      if (fine && a && b && c && d) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
+        ctx.closePath();
+        ctx.clip();
+        const gx0 = Math.min(a.x, d.x), gx1 = Math.max(b.x, c.x);
+        const gy0 = Math.min(c.y, d.y), gy1 = Math.max(a.y, b.y);
+        const rg = ctx.createLinearGradient(gx0, gy1, gx1, gy0);
+        rg.addColorStop(0, 'rgba(255,255,255,0)');
+        rg.addColorStop(0.38, 'rgba(255,255,255,.06)');
+        rg.addColorStop(0.5, 'rgba(255,255,255,.22)');
+        rg.addColorStop(0.62, 'rgba(255,255,255,.05)');
+        rg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = rg;
+        ctx.fillRect(gx0, gy0, gx1 - gx0, gy1 - gy0);
+        ctx.restore();
+      }
+    }
+
+    // 车顶顶面：比车身窄，用渐变压出弧面
+    if (rw0 > 0.3) {
+      gradPoly([[x - rw0, hgt, zRoof0], [x + rw0, hgt, zRoof0],
+        [x + rf0, hgt, zRoof1], [x - rf0, hgt, zRoof1]],
+        shadeHex(st.body, 0.04), shadeHex(st.body, 0.19), shadeHex(st.body, 0.11));
+      if (fine) {
+        // 车顶中央的柔和反光
+        poly3([[x - rw0 * 0.62, hgt, zRoof0 + len * 0.05], [x + rw0 * 0.62, hgt, zRoof0 + len * 0.05],
+          [x + rf0 * 0.56, hgt, zRoof1 - len * 0.08], [x - rf0 * 0.56, hgt, zRoof1 - len * 0.08]],
+          'rgba(255,255,255,.12)');
+        // 车顶两侧暗边
+        poly3([[x - rw0, hgt, zRoof0], [x - rw0 * 0.84, hgt, zRoof0],
+          [x - rf0 * 0.84, hgt, zRoof1], [x - rf0, hgt, zRoof1]], 'rgba(0,0,0,.12)');
+        poly3([[x + rw0 * 0.84, hgt, zRoof0], [x + rw0, hgt, zRoof0],
+          [x + rf0, hgt, zRoof1], [x + rf0 * 0.84, hgt, zRoof1]], 'rgba(0,0,0,.12)');
+      }
+    }
+
+    // 车尾立面（尾门）
+    const topP = pr(x, tailH, zRear);
+    if (!topP) return;
+    const fh2 = bL.y - topP.y;
+    if (fh2 < 1) return;
+    const rad = Math.min(fw * 0.15, fh2 * 0.28, 16);
+
     ctx.save();
-    rr(tL.x, tL.y, fw, fh, Math.min(fw * 0.09, fh * 0.22));
-    const bg = ctx.createLinearGradient(0, tL.y, 0, tL.y + fh);
-    bg.addColorStop(0, shadeHex(st.body, 0.22));
-    bg.addColorStop(0.52, st.body);
-    bg.addColorStop(1, shadeHex(st.body, -0.30));
+    rr(tL.x, topP.y, fw, fh2, rad);
+    const bg = ctx.createLinearGradient(0, topP.y, 0, bL.y);
+    bg.addColorStop(0, cLight);
+    bg.addColorStop(0.42, cBody);
+    bg.addColorStop(0.82, cDark);
+    bg.addColorStop(1, cDeep);
     ctx.fillStyle = bg;
     ctx.fill();
-    if (fw > 26) {
-      ctx.lineWidth = Math.max(0.7, fw * 0.013);
-      ctx.strokeStyle = 'rgba(22,28,38,.26)';
+    if (fw > 20) {
+      ctx.lineWidth = Math.max(0.7, fw * 0.012);
+      ctx.strokeStyle = 'rgba(22,28,38,.22)';
       ctx.stroke();
     }
     ctx.clip();
 
-    // 后风挡
-    const wx = tL.x + fw * 0.13, wy = tL.y + fh * 0.045;
-    const ww = fw * 0.74, wh = fh * 0.30;
-    rr(wx, wy, ww, wh, Math.min(ww * 0.09, wh * 0.32));
-    const wg = ctx.createLinearGradient(0, wy, 0, wy + wh);
-    wg.addColorStop(0, '#35465a');
-    wg.addColorStop(1, '#141b25');
-    ctx.fillStyle = wg;
-    ctx.fill();
-    if (fw > 20) {
-      ctx.fillStyle = 'rgba(255,255,255,.15)';
-      ctx.beginPath();
-      ctx.moveTo(wx + ww * 0.12, wy + wh * 0.92);
-      ctx.lineTo(wx + ww * 0.40, wy + wh * 0.08);
-      ctx.lineTo(wx + ww * 0.56, wy + wh * 0.08);
-      ctx.lineTo(wx + ww * 0.28, wy + wh * 0.92);
-      ctx.closePath();
+    // 横向中间提亮，做出车尾的鼓形弧面
+    if (fine) {
+      const cg = ctx.createLinearGradient(tL.x, 0, tR.x, 0);
+      cg.addColorStop(0, 'rgba(0,0,0,.16)');
+      cg.addColorStop(0.18, 'rgba(0,0,0,.02)');
+      cg.addColorStop(0.5, 'rgba(255,255,255,.13)');
+      cg.addColorStop(0.82, 'rgba(0,0,0,.02)');
+      cg.addColorStop(1, 'rgba(0,0,0,.16)');
+      ctx.fillStyle = cg;
+      ctx.fillRect(tL.x, topP.y, fw, fh2);
+    }
+
+    // 尾门缝
+    if (fine) {
+      ctx.fillStyle = 'rgba(24,30,40,.28)';
+      ctx.fillRect(tL.x + fw * 0.10, topP.y + fh2 * (isLong ? 0.30 : 0.24), fw * 0.80, Math.max(0.6, fh2 * 0.013));
+    }
+
+    // 后窗（厢式车 / 公交）：尾门上的大玻璃
+    if (isLong) {
+      const ww2 = fw * 0.72, wh2 = fh2 * 0.30;
+      const wx2 = tL.x + fw * 0.14, wy2 = topP.y + fh2 * 0.08;
+      const wr2 = Math.min(ww2 * 0.07, wh2 * 0.26);
+      const wg = ctx.createLinearGradient(0, wy2, 0, wy2 + wh2);
+      wg.addColorStop(0, '#4a6378');
+      wg.addColorStop(1, '#151d26');
+      ctx.fillStyle = wg;
+      rr(wx2, wy2, ww2, wh2, wr2);
       ctx.fill();
+      if (fine) {
+        ctx.save();
+        rr(wx2, wy2, ww2, wh2, wr2);
+        ctx.clip();
+        const rg2 = ctx.createLinearGradient(wx2 + ww2 * 0.05, wy2 + wh2, wx2 + ww2 * 0.72, wy2);
+        rg2.addColorStop(0, 'rgba(255,255,255,0)');
+        rg2.addColorStop(0.44, 'rgba(255,255,255,.05)');
+        rg2.addColorStop(0.54, 'rgba(255,255,255,.20)');
+        rg2.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = rg2;
+        ctx.fillRect(wx2, wy2, ww2, wh2);
+        ctx.restore();
+      }
     }
 
-    // 尾灯
-    const lh0 = Math.max(1.1, fh * 0.14);
-    const ly = tL.y + fh * 0.515;
-    const lw0 = fw * 0.20;
-    ctx.fillStyle = '#c9322c';
-    rr(tL.x + fw * 0.055, ly, lw0, lh0, lh0 * 0.35); ctx.fill();
-    rr(tR.x - fw * 0.055 - lw0, ly, lw0, lh0, lh0 * 0.35); ctx.fill();
-    if (fw > 16) {
-      ctx.fillStyle = 'rgba(255,124,108,.88)';
-      rr(tL.x + fw * 0.075, ly + lh0 * 0.18, lw0 * 0.76, lh0 * 0.34, lh0 * 0.17); ctx.fill();
-      rr(tR.x - fw * 0.075 - lw0 * 0.76, ly + lh0 * 0.18, lw0 * 0.76, lh0 * 0.34, lh0 * 0.17); ctx.fill();
-    }
+    // 尾灯：深色灯壳 + 红色灯带，横向薄条形更接近真车
+    const tlY = topP.y + fh2 * (isLong ? 0.52 : 0.47);
+    const tlH = Math.max(1.2, fh2 * 0.115);
+    const tlW = fw * 0.23;
+    const tlR = Math.min(tlH * 0.55, fw * 0.03);
+    const tlA = tL.x + fw * 0.065;
+    const tlB = tR.x - fw * 0.065 - tlW;
+    ctx.fillStyle = 'rgba(26,14,16,.5)';
+    rr(tlA - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
+    rr(tlB - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
+    const rg = ctx.createLinearGradient(0, tlY, 0, tlY + tlH);
+    rg.addColorStop(0, '#ff7a68');
+    rg.addColorStop(0.48, '#e2362b');
+    rg.addColorStop(1, '#8d1a14');
+    ctx.fillStyle = rg;
+    rr(tlA, tlY, tlW, tlH, tlR); ctx.fill();
+    rr(tlB, tlY, tlW, tlH, tlR); ctx.fill();
 
-    // 车标（品牌车）
+    // 车标（品牌车）或车牌（其他车）
     if (st.logo && fw > 24 && st.logo.naturalWidth) {
-      const lw = fw * 0.20, lh = lw * st.logo.naturalHeight / st.logo.naturalWidth;
+      const lw = fw * 0.15, lh = lw * st.logo.naturalHeight / st.logo.naturalWidth;
       ctx.globalAlpha = 0.95;
-      ctx.drawImage(st.logo, tL.x + fw * 0.5 - lw / 2, tL.y + fh * 0.455 - lh / 2, lw, lh);
+      ctx.drawImage(st.logo, tL.x + fw * 0.5 - lw / 2, topP.y + fh2 * 0.30 - lh / 2, lw, lh);
       ctx.globalAlpha = 1;
-    }
-
-    // 车牌（品牌车车标居中，不再叠一张白牌）
-    if (!st.logo && fw > 34) {
-      const pw = fw * 0.20, ph = fh * 0.10;
-      rr(tL.x + fw * 0.5 - pw / 2, tL.y + fh * 0.665, pw, ph, ph * 0.25);
+    } else if (fw > 34) {
+      const pw = fw * 0.19, ph = fh2 * 0.10;
+      rr(tL.x + fw * 0.5 - pw / 2, topP.y + fh2 * 0.63, pw, ph, ph * 0.25);
       ctx.fillStyle = 'rgba(238,243,248,.94)';
       ctx.fill();
       ctx.fillStyle = 'rgba(60,72,90,.5)';
-      ctx.fillRect(tL.x + fw * 0.5 - pw * 0.30, tL.y + fh * 0.695, pw * 0.60, Math.max(0.6, ph * 0.10));
+      ctx.fillRect(tL.x + fw * 0.5 - pw * 0.30, topP.y + fh2 * 0.665, pw * 0.60, Math.max(0.6, ph * 0.10));
     }
 
-    // 保险杠 + 底部压暗
-    if (fw > 14) {
-      ctx.fillStyle = 'rgba(24,28,36,.72)';
-      ctx.fillRect(tL.x, tL.y + fh * 0.86, fw, fh * 0.14);
-      ctx.fillStyle = 'rgba(255,255,255,.10)';
-      ctx.fillRect(tL.x, tL.y + fh * 0.855, fw, Math.max(0.6, fh * 0.02));
+    // 保险杠：深色下唇 + 两侧反光条
+    if (fw > 12) {
+      ctx.fillStyle = 'rgba(24,28,36,.70)';
+      rr(tL.x + fw * 0.02, topP.y + fh2 * 0.85, fw * 0.96, fh2 * 0.16, fh2 * 0.045);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.13)';
+      const rh = Math.max(0.7, fh2 * 0.024);
+      ctx.fillRect(tL.x + fw * 0.09, topP.y + fh2 * 0.862, fw * 0.15, rh);
+      ctx.fillRect(tR.x - fw * 0.24, topP.y + fh2 * 0.862, fw * 0.15, rh);
+      // 排气
+      if (fine && !isLong) {
+        ctx.fillStyle = 'rgba(18,20,26,.85)';
+        const eh = Math.max(1.2, fh2 * 0.05);
+        rr(tL.x + fw * 0.33, topP.y + fh2 * 0.90, fw * 0.09, eh, eh * 0.5); ctx.fill();
+        rr(tR.x - fw * 0.42, topP.y + fh2 * 0.90, fw * 0.09, eh, eh * 0.5); ctx.fill();
+      }
     }
-    const shd = ctx.createLinearGradient(0, tL.y + fh * 0.64, 0, tL.y + fh);
+
+    // 底部环境光遮蔽
+    const shd = ctx.createLinearGradient(0, topP.y + fh2 * 0.66, 0, bL.y);
     shd.addColorStop(0, 'rgba(0,0,0,0)');
-    shd.addColorStop(1, 'rgba(0,0,0,.30)');
+    shd.addColorStop(1, 'rgba(0,0,0,.32)');
     ctx.fillStyle = shd;
-    ctx.fillRect(tL.x, tL.y + fh * 0.60, fw, fh * 0.40);
+    ctx.fillRect(tL.x, topP.y + fh2 * 0.62, fw, fh2 * 0.38);
     ctx.restore();
   }
 
