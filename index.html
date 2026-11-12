@@ -25,6 +25,9 @@
   .pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.9);border-radius:999px;
     padding:4px clamp(12px,3vw,18px) 4px 10px;box-shadow:0 4px 0 rgba(0,0,0,.14);}
   .pill .ico{font-size:clamp(21px,5.4vmin,30px);line-height:1;}
+  .pill .word{font-size:clamp(11px,2.4vmin,14px);font-weight:800;color:#8a5a10;
+    background:#fff1c9;border-radius:999px;padding:2px 8px;line-height:1.2;}
+  .pill .word:empty{display:none;}
   .pill .star{font-size:clamp(15px,3.2vmin,19px);line-height:1;}
   .pill .num{font-size:clamp(19px,5vmin,27px);font-weight:900;color:#4a3b1c;min-width:30px;}
   .pill .num.bump{animation:numBump .3s cubic-bezier(.2,1.7,.5,1);}
@@ -310,7 +313,7 @@
 
   <div class="hud hidden" id="hud">
     <button class="pill" id="charPill" aria-label="重听刚才的汉字">
-      <span class="ico" id="lastChar">字</span><span class="star">⭐</span><span class="num" id="starCount">0</span>
+      <span class="ico" id="lastChar">字</span><span class="word" id="lastWord"></span><span class="star">⭐</span><span class="num" id="starCount">0</span>
     </button>
     <div class="hud-right">
       <button id="pause" aria-label="暂停">⏸</button>
@@ -389,6 +392,7 @@
       <div id="cardWrap"><img id="cardImg" alt="成绩卡"><br>
         <a class="ghost-btn" id="saveCard" download="car-race-score.png">保存成绩图</a></div>
       <button class="big-btn" id="nextBtn">下一关 ▶</button>
+      <button class="ghost-btn" id="reviewBtn">再练错字</button>
       <button class="ghost-btn" id="againBtn">再玩一次 ↻</button>
       <button class="ghost-btn" id="changeBtn">换一辆车</button>
     </div>
@@ -503,8 +507,10 @@
   const cardImgEl = document.getElementById('cardImg');
   const saveCardEl = document.getElementById('saveCard');
   const nextBtn = document.getElementById('nextBtn');
+  const reviewBtnEl = document.getElementById('reviewBtn');
   const charPillEl = document.getElementById('charPill');
   const lastCharEl = document.getElementById('lastChar');
+  const lastWordEl = document.getElementById('lastWord');
   const quizBarEl = document.getElementById('quizBar');
   const startSubEl = document.getElementById('startSub');
   const voiceWarnEl = document.getElementById('voiceWarn');
@@ -648,10 +654,23 @@
 
   // 每关只出 12 个字，按关卡轮换，一局内不重复
   let charDeck = [];
+  let reviewChars = null;       // 非空时，下一局优先练这些错字
   function buildCharDeck(level) {
     const list = allChars();
     const n = list.length;
     const take = Math.min(state.goalChars || CHARS_PER_LEVEL, n);
+    if (reviewChars && reviewChars.length) {
+      const out = reviewChars.slice(0, take).map(infoOf);
+      let i = 0;
+      while (out.length < take && i < n) {
+        const raw = list[i++];
+        const o = typeof raw === 'string' ? infoOf(raw) : raw;
+        if (!out.some(x => x.c === o.c)) out.push(o);
+      }
+      reviewChars = null;
+      charDeck = out;
+      return;
+    }
     const start = ((level - 1) * CHARS_PER_LEVEL) % n;
     const out = [];
     for (let i = 0; i < take; i++) out.push(list[(start + i) % n]);
@@ -1237,6 +1256,7 @@
     wheelAng: 0,      // 3D 车轮转动角
     steerVis: 0,      // 3D 前轮可见转角
     brake: 0,         // 刹车尾灯亮度 0~1
+    heavy: 1,         // 当前车辆重量系数
     invuln: 0,
     shake: 0,
     spawnAcc: 0,
@@ -1267,6 +1287,7 @@
     lastCollectAt: 0,
     pendingCollect: [],
     uniqueChars: null,
+    missedChars: new Set(),
     flash: 0,
     nextLightning: 999
   };
@@ -1318,7 +1339,17 @@
   function bumpDaily() {
     if (daily.day !== todayKey()) daily = { day: todayKey(), count: 0 };
     daily.count++;
-    try { localStorage.setItem('car-race-daily', JSON.stringify(daily)); } catch (e) { /* ignore */ }
+    try {
+      localStorage.setItem('car-race-daily', JSON.stringify(daily));
+      // 每日新学字数，用于家长报告的 7 天曲线
+      const map = JSON.parse(localStorage.getItem('car-race-newdays') || '{}');
+      const k = todayKey();
+      map[k] = (map[k] || 0) + 1;
+      const keys = Object.keys(map).sort().slice(-30);
+      const out = {};
+      keys.forEach(kk => { out[kk] = map[kk]; });
+      localStorage.setItem('car-race-newdays', JSON.stringify(out));
+    } catch (e) { /* ignore */ }
     renderDaily();
   }
   function renderDaily() {
@@ -1444,19 +1475,22 @@
     if (!parentReportEl) return;
     const total = allChars().length;
     const weak = [...wrongChars].filter(c => allChars().some(o => o.c === c));
-    let days = {};
-    try { days = JSON.parse(localStorage.getItem('car-race-days') || '{}'); } catch (e) { /* ignore */ }
+    let newDays = {};
+    try { newDays = JSON.parse(localStorage.getItem('car-race-newdays') || '{}'); } catch (e) { /* ignore */ }
     const now = new Date();
     const rows = [];
+    let weekNew = 0;
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
       const k = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
-      rows.push('<span>' + (d.getMonth() + 1) + '/' + d.getDate() + ' <b>' + (days[k] || 0) + '</b></span>');
+      const nn = newDays[k] || 0;
+      weekNew += nn;
+      rows.push('<span>' + (d.getMonth() + 1) + '/' + d.getDate() + ' <b>' + nn + '</b></span>');
     }
     parentReportEl.innerHTML =
-      '<p>已学 <b>' + learned.size + '</b> / ' + total + ' 个字 · 今日新字 ' + Math.min(daily.count, 5) + '/5</p>' +
-      '<p>易错字：' + (weak.length ? weak.map(c => '<em>' + c + '</em>').join(' ') : '还没有，继续保持') + '</p>' +
-      '<p class="rep-days">最近 7 天游玩：' + rows.join('') + '</p>';
+      '<p>已学 <b>' + learned.size + '</b> / ' + total + ' 个字 · 本周新学 <b>' + weekNew + '</b> 个 · 今日新字 ' + Math.min(daily.count, 5) + '/5</p>' +
+      '<p>易错字：' + (weak.length ? weak.map(c => '<em>' + c + '</em>').join(' ') + '（' + weak.length + '）' : '还没有，继续保持') + '</p>' +
+      '<p class="rep-days">最近 7 天新学：' + rows.join('') + '</p>';
   }
   function openSettings() {
     setRateEl.value = String(speechRate);
@@ -1766,7 +1800,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.8';
+  const APP_VERSION = '2026-11-12.9';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -8083,6 +8117,13 @@
 
   // 车辆 3D 配色与车高：车高按车宽换算，跑车低矮、卡车公交更高。
   // 车高/车宽比参考真车（约 0.62），之前 0.31 会把车压成“煎饼”。
+  // 车型重量系数：影响加速和碰撞后的速度损失
+  function weightOf(b) {
+    const cat = CAT_OF[b.id] || 'auto';
+    const base = { auto: 1, sport: 0.86, truck: 2.35, works: 2.1, bus: 1.9, farm: 1.65 }[cat] || 1;
+    return base * (b.id === 'f150' || b.id === 'cannon' ? 1.12 : 1);
+  }
+
   function vehicleStyle(kind, brandId) {
     if (kind === 'brand') {
       const b = brandById[brandId] || BRANDS[0];
@@ -8093,7 +8134,9 @@
         logo: logoImgs[b.id + ':badge'] || logoImgs[b.id] || null,
         hgtK: (b.ratio || 2) > 2.8 ? 1.04 : 0.62,
         longRoof: (b.ratio || 2) > 2.8,
-        brandId: b.id
+        brandId: b.id,
+        cat: CAT_OF[b.id] || 'auto',
+        heavy: weightOf(b)
       };
     }
     const spec = TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car;
@@ -8218,6 +8261,107 @@
           [x + s * hw * 0.98, 0.52 * hgt, zc + len * 0.10], [x + s * hw * 0.72, 0.52 * hgt, zc + len * 0.10]
         ], dark);
       }
+    }
+  }
+
+  // 普通车型的 3D 专属部件：尾翼、货斗护栏、罐体、双层车厢、车顶空调
+  function bodyParts3d(st, x, zc, len, wid, hgt) {
+    const id = st.brandId;
+    const cat = st.cat;
+    const dark = shadeHex(st.body2 || st.body, -0.30);
+    const zR = zc - len * 0.5;
+    const hw = wid * 0.5;
+
+    if (cat === 'sport') {
+      // 固定尾翼
+      const zW = zR + len * 0.16;
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.72, hgt * 0.92, zW], [x + s * hw * 0.84, hgt * 0.92, zW],
+          [x + s * hw * 0.84, hgt * 1.16, zW], [x + s * hw * 0.72, hgt * 1.16, zW]
+        ], dark);
+      }
+      poly3([
+        [x - hw * 0.94, hgt * 1.14, zW - wid * 0.02], [x + hw * 0.94, hgt * 1.14, zW - wid * 0.02],
+        [x + hw * 0.94, hgt * 1.20, zW + wid * 0.10], [x - hw * 0.94, hgt * 1.20, zW + wid * 0.10]
+      ], st.accent || '#e23b33');
+    } else if (id === 'cannon' || id === 'f150') {
+      // 皮卡货斗护栏
+      const zB = zR + len * 0.30;
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.86, hgt * 0.94, zB], [x + s * hw * 0.98, hgt * 0.94, zB],
+          [x + s * hw * 0.98, hgt * 1.18, zB], [x + s * hw * 0.86, hgt * 1.18, zB]
+        ], dark);
+      }
+      poly3([
+        [x - hw * 0.98, hgt * 1.14, zB - wid * 0.02], [x + hw * 0.98, hgt * 1.14, zB - wid * 0.02],
+        [x + hw * 0.98, hgt * 1.20, zB + wid * 0.06], [x - hw * 0.98, hgt * 1.20, zB + wid * 0.06]
+      ], '#8d959f');
+    } else if (cat === 'bus') {
+      if (id === 'yutong-double') {
+        // 第二层车厢 + 上层车窗
+        poly3([
+          [x - hw * 0.94, hgt * 0.96, zR], [x + hw * 0.94, hgt * 0.96, zR],
+          [x + hw * 0.94, hgt * 1.62, zR], [x - hw * 0.94, hgt * 1.62, zR]
+        ], st.body);
+        poly3([
+          [x - hw * 0.86, hgt * 1.26, zR - 0.2], [x + hw * 0.86, hgt * 1.26, zR - 0.2],
+          [x + hw * 0.86, hgt * 1.48, zR - 0.2], [x - hw * 0.86, hgt * 1.48, zR - 0.2]
+        ], 'rgba(64,88,116,.55)');
+      } else if (id === 'kinglong-open') {
+        // 敞篷观光：护栏
+        for (const s of [-1, 1]) {
+          poly3([
+            [x + s * hw * 0.90, hgt * 0.98, zR], [x + s * hw * 0.98, hgt * 0.98, zR],
+            [x + s * hw * 0.98, hgt * 1.22, zR], [x + s * hw * 0.90, hgt * 1.22, zR]
+          ], '#d7dde6');
+        }
+        poly3([
+          [x - hw * 0.98, hgt * 1.18, zR], [x + hw * 0.98, hgt * 1.18, zR],
+          [x + hw * 0.98, hgt * 1.24, zR], [x - hw * 0.98, hgt * 1.24, zR]
+        ], '#d7dde6');
+      } else {
+        // 车顶空调
+        poly3([
+          [x - hw * 0.42, hgt * 0.98, zc + len * 0.10], [x + hw * 0.42, hgt * 0.98, zc + len * 0.10],
+          [x + hw * 0.42, hgt * 1.12, zc + len * 0.10], [x - hw * 0.42, hgt * 1.12, zc + len * 0.10]
+        ], '#c9d0d9');
+      }
+    } else if (cat === 'truck') {
+      if (id === 'cimc') {
+        // 油罐车：罐体端面只画上半圈，避免挡住尾灯
+        const p = pr(x, hgt * 0.52, zR);
+        if (p) {
+          ctx.strokeStyle = 'rgba(88,98,114,.55)';
+          ctx.lineWidth = Math.max(1, wid * p.k * 0.014);
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, hw * p.k * 0.92, hgt * p.k * 0.38, 0, Math.PI, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(70,80,96,.55)';
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y - hgt * p.k * 0.38, hw * p.k * 0.20, hgt * p.k * 0.08, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (id === 'sany') {
+        // 搅拌车：斜置的搅拌罐
+        poly3([
+          [x - hw * 0.62, hgt * 0.72, zR + len * 0.06], [x + hw * 0.62, hgt * 0.72, zR + len * 0.06],
+          [x + hw * 0.50, hgt * 1.26, zR + len * 0.40], [x - hw * 0.50, hgt * 1.26, zR + len * 0.40]
+        ], '#c3ccd6');
+      } else {
+        // 货箱尾门横梁
+        poly3([
+          [x - hw * 0.90, hgt * 0.34, zR - 0.2], [x + hw * 0.90, hgt * 0.34, zR - 0.2],
+          [x + hw * 0.90, hgt * 0.40, zR - 0.2], [x - hw * 0.90, hgt * 0.40, zR - 0.2]
+        ], dark);
+      }
+    } else if (id === 'mega') {
+      // 子弹头 MPV：尾部小尾翼
+      poly3([
+        [x - hw * 0.88, hgt * 1.00, zR + len * 0.10], [x + hw * 0.88, hgt * 1.00, zR + len * 0.10],
+        [x + hw * 0.88, hgt * 1.08, zR + len * 0.22], [x - hw * 0.88, hgt * 1.08, zR + len * 0.22]
+      ], st.body2);
     }
   }
 
@@ -8595,7 +8739,10 @@
     ctx.fillRect(tL.x, topP.y + fh2 * 0.62, fw, fh2 * 0.38);
     ctx.restore();
     // 工程机械 3D 专属附件：铲刀、铲斗、货叉、大臂、割台
-    if (st.brandId && fw > 14) machineParts3d(st, x, zc, len, wid, hgt);
+    if (st.brandId && fw > 14) {
+      machineParts3d(st, x, zc, len, wid, hgt);
+      if (st.cat !== 'works') bodyParts3d(st, x, zc, len, wid, hgt);
+    }
   }
 
   function drawBrandCar3d(b, x, zRear, len, wid, opts) {
@@ -9151,8 +9298,13 @@
     void starsEl.offsetWidth;
     starsEl.classList.add('bump');
     lastCharEl.textContent = o.ch;
+    lastWordEl.textContent = info.w && info.w !== info.c ? info.w : '';
     burst(o.x, o.y, 12, ['#ffd642', '#fff3a0', '#ffb347'], 320);
-    toasts.push({ x: o.x, y: o.y - 8, text: info.c, sub: info.p, life: 1.0, ttl: 1.0, color: '#f5a623' });
+    toasts.push({
+      x: o.x, y: o.y - 8, text: info.c,
+      sub: info.p + (info.w && info.w !== info.c ? ' · ' + info.w : ''),
+      life: 1.0, ttl: 1.0, color: '#f5a623'
+    });
     sfxStar(state.combo);
     state.lastSpoken = info.c;
     speakChar(info.c);
@@ -9168,6 +9320,7 @@
   function missChar(o) {
     o.dead = true;
     wrongChars.add(o.ch);
+    if (state.missedChars) state.missedChars.add(o.ch);
     saveWrong();
     state.bumps++;
     state.adapt = Math.max(0.84, state.adapt - 0.03);
@@ -9213,12 +9366,12 @@
       return;
     }
     state.invuln = 0.95;
-    state.shake = 11;
+    state.shake = 11 * (0.75 + (state.heavy || 1) * 0.22);
     state.bumps++;
     state.brake = 1;
     state.adapt = Math.max(0.84, state.adapt - 0.035);
     state.carVX += (state.carX < o.x ? -1 : 1) * 150;
-    state.speed *= 0.55;
+    state.speed *= clamp(0.55 + ((state.heavy || 1) - 1) * 0.035, 0.50, 0.66);
     state.combo = 0;
     burst(o.x, o.y, 14, ['#d5dbe8', '#9aa3b5', '#ffd642'], 500);
     toasts.push({ x: o.x, y: o.y - 10, text: '呀！', life: 0.75, ttl: 0.75, color: '#ff6b6b' });
@@ -9262,9 +9415,11 @@
       const prog = Math.min(1, state.stars / state.goalChars);
       const boostK = state.boost > 0 ? 1.35 : 1;
       const quizK = (state.quiz && state.quizTarget) ? 0.85 : 1;
-      const target = (200 + prog * 95) * state.scale * boostK * state.adapt * quizK;
+      const target = (200 + prog * 95) * state.scale * boostK * state.adapt * quizK *
+        clamp(1 - (state.heavy - 1) * 0.05, 0.90, 1);
       const prevV = state.speed;
-      state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2));
+      // 重型车起步更慢，跑车更灵敏
+      state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2 / Math.pow(state.heavy, 0.35)));
       if (prevV - state.speed > 0.6) state.brake = Math.min(1, state.brake + dt * 9);
       state.distance += state.speed * dt;
       // 车轮转动：角速度跟车速走，取模避免数值越滚越大
@@ -9865,7 +10020,8 @@
     daily = { day: todayKey(), count: 0 };
     try {
       ['car-race-level', 'car-race-best', 'car-race-learned',
-        'car-race-wrong', 'car-race-daily', 'car-race-days', 'car-race-driven']
+        'car-race-wrong', 'car-race-daily', 'car-race-days', 'car-race-driven',
+        'car-race-newdays']
         .forEach(k => localStorage.removeItem(k));
     } catch (err) { /* ignore */ }
     saveProgress();
@@ -10028,11 +10184,13 @@
     state.spawnStars = 0;
     state.bumps = 0;
     state.adapt = 1;
+    state.heavy = weightOf(getBrand());
     state.goodStreak = 0;
     state.lastWord = '';
     state.lastSpoken = '';
     state.pendingCollect = [];
     state.uniqueChars = new Set();
+    state.missedChars = new Set();
     // 清掉上一局可能残留的朗读，避免新一局开头听到上一局的字
     speechQueue = [];
     audioQueue = [];
@@ -10071,6 +10229,7 @@
     hudEl.classList.remove('hidden');
     progressEl.classList.remove('hidden');
     lastCharEl.textContent = '字';
+    lastWordEl.textContent = '';
     quizBarEl.classList.toggle('on', state.quiz);
     requestWake();
     sfxStart();
@@ -10130,6 +10289,12 @@
       ? '全字收集！奖励一颗星'
       : '本关学会 ' + chars.length + ' / ' + total + ' 个字';
 
+    // 本局错过的字：即使后来答对，也可以再练一遍
+    const weakNow = [...new Set([...(state.missedChars || []), ...wrongChars])]
+      .filter(c => CHAR_MAP[c]);
+    reviewBtnEl.textContent = '再练错字（' + weakNow.length + '）';
+    reviewBtnEl.style.display = weakNow.length ? '' : 'none';
+
     const spans = ratingEl.querySelectorAll('span');
     spans.forEach(s => s.classList.remove('on'));
     for (let i = 0; i < rating; i++) {
@@ -10172,6 +10337,7 @@
     releaseWake();
     starsEl.textContent = '0';
     lastCharEl.textContent = '字';
+    lastWordEl.textContent = '';
     quizBarEl.classList.remove('on');
     barEl.style.width = '0%';
     effectsEl.innerHTML = '';
@@ -10341,6 +10507,12 @@
     }, 1600);
   });
   document.getElementById('againBtn').addEventListener('click', startGame);
+  document.getElementById('reviewBtn').addEventListener('click', () => {
+    const weak = state.missedChars ? [...state.missedChars].filter(c => CHAR_MAP[c]) : [];
+    if (!weak.length) return;
+    reviewChars = weak;
+    startGame();
+  });
   document.getElementById('changeBtn').addEventListener('click', goGarage);
   nextBtn.addEventListener('click', nextLevel);
   pauseBtn.addEventListener('click', pauseGame);
