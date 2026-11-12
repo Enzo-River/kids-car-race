@@ -84,6 +84,28 @@
   .car-brand{font-size:clamp(12px,2.4vmin,15px);font-weight:900;color:#3a3d5c;line-height:1.3;}
   .car-model{font-size:clamp(10px,2vmin,12px);font-weight:600;color:#8a8fa8;line-height:1.2;}
 
+  .badge-row{display:flex;justify-content:center;align-items:center;gap:5px;flex-wrap:wrap;
+    margin:6px auto 0;max-width:100%;}
+  .badge-count{font-size:clamp(11px,2.2vmin,13px);font-weight:800;color:#8a8fa8;}
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;
+    background:#eef1f7;color:#b3b8c9;font-size:clamp(10px,2vmin,12px);font-weight:800;}
+  .badge b{font-size:1.05em;}
+  .badge.on{background:#fff1c9;color:#8a5a10;box-shadow:0 2px 0 #e8c26a;}
+  .info-head{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;}
+  .info-head img{width:clamp(44px,10vmin,60px);height:clamp(44px,10vmin,60px);object-fit:contain;}
+  .info-head b{display:block;font-size:clamp(18px,3.8vmin,24px);color:#3a3d5c;}
+  .info-head span{display:block;font-size:clamp(12px,2.4vmin,15px);color:#8a8fa8;font-weight:700;}
+  .info-desc{font-size:clamp(13px,2.7vmin,16px);color:#5a5f79;font-weight:700;
+    line-height:1.6;margin:6px 0 10px;}
+  .info-meta{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;}
+  .info-country{padding:4px 12px;border-radius:999px;background:#eef1f7;color:#6b7089;
+    font-size:clamp(12px,2.4vmin,14px);font-weight:800;}
+  .info-char{display:inline-flex;align-items:center;gap:8px;padding:3px 14px;border-radius:999px;
+    background:#fff1c9;color:#8a5a10;font-size:clamp(12px,2.4vmin,14px);font-weight:800;}
+  .info-char b{font-size:clamp(22px,5vmin,30px);line-height:1;}
+  .info-tip{margin:10px 0 0;font-size:clamp(11px,2.2vmin,13px);color:#a3a8bb;font-weight:700;}
+  .info-close{margin-top:12px;}
+
   .garage-tabs{display:flex;gap:6px;margin-top:clamp(10px,2.2vh,16px);overflow-x:auto;
     padding:2px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
   .garage-tabs::-webkit-scrollbar{display:none;}
@@ -315,6 +337,7 @@
       <p class="mute-tip" id="wxTip" hidden>💬 微信里朗读使用内置录音；想用系统语音，可点右上角 ··· → 在浏览器打开</p>
       <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
       <div class="daily-chip" id="dailyChip"></div>
+      <div class="badge-row" id="badgeRow"></div>
       <div class="garage-tabs" id="garageTabs"></div>
       <div class="garage" id="garage"></div>
       <div class="mode-switch" id="modeSwitch">
@@ -335,6 +358,22 @@
       <p class="voice-note" id="voiceWarn" hidden></p>
       <p class="ver" id="appVer"></p>
       <p class="tiny">车标来自公开素材库或简易绘制，仅家庭非商业使用；商标归各品牌所有</p>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="carInfo">
+    <div class="card small">
+      <div class="info-head">
+        <img id="carInfoLogo" alt="">
+        <div><b id="carInfoName"></b><span id="carInfoModel"></span></div>
+      </div>
+      <p class="info-desc" id="carInfoDesc"></p>
+      <div class="info-meta">
+        <span class="info-country" id="carInfoCountry"></span>
+        <span class="info-char">认识汉字 <b id="carInfoChar"></b></span>
+      </div>
+      <p class="info-tip">长按或双击车卡，可以再看这辆车的介绍</p>
+      <button class="ghost-btn info-close" id="carInfoClose">知道啦</button>
     </div>
   </div>
 
@@ -1087,6 +1126,78 @@
     }
   ];
 
+  // 车辆图鉴：国别、相关汉字、一句话介绍（按 id 对应 BRANDS）
+  const CAR_INFO = {
+    byd: { c: '中国', ch: '汉', d: '比亚迪的电动轿车，用刀片电池。' },
+    nio: { c: '中国', ch: '来', d: '蔚来可以换电池，几分钟就能满电出发。' },
+    xpeng: { c: '中国', ch: '鹏', d: '小鹏P7有很聪明的自动泊车。' },
+    lixiang: { c: '中国', ch: '想', d: '理想L9是六座大SUV，屏幕特别多。' },
+    xiaomi: { c: '中国', ch: '米', d: '小米造的第一款车，加速非常快。' },
+    wuling: { c: '中国', ch: '菱', d: '五菱宏光MINI小巧好停车，城市里很常见。' },
+    hongqi: { c: '中国', ch: '旗', d: '红旗H9是国产豪华轿车，车头有红旗标。' },
+    'aito-m9': { c: '中国', ch: '界', d: '问界M9是全尺寸SUV，配有华为智驾。' },
+    'aito-m7': { c: '中国', ch: '问', d: '问界M7是增程SUV，跑长途不怕没电。' },
+    'luxeed-s7': { c: '中国', ch: '智', d: '智界S7是华为和奇瑞合作的轿车。' },
+    'stelato-s9': { c: '中国', ch: '享', d: '享界S9是华为和北汽合作的旗舰轿车。' },
+    'maextro-s800': { c: '中国', ch: '尊', d: '尊界S800是华为和江淮合作的大轿车。' },
+    'zeekr-001': { c: '中国', ch: '极', d: '极氪001是猎装造型的电动轿跑。' },
+    'lynk-08': { c: '中国', ch: '领', d: '领克08是插电混动SUV。' },
+    'haval-h6': { c: '中国', ch: '哈', d: '哈弗H6常年在SUV销量榜前列。' },
+    'exeed-lanyue': { c: '中国', ch: '月', d: '星途揽月是七座大SUV。' },
+    'leapmotor-c11': { c: '中国', ch: '跑', d: '零跑C11是性价比很高的电动SUV。' },
+    'arcfox-alpha-s': { c: '中国', ch: '狐', d: '极狐阿尔法S有华为智驾版本。' },
+    changan: { c: '中国', ch: '安', d: '长安UNI-V是带电动尾翼的运动轿车。' },
+    chery: { c: '中国', ch: '瑞', d: '奇瑞瑞虎8是七座家用SUV。' },
+    geely: { c: '中国', ch: '吉', d: '吉利星越L是国产紧凑型SUV。' },
+    mg: { c: '中国', ch: '爵', d: 'MG7是溜背造型的运动轿车。' },
+    roewe: { c: '中国', ch: '荣', d: '荣威iMAX8是七座MPV，二排座椅很舒服。' },
+    wey: { c: '中国', ch: '魏', d: '魏牌蓝山是六座插混SUV。' },
+    ferrari: { c: '意大利', ch: '法', d: '法拉利488是V8中置跑车。' },
+    lamborghini: { c: '意大利', ch: '兰', d: '兰博基尼大牛有剪刀门和V12发动机。' },
+    mercedes: { c: '德国', ch: '奔', d: '奔驰G级方方正正，越野能力很强。' },
+    bmw: { c: '德国', ch: '宝', d: '宝马i8是蝴蝶门混合动力跑车。' },
+    audi: { c: '德国', ch: '奥', d: '奥迪R8和兰博基尼共用V10发动机。' },
+    vw: { c: '德国', ch: '众', d: '大众甲壳虫圆滚滚，是老牌经典小车。' },
+    tesla: { c: '美国', ch: '特', d: '特斯拉Cybertruck用不锈钢做车身。' },
+    toyota: { c: '日本', ch: '丰', d: '丰田86是后驱漂移小跑车。' },
+    nissan: { c: '日本', ch: '日', d: '日产轩逸是省油的家用轿车。' },
+    honda: { c: '日本', ch: '本', d: '本田思域是年轻人喜欢的运动轿车。' },
+    iveco: { c: '意大利', ch: '依', d: '依维柯欧胜是常见的轻型客车底盘。' },
+    mazda: { c: '日本', ch: '马', d: '马自达CX-5有创驰蓝天发动机。' },
+    porsche: { c: '德国', ch: '保', d: '保时捷911是后置发动机的经典跑车。' },
+    volvo: { c: '瑞典', ch: '沃', d: '沃尔沃XC90以安全著称。' },
+    auman: { c: '中国', ch: '欧', d: '欧曼EST是跑长途的重型卡车。' },
+    jiefang: { c: '中国', ch: '解', d: '解放J7是一汽的旗舰重卡。' },
+    dongfeng: { c: '中国', ch: '风', d: '东风天龙KL是常见的物流重卡。' },
+    sitrak: { c: '中国', ch: '汕', d: '汕德卡C7H引进了德国曼技术。' },
+    shacman: { c: '中国', ch: '陕', d: '陕汽德龙X3000是工程运输重卡。' },
+    scania: { c: '瑞典', ch: '堪', d: '斯堪尼亚R系列是欧洲长途卡车。' },
+    daf: { c: '荷兰', ch: '达', d: '达夫XF是荷兰品牌的旗舰重卡。' },
+    sany: { c: '中国', ch: '三', d: '三一搅拌车用来运送混凝土。' },
+    howo: { c: '中国', ch: '豪', d: '豪沃自卸车的车斗能翻起卸货。' },
+    xcmg: { c: '中国', ch: '工', d: '徐工汽车吊能伸出长臂吊重物。' },
+    yutong: { c: '中国', ch: '宇', d: '宇通E10是纯电动城市公交车。' },
+    cannon: { c: '中国', ch: '炮', d: '长城炮是国产皮卡，能拉货也能越野。' },
+    cat320: { c: '美国', ch: '挖', d: '卡特320挖掘机有可以更换的铲斗。' },
+    shantui: { c: '中国', ch: '推', d: '山推SD16推土机用铲刀推土。' },
+    'xcmg-roller': { c: '中国', ch: '压', d: '徐工压路机用大钢轮把路面压平。' },
+    'sany-pump': { c: '中国', ch: '泵', d: '三一泵车能把混凝土泵到高楼。' },
+    johndeere: { c: '美国', ch: '迪', d: '约翰迪尔收割机一天能收大片庄稼。' },
+    dongfanghong: { c: '中国', ch: '红', d: '东方红拖拉机是中国老牌农机。' },
+    heli: { c: '中国', ch: '叉', d: '合力叉车用货叉搬运托盘。' },
+    cimc: { c: '中国', ch: '罐', d: '中集油罐车装着圆圆的大罐子。' },
+    maxus: { c: '中国', ch: '房', d: '上汽大通RV80房车能在车里睡觉。' },
+    'yutong-double': { c: '中国', ch: '层', d: '双层巴士有两层，坐上层看得远。' },
+    tank300: { c: '中国', ch: '坦', d: '坦克300是方盒子造型的越野车。' },
+    mega: { c: '中国', ch: '大', d: '理想MEGA是子弹头造型的大MPV。' },
+    f150: { c: '美国', ch: '福', d: '福特F-150猛禽是能越野的大皮卡。' },
+    'xcmg-loader': { c: '中国', ch: '装', d: '徐工装载机用大铲斗装土石。' },
+    'zoomlion-garbage': { c: '中国', ch: '洁', d: '中联垃圾车会压缩垃圾，让城市更干净。' },
+    'foton-water': { c: '中国', ch: '洒', d: '福田洒水车给路面洒水降尘。' },
+    'yutong-school': { c: '中国', ch: '校', d: '黄色校车接送小朋友上下学。' },
+    'kinglong-open': { c: '中国', ch: '篷', d: '金龙敞篷巴士没有车顶，适合观光。' }
+  };
+
   const brandById = {};
   BRANDS.forEach(b => { brandById[b.id] = b; });
   const logoImgs = {};
@@ -1123,6 +1234,9 @@
     carX: 0,
     carVX: 0,
     tilt: 0,
+    wheelAng: 0,      // 3D 车轮转动角
+    steerVis: 0,      // 3D 前轮可见转角
+    brake: 0,         // 刹车尾灯亮度 0~1
     invuln: 0,
     shake: 0,
     spawnAcc: 0,
@@ -1652,7 +1766,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.7';
+  const APP_VERSION = '2026-11-12.8';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -8110,7 +8224,7 @@
   // 车辆 3D：按真实车身曲面分层绘制
   // 车尾立面、后箱盖、倾斜后风挡、收窄的车顶和车身侧面都用渐变 / 圆角过渡，
   // 不再是一摞硬边方块，避免低机位下的塑料模型感。
-  function drawVehicle3d(st, x, zRear, len, wid) {
+  function drawVehicle3d(st, x, zRear, len, wid, opts) {
     const hgt = wid * st.hgtK;
     const zc = zRear + len * 0.5;
     const hw = wid / 2;
@@ -8165,18 +8279,61 @@
     // 车底投影
     vehicleShadow(x, zc, wid * 1.06, len);
 
-    // 车轮：略微外露，胎壁带一点高光，避免底部两块死黑
+    // 车轮：略微外露，胎壁带一点高光；胎纹随车速滚动
     const wW = fw * (isLong ? 0.15 : 0.17);
     const wH = Math.max(1.6, fh * 0.24);
     const wY = bL.y - wH * 0.55;
     const wR = Math.max(1, wW * 0.32);
-    ctx.fillStyle = '#171a21';
-    rr(tL.x - fw * 0.012, wY, wW, wH, wR); ctx.fill();
-    rr(tR.x - wW + fw * 0.012, wY, wW, wH, wR); ctx.fill();
-    if (fine) {
+    const spin = (opts && opts.spin) || 0;
+    const paintTire = (wx) => {
+      ctx.fillStyle = '#171a21';
+      rr(wx, wY, wW, wH, wR); ctx.fill();
+      if (!fine) return;
+      ctx.save();
+      rr(wx, wY, wW, wH, wR); ctx.clip();
       ctx.fillStyle = 'rgba(255,255,255,.10)';
-      rr(tL.x + wW * 0.30, wY + wH * 0.24, wW * 0.34, wH * 0.42, wW * 0.14); ctx.fill();
-      rr(tR.x - wW + wW * 0.36, wY + wH * 0.24, wW * 0.34, wH * 0.42, wW * 0.14); ctx.fill();
+      rr(wx + wW * 0.30, wY + wH * 0.24, wW * 0.34, wH * 0.42, wW * 0.14); ctx.fill();
+      // 滚动胎纹：按转动角平移，轮子转动肉眼可见
+      const seg = wW / 4;
+      const off = (spin / (Math.PI * 2)) * seg;
+      ctx.fillStyle = 'rgba(214,224,238,.24)';
+      for (let i = 0; i < 4; i++) {
+        let tx = wx + ((i * seg + off) % wW);
+        if (tx + seg * 0.20 > wx + wW) tx -= wW;
+        ctx.fillRect(tx, wY + wH * 0.58, Math.max(0.8, seg * 0.18), wH * 0.34);
+      }
+      ctx.restore();
+    };
+    paintTire(tL.x - fw * 0.012);
+    paintTire(tR.x - wW + fw * 0.012);
+
+    // 前轮：只画朝向镜头的一侧，转向时从车头侧面探出一点
+    const steer = (opts && opts.steer) || 0;
+    if (fine && Math.abs(steer) > 0.08) {
+      const sgn = x >= 0 ? -1 : 1;
+      const zF = zRear + len * 0.80;
+      const ang = steer * 0.55;
+      const fx = x + sgn * (hw + wid * (0.02 + Math.abs(Math.sin(ang)) * 0.10));
+      const rw3 = wid * 0.11;
+      const gc = pr(fx, rw3, zF);
+      if (gc) {
+        const rx3 = Math.max(1.2, rw3 * gc.k * (0.30 + Math.abs(Math.sin(ang)) * 0.85));
+        const ry3 = Math.max(1.6, rw3 * gc.k * 0.95);
+        const a3 = clamp((Math.abs(steer) - 0.08) / 0.28, 0, 1);
+        ctx.save();
+        ctx.globalAlpha *= a3;
+        ctx.fillStyle = '#1b1e26';
+        ctx.beginPath();
+        ctx.ellipse(gc.x, gc.y, rx3, ry3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        if (gc.k > 0.5) {
+          ctx.fillStyle = 'rgba(205,215,230,.32)';
+          ctx.beginPath();
+          ctx.ellipse(gc.x, gc.y, rx3 * 0.34, ry3 * 0.34, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
     }
 
     // 车身侧面：从地面经腰线一直收到车顶边，剪影连续，不再外翘成“翅膀”
@@ -8382,13 +8539,20 @@
     ctx.fillStyle = 'rgba(26,14,16,.5)';
     rr(tlA - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
     rr(tlB - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
+    const brake = clamp((opts && opts.brake) || 0, 0, 1);
+    if (brake > 0.02) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,52,34,' + (0.9 * brake).toFixed(2) + ')';
+      ctx.shadowBlur = fw * (0.03 + 0.11 * brake);
+    }
     const rg = ctx.createLinearGradient(0, tlY, 0, tlY + tlH);
-    rg.addColorStop(0, '#ff7a68');
-    rg.addColorStop(0.48, '#e2362b');
-    rg.addColorStop(1, '#8d1a14');
+    rg.addColorStop(0, brake > 0.35 ? '#ffe0cc' : '#ff7a68');
+    rg.addColorStop(0.48, brake > 0.35 ? '#ff5a40' : '#e2362b');
+    rg.addColorStop(1, brake > 0.35 ? '#b8210f' : '#8d1a14');
     ctx.fillStyle = rg;
     rr(tlA, tlY, tlW, tlH, tlR); ctx.fill();
     rr(tlB, tlY, tlW, tlH, tlR); ctx.fill();
+    if (brake > 0.02) ctx.restore();
 
     // 车标（品牌车）或车牌（其他车）
     if (st.logo && fw > 24 && st.logo.naturalWidth) {
@@ -8434,8 +8598,8 @@
     if (st.brandId && fw > 14) machineParts3d(st, x, zc, len, wid, hgt);
   }
 
-  function drawBrandCar3d(b, x, zRear, len, wid) {
-    drawVehicle3d(vehicleStyle('brand', b.id), x, zRear, len, wid);
+  function drawBrandCar3d(b, x, zRear, len, wid, opts) {
+    drawVehicle3d(vehicleStyle('brand', b.id), x, zRear, len, wid, opts);
   }
 
   function drawCar3d() {
@@ -8446,7 +8610,21 @@
 
     ctx.save();
     if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.55;
-    drawBrandCar3d(b, x, zRear, len, wid);
+    // 转向时车身轻微侧倾，配合前轮偏转，让打方向更有重量感
+    const lean = state.mode === 'playing' ? state.steerVis : 0;
+    if (Math.abs(lean) > 0.05) {
+      const pv = pr(x, 0, zRear);
+      if (pv) {
+        ctx.translate(pv.x, pv.y);
+        ctx.rotate(-lean * 0.045);
+        ctx.translate(-pv.x, -pv.y);
+      }
+    }
+    drawBrandCar3d(b, x, zRear, len, wid, {
+      spin: state.wheelAng,
+      steer: lean,
+      brake: state.brake
+    });
     ctx.restore();
   }
 
@@ -9037,6 +9215,7 @@
     state.invuln = 0.95;
     state.shake = 11;
     state.bumps++;
+    state.brake = 1;
     state.adapt = Math.max(0.84, state.adapt - 0.035);
     state.carVX += (state.carX < o.x ? -1 : 1) * 150;
     state.speed *= 0.55;
@@ -9084,10 +9263,17 @@
       const boostK = state.boost > 0 ? 1.35 : 1;
       const quizK = (state.quiz && state.quizTarget) ? 0.85 : 1;
       const target = (200 + prog * 95) * state.scale * boostK * state.adapt * quizK;
+      const prevV = state.speed;
       state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2));
+      if (prevV - state.speed > 0.6) state.brake = Math.min(1, state.brake + dt * 9);
       state.distance += state.speed * dt;
+      // 车轮转动：角速度跟车速走，取模避免数值越滚越大
+      state.wheelAng += state.speed * dt * 0.045;
+      if (state.wheelAng > Math.PI * 2) state.wheelAng -= Math.PI * 2;
       bgmTick(dt);
     }
+    // 尾灯亮度回落
+    state.brake = Math.max(0, state.brake - dt * 1.6);
 
     // 滚动
     grassOffset += sp * dt * 0.35;
@@ -9116,6 +9302,7 @@
         if (state.carVX > 0) state.carVX = 0;
       }
       state.tilt = lerp(state.tilt, clamp(steer, -1, 1), Math.min(1, dt * 9));
+      state.steerVis = lerp(state.steerVis, clamp(steer, -1, 1), Math.min(1, dt * 10));
 
       // 听音选字：先读题，再出牌；收集模式按里程出物
       if (state.quiz) {
@@ -9473,6 +9660,73 @@
   } catch (err) { /* ignore */ }
   if (!GARAGE_CATS.some((c) => c.id === garageCat)) garageCat = 'all';
 
+  // ---------- 车辆图鉴 + 收集成就 ----------
+  const BADGE_STEPS = [10, 30, 50, 68];
+  let drivenIds = [];
+  try {
+    drivenIds = JSON.parse(localStorage.getItem('car-race-driven') || '[]') || [];
+    if (!Array.isArray(drivenIds)) drivenIds = [];
+  } catch (err) { drivenIds = []; }
+  drivenIds = drivenIds.filter((id) => brandById[id]);
+
+  const carInfoEl = document.getElementById('carInfo');
+
+  function carInfoOf(id) {
+    const b = brandById[id];
+    if (!b) return null;
+    const info = CAR_INFO[id] || {};
+    return {
+      brand: b.brand,
+      model: b.model,
+      logo: b.logo,
+      country: info.c || '中国',
+      ch: info.ch || b.brand.slice(0, 1),
+      desc: info.d || (b.brand + ' ' + b.model + ' 是一辆很有特点的车。')
+    };
+  }
+
+  function showCarInfo(id) {
+    const info = carInfoOf(id);
+    if (!info) return;
+    document.getElementById('carInfoLogo').src = info.logo;
+    document.getElementById('carInfoName').textContent = info.brand;
+    document.getElementById('carInfoModel').textContent = info.model;
+    document.getElementById('carInfoDesc').textContent = info.desc;
+    document.getElementById('carInfoCountry').textContent = '来自' + info.country;
+    document.getElementById('carInfoChar').textContent = info.ch;
+    carInfoEl.classList.remove('hidden');
+    tone(660, 0.08, 'triangle', 0, 0.08);
+    tone(880, 0.12, 'triangle', 0.07, 0.07);
+    speakNow(info.ch);
+  }
+
+  document.getElementById('carInfoClose').addEventListener('click', () => {
+    carInfoEl.classList.add('hidden');
+  });
+  carInfoEl.addEventListener('click', (e) => {
+    if (e.target === carInfoEl) carInfoEl.classList.add('hidden');
+  });
+
+  function updateBadges() {
+    const el = document.getElementById('badgeRow');
+    if (!el) return;
+    const n = drivenIds.length;
+    el.innerHTML = '<span class="badge-count">已收集 <b>' + n + '</b>/' + BRANDS.length + ' 辆</span>' +
+      BADGE_STEPS.map((step) => (
+        '<span class="badge' + (n >= step ? ' on' : '') + '">🏅 <b>' + step + '</b> 辆</span>'
+      )).join('');
+  }
+
+  // 第一次开某辆车时入列；跨过徽章门槛时返回新解锁档位
+  function markDriven(id) {
+    if (!id || !brandById[id] || drivenIds.indexOf(id) >= 0) return null;
+    drivenIds.push(id);
+    try { localStorage.setItem('car-race-driven', JSON.stringify(drivenIds)); } catch (err) { /* ignore */ }
+    updateBadges();
+    const hit = BADGE_STEPS.indexOf(drivenIds.length);
+    return { count: drivenIds.length, badge: hit >= 0 ? BADGE_STEPS[hit] : 0 };
+  }
+
   function pushRecent(id) {
     if (!id || !brandById[id]) return;
     recentCars = [id].concat(recentCars.filter((x) => x !== id)).slice(0, 6);
@@ -9513,10 +9767,57 @@
     tone(600, 0.06, 'triangle', 0, 0.06);
   });
 
+  // 长按 600ms 或双击车卡，打开车辆图鉴
+  let infoPressTimer = null;
+  let infoLongFired = false;
+  let infoStartX = 0, infoStartY = 0;
+  let infoTapId = '', infoTapAt = 0;
+
+  garageEl.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest('.car-card');
+    if (!card) return;
+    infoLongFired = false;
+    infoStartX = e.clientX;
+    infoStartY = e.clientY;
+    clearTimeout(infoPressTimer);
+    const id = card.dataset.id;
+    infoPressTimer = setTimeout(() => {
+      infoPressTimer = null;
+      infoLongFired = true;
+      showCarInfo(id);
+      vibrate(12);
+    }, 600);
+  });
+  garageEl.addEventListener('pointermove', (e) => {
+    if (!infoPressTimer) return;
+    if (Math.abs(e.clientX - infoStartX) > 10 || Math.abs(e.clientY - infoStartY) > 10) {
+      clearTimeout(infoPressTimer);
+      infoPressTimer = null;
+    }
+  });
+  const cancelInfoPress = () => {
+    clearTimeout(infoPressTimer);
+    infoPressTimer = null;
+  };
+  garageEl.addEventListener('pointerup', cancelInfoPress);
+  garageEl.addEventListener('pointercancel', cancelInfoPress);
+  garageEl.addEventListener('pointerleave', cancelInfoPress);
+
   garageEl.addEventListener('click', (e) => {
     const card = e.target.closest('.car-card');
     if (!card) return;
+    if (infoLongFired) { infoLongFired = false; return; }
     const id = card.dataset.id;
+    // 双击（或快速点两下）看介绍
+    const now = Date.now();
+    if (id === infoTapId && now - infoTapAt < 360) {
+      infoTapId = '';
+      infoTapAt = 0;
+      showCarInfo(id);
+      return;
+    }
+    infoTapId = id;
+    infoTapAt = now;
     if (!brandById[id] || id === state.brandId) return;
     state.brandId = id;
     try { localStorage.setItem('car-race-brand', id); } catch (err) { /* ignore */ }
@@ -9560,14 +9861,16 @@
     for (const k in bestStars) delete bestStars[k];
     learned.clear();
     wrongChars.clear();
+    drivenIds = [];
     daily = { day: todayKey(), count: 0 };
     try {
       ['car-race-level', 'car-race-best', 'car-race-learned',
-        'car-race-wrong', 'car-race-daily', 'car-race-days']
+        'car-race-wrong', 'car-race-daily', 'car-race-days', 'car-race-driven']
         .forEach(k => localStorage.removeItem(k));
     } catch (err) { /* ignore */ }
     saveProgress();
     updateLearnedBtn();
+    updateBadges();
     renderDaily();
     updateLevelChip();
     renderLevels();
@@ -9771,6 +10074,17 @@
     quizBarEl.classList.toggle('on', state.quiz);
     requestWake();
     sfxStart();
+
+    // 收集成就：第一次开这辆车时入列
+    const freshCar = markDriven(state.brandId);
+    if (freshCar) {
+      toasts.push({
+        x: state.carX, y: carY - 46,
+        text: '新车入列 ' + freshCar.count + '/' + BRANDS.length,
+        life: 1.9, ttl: 1.9, color: '#2f86d6',
+        sub: freshCar.badge ? '解锁徽章：收藏 ' + freshCar.badge + ' 辆' : ''
+      });
+    }
   }
 
   function finishGame() {
@@ -9868,6 +10182,7 @@
     progressEl.classList.add('hidden');
     updateLevelChip();
     renderGarage();
+    updateBadges();
     renderLevels();
     updateLearnedBtn();
     layout();
@@ -10280,6 +10595,7 @@
     } catch (e) { /* 隐私模式等场景忽略 */ }
   })();
   renderGarage();
+  updateBadges();
   renderLevels();
   updateLevelChip();
   resize();
