@@ -1145,6 +1145,28 @@
     }
   ];
 
+  // 追加多品牌油罐车与起重机（沿用同品牌车标，罐体/吊臂按品牌配色区分）
+  (function addFleet() {
+    const logoOf = (id) => (BRANDS.find((x) => x.id === id) || {}).logo;
+    [
+      { id: 'jiefang-tanker', brand: '解放', model: 'J7 油罐车', ratio: 3.02,
+        body: '#1c4f9c', body2: '#123a75', accent: '#e8edf4', logo: logoOf('jiefang') },
+      { id: 'auman-tanker', brand: '欧曼', model: 'EST 油罐车', ratio: 2.98,
+        body: '#f2f4f7', body2: '#cfd5dd', accent: '#c8102e', logo: logoOf('auman') },
+      { id: 'sitrak-tanker', brand: '重汽', model: '汕德卡油罐车', ratio: 3.05,
+        body: '#eaeef4', body2: '#c6cfda', accent: '#123c7a', logo: logoOf('sitrak') },
+      { id: 'sany-crane', brand: '三一', model: 'STC250 汽车吊', ratio: 3.15,
+        body: '#f4f6f8', body2: '#d3d9e1', accent: '#c8102e', boom: '#c8102e',
+        logo: logoOf('sany') },
+      { id: 'zoomlion-crane', brand: '中联', model: 'ZTC250 汽车吊', ratio: 3.10,
+        body: '#eef2f6', body2: '#c6d0da', accent: '#2f7d3a', boom: '#2f7d3a',
+        logo: logoOf('zoomlion-garbage') },
+      { id: 'liebherr-crane', brand: '利勃海尔', model: 'LTM 汽车吊', ratio: 3.18,
+        body: '#f2c02a', body2: '#c99a12', accent: '#2c3138', boom: '#f2c02a',
+        logo: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#f2c200"/><rect x="6" y="6" width="52" height="52" rx="11" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2"/><text x="32" y="41" font-family="PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif" font-size="22" font-weight="700" fill="#2b2b2b" text-anchor="middle">利勃</text></svg>') }
+    ].forEach((x) => BRANDS.push(x));
+  })();
+
   // 车辆图鉴：国别、相关汉字、一句话介绍（按 id 对应 BRANDS）
   const CAR_INFO = {
     byd: { c: '中国', ch: '汉', d: '比亚迪的电动轿车，用刀片电池。' },
@@ -1214,7 +1236,13 @@
     'zoomlion-garbage': { c: '中国', ch: '洁', d: '中联垃圾车会压缩垃圾，让城市更干净。' },
     'foton-water': { c: '中国', ch: '洒', d: '福田洒水车给路面洒水降尘。' },
     'yutong-school': { c: '中国', ch: '校', d: '黄色校车接送小朋友上下学。' },
-    'kinglong-open': { c: '中国', ch: '篷', d: '金龙敞篷巴士没有车顶，适合观光。' }
+    'kinglong-open': { c: '中国', ch: '篷', d: '金龙敞篷巴士没有车顶，适合观光。' },
+    'jiefang-tanker': { c: '中国', ch: '油', d: '解放J7油罐车后面背着大油罐。' },
+    'auman-tanker': { c: '中国', ch: '运', d: '欧曼油罐车把汽油运到加油站。' },
+    'sitrak-tanker': { c: '中国', ch: '稳', d: '汕德卡油罐车开起来又稳又安静。' },
+    'sany-crane': { c: '中国', ch: '吊', d: '三一汽车吊的吊臂能伸得很高。' },
+    'zoomlion-crane': { c: '中国', ch: '臂', d: '中联汽车吊用长吊臂吊起重物。' },
+    'liebherr-crane': { c: '德国', ch: '德', d: '利勃海尔汽车吊是德国造的大力士。' }
   };
 
   const brandById = {};
@@ -1719,6 +1747,12 @@
       tone(86, 0.40, 'sawtooth', 0, 0.05);
       noiseHit(0.06, 0.36, 'lowpass', 520, 0.05);
       tone(720, 0.08, 'square', 0.40, 0.032);
+    } else if (kind === 'crane') {
+      // 汽车吊：柴油机 + 液压泵伸臂的嘶声
+      tone(60, 0.50, 'sawtooth', 0, 0.055);
+      tone(104, 0.28, 'triangle', 0.06, 0.03);
+      noiseHit(0.10, 0.44, 'highpass', 2100, 0.03);
+      tone(760, 0.06, 'square', 0.30, 0.03);
     } else if (kind === 'tanker') {
       // 油罐车：柴油机 + 液体晃动的低频
       tone(62, 0.52, 'sawtooth', 0, 0.055);
@@ -1800,7 +1834,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.9';
+  const APP_VERSION = '2026-11-12.10';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3978,7 +4012,13 @@
       'zoomlion-garbage': { y: -0.300, w: 0.24 },
       'foton-water': { y: -0.300, w: 0.24 },
       'yutong-school': { y: -0.300, w: 0.20 },
-      'kinglong-open': { y: -0.330, w: 0.20 }
+      'kinglong-open': { y: -0.330, w: 0.20 },
+      'jiefang-tanker': { y: -0.300, w: 0.24 },
+      'auman-tanker': { y: -0.300, w: 0.24 },
+      'sitrak-tanker': { y: -0.300, w: 0.24 },
+      'sany-crane': { y: -0.300, w: 0.24 },
+      'zoomlion-crane': { y: -0.300, w: 0.24 },
+      'liebherr-crane': { y: -0.300, w: 0.24 }
     };
     return S[id] || { y: -0.394, w: 0.20 };
   }
@@ -6601,8 +6641,9 @@
     truckCab(b, w, h);
   }
 
-  // 徐工 汽车吊：驾驶室 + 转台 + 伸缩臂
+  // 汽车吊：驾驶室 + 转台 + 伸缩臂（吊臂颜色随品牌）
   function paintCrane(b, w, h) {
+    const boom = b.boom || '#e6b31c';
     truckBase(w, h, [0.150, 0.300]);
 
     // 支腿
@@ -6612,7 +6653,7 @@
       ctx.fill();
       rr(s > 0 ? w * 0.380 : -w * 0.560, h * 0.250, w * 0.180, h * 0.048, w * 0.014);
       ctx.fill();
-      ctx.fillStyle = '#e0b422';
+      ctx.fillStyle = boom;
       rr(s > 0 ? w * 0.536 : -w * 0.576, -h * 0.112, w * 0.040, h * 0.072, w * 0.010);
       ctx.fill();
       rr(s > 0 ? w * 0.536 : -w * 0.576, h * 0.238, w * 0.040, h * 0.072, w * 0.010);
@@ -6642,7 +6683,7 @@
     ctx.lineTo(w * 0.070, -h * 0.470);
     ctx.lineTo(-w * 0.070, -h * 0.470);
     ctx.closePath();
-    ctx.fillStyle = '#e6b31c';
+    ctx.fillStyle = boom;
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.24)';
     ctx.beginPath();
@@ -6652,7 +6693,7 @@
     ctx.lineTo(-w * 0.060, -h * 0.460);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = 'rgba(60,42,0,.45)';
+    ctx.strokeStyle = 'rgba(0,0,0,.35)';
     ctx.lineWidth = Math.max(1, w * 0.010);
     ctx.beginPath();
     ctx.moveTo(-w * 0.105, h * 0.140);
@@ -6663,7 +6704,7 @@
     ctx.stroke();
 
     // 臂体节段横撑
-    ctx.strokeStyle = 'rgba(70,50,0,.38)';
+    ctx.strokeStyle = 'rgba(0,0,0,.22)';
     for (let i = 1; i < 5; i++) {
       const t = i / 5;
       const yy = h * (0.140 - 0.610 * t);
@@ -7324,15 +7365,15 @@
     lamp(w * 0.080, -h * 0.318, w * 0.090, h * 0.020, '#ff8a2b');
   }
 
-  // 中集 油罐车：平头驾驶室 + 罐体 + 走道
+  // 油罐车：平头驾驶室 + 罐体 + 走道（罐体颜色随品牌）
   function paintTanker(b, w, h) {
     truckBase(w, h, [0.190, 0.320]);
 
     const tg = ctx.createLinearGradient(-w * 0.44, 0, w * 0.44, 0);
-    tg.addColorStop(0, '#9aa4b0');
-    tg.addColorStop(0.30, '#eef3f8');
-    tg.addColorStop(0.55, '#ffffff');
-    tg.addColorStop(1, '#98a2ae');
+    tg.addColorStop(0, b.body2);
+    tg.addColorStop(0.30, b.body);
+    tg.addColorStop(0.55, shadeHex(b.body, 0.38));
+    tg.addColorStop(1, b.body2);
     ctx.fillStyle = tg;
     rr(-w * 0.436, -h * 0.180, w * 0.872, h * 0.630, w * 0.230);
     ctx.fill();
@@ -7872,7 +7913,13 @@
     'zoomlion-garbage': paintGarbage,
     'foton-water': paintWater,
     'yutong-school': paintSchoolBus,
-    'kinglong-open': paintOpenBus
+    'kinglong-open': paintOpenBus,
+    'jiefang-tanker': paintTanker,
+    'auman-tanker': paintTanker,
+    'sitrak-tanker': paintTanker,
+    'sany-crane': paintCrane,
+    'zoomlion-crane': paintCrane,
+    'liebherr-crane': paintCrane
   };
 
   function drawCar() {
@@ -8180,7 +8227,20 @@
     const zF = zc + len * 0.5;
     const hw = wid * 0.5;
 
-    if (id === 'shantui') {
+    if (id === 'xcmg' || id.indexOf('-crane') > 0) {
+      // 汽车吊：斜向前上方伸出的吊臂 + 尾部支腿
+      const boom = (brandById[id] && brandById[id].boom) || '#e6b31c';
+      const z0 = zc - len * 0.16;
+      const z1 = zc + len * 0.58;
+      poly3([
+        [x - hw * 0.17, hgt * 0.74, z0], [x + hw * 0.17, hgt * 0.74, z0],
+        [x + hw * 0.10, hgt * 1.52, z1], [x - hw * 0.10, hgt * 1.52, z1]
+      ], boom);
+      poly3([
+        [x - hw * 1.08, 0.02 * hgt, z0 + len * 0.12], [x + hw * 1.08, 0.02 * hgt, z0 + len * 0.12],
+        [x + hw * 1.08, 0.09 * hgt, z0 + len * 0.12], [x - hw * 1.08, 0.09 * hgt, z0 + len * 0.12]
+      ], dark);
+    } else if (id === 'shantui') {
       // 宽推铲 + 两侧连接臂
       const zB = zF + wid * 0.05;
       poly3([
@@ -8329,7 +8389,7 @@
         ], '#c9d0d9');
       }
     } else if (cat === 'truck') {
-      if (id === 'cimc') {
+      if (id === 'cimc' || id.indexOf('-tanker') > 0) {
         // 油罐车：罐体端面只画上半圈，避免挡住尾灯
         const p = pr(x, hgt * 0.52, zR);
         if (p) {
@@ -9144,6 +9204,9 @@
         dongfanghong: 'tractor', 'foton-water': 'water', 'yutong-school': 'school',
         johndeere: 'harvester', 'sany-pump': 'pump', heli: 'forklift',
         'zoomlion-garbage': 'garbage', cimc: 'tanker', maxus: 'rv',
+        'jiefang-tanker': 'tanker', 'auman-tanker': 'tanker', 'sitrak-tanker': 'tanker',
+        xcmg: 'crane', 'sany-crane': 'crane', 'zoomlion-crane': 'crane',
+        'liebherr-crane': 'crane',
         'kinglong-open': 'sightbus', 'yutong-double': 'sightbus' }[b.id] || 'car');
       return;
     }
@@ -9798,9 +9861,9 @@
       'honda', 'mazda', 'volvo', 'tank300', 'mega', 'iveco', 'vw', 'mercedes'],
     sport: ['ferrari', 'lamborghini', 'bmw', 'audi', 'porsche', 'toyota', 'mg'],
     truck: ['auman', 'jiefang', 'dongfeng', 'sitrak', 'shacman', 'scania', 'daf', 'sany', 'howo',
-      'cannon', 'f150', 'cimc', 'tesla'],
+      'cannon', 'f150', 'cimc', 'tesla', 'jiefang-tanker', 'auman-tanker', 'sitrak-tanker'],
     works: ['xcmg', 'cat320', 'shantui', 'xcmg-roller', 'xcmg-loader', 'sany-pump', 'heli',
-      'zoomlion-garbage', 'foton-water'],
+      'zoomlion-garbage', 'foton-water', 'sany-crane', 'zoomlion-crane', 'liebherr-crane'],
     bus: ['yutong', 'yutong-double', 'yutong-school', 'kinglong-open', 'maxus'],
     farm: ['johndeere', 'dongfanghong']
   };
@@ -9816,7 +9879,7 @@
   if (!GARAGE_CATS.some((c) => c.id === garageCat)) garageCat = 'all';
 
   // ---------- 车辆图鉴 + 收集成就 ----------
-  const BADGE_STEPS = [10, 30, 50, 68];
+  const BADGE_STEPS = [10, 30, 50, 74];
   let drivenIds = [];
   try {
     drivenIds = JSON.parse(localStorage.getItem('car-race-driven') || '[]') || [];
