@@ -1391,6 +1391,27 @@
     tone(150, 0.18, 'triangle', 0, 0.22);
     tone(96, 0.22, 'square', 0.03, 0.1);
   }
+  // 短促噪声：液压泄压、履带摩擦、推铲刮地
+  function noiseHit(delay, dur, type, freq, vol) {
+    if (state.muted) return;
+    ensureAudio();
+    if (!actx) return;
+    const buf = getNoise();
+    if (!buf) return;
+    const t0 = actx.currentTime + delay;
+    const src = actx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const f = actx.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(actx.destination);
+    src.start(t0); src.stop(t0 + dur + 0.03);
+  }
   function sfxTraffic(kind) {
     if (kind === 'police') {
       tone(700, 0.12, 'square', 0, 0.045);
@@ -1398,6 +1419,19 @@
     } else if (kind === 'fire' || kind === 'ambulance') {
       tone(620, 0.14, 'triangle', 0, 0.05);
       tone(840, 0.16, 'triangle', 0.18, 0.05);
+    } else if (kind === 'excavator') {
+      // 挖掘机：柴油机低吼 + 液压泄压声 + 履带金属声
+      tone(64, 0.42, 'sawtooth', 0, 0.055);
+      tone(96, 0.20, 'square', 0.02, 0.03);
+      noiseHit(0.04, 0.34, 'highpass', 2400, 0.045);
+      tone(1320, 0.05, 'square', 0.22, 0.035);
+    } else if (kind === 'bulldozer') {
+      // 推土机：更低沉的轰鸣 + 推铲刮地声 + 履带咔哒
+      tone(48, 0.55, 'sawtooth', 0, 0.06);
+      tone(72, 0.26, 'triangle', 0.03, 0.035);
+      noiseHit(0.05, 0.46, 'lowpass', 380, 0.075);
+      tone(940, 0.04, 'square', 0.16, 0.04);
+      tone(760, 0.04, 'square', 0.27, 0.04);
     }
   }
   function sfxStart() {
@@ -1463,7 +1497,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.2';
+  const APP_VERSION = '2026-11-12.3';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -7717,7 +7751,7 @@
         phase: rand(0, Math.PI * 2),
         dead: false
       });
-      sfxTraffic('car');
+      sfxTraffic(b.id === 'cat320' ? 'excavator' : b.id === 'shantui' ? 'bulldozer' : 'car');
       return;
     }
 
