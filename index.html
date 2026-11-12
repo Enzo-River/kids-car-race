@@ -118,6 +118,21 @@
   .garage-tab.on{border-color:#ffb43d;background:#fff6e2;color:#8a5a10;box-shadow:0 2px 0 #e59b2a;}
   .garage-empty{grid-column:1 / -1;padding:14px 0;font-size:clamp(12px,2.4vmin,14px);
     color:#a3a8bb;font-weight:700;}
+  .garage-tools{display:flex;gap:8px;margin-top:8px;align-items:center;justify-content:center;}
+  .brand-filter{flex:0 1 auto;max-width:190px;border:2px solid #eee4cf;border-radius:999px;
+    padding:5px 10px;font-family:inherit;font-size:clamp(11px,2.2vmin,14px);font-weight:800;
+    color:#8a5a10;background:#fff;cursor:pointer;}
+  .garage-tool{flex:0 0 auto;border:2px solid #ffd28a;background:#fff6e2;border-radius:999px;
+    padding:5px 12px;font-family:inherit;font-size:clamp(11px,2.2vmin,14px);font-weight:800;
+    color:#8a5a10;cursor:pointer;}
+  .garage-tool:active{transform:translateY(1px);}
+  .daily-car{margin:8px auto 0;display:inline-flex;align-items:center;gap:4px;
+    border:2px dashed #ffc26a;border-radius:999px;background:#fff8e6;color:#8a5a10;
+    padding:5px 13px;font-family:inherit;font-size:clamp(11px,2.2vmin,14px);font-weight:800;
+    cursor:pointer;}
+  .daily-car:active{transform:translateY(1px);}
+  .daily-car b{font-weight:900;}
+  .daily-car[hidden]{display:none;}
   #updateBar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));
     transform:translateX(-50%);z-index:40;border:none;border-radius:999px;
     padding:10px 20px;font-family:inherit;font-size:clamp(13px,2.8vmin,16px);font-weight:800;
@@ -342,7 +357,12 @@
       <div class="daily-chip" id="dailyChip"></div>
       <div class="badge-row" id="badgeRow"></div>
       <div class="garage-tabs" id="garageTabs"></div>
+      <div class="garage-tools">
+        <select class="brand-filter" id="brandFilter" aria-label="按品牌筛选"></select>
+        <button class="garage-tool" id="randomCar" type="button">🎲 随机一辆</button>
+      </div>
       <div class="garage" id="garage"></div>
+      <button class="daily-car" id="dailyCar" type="button" hidden></button>
       <div class="mode-switch" id="modeSwitch">
         <button class="mode-btn on" data-mode="collect">收集汉字</button>
         <button class="mode-btn" data-mode="quiz">听音选字</button>
@@ -1852,7 +1872,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.11';
+  const APP_VERSION = '2026-11-12.12';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -8428,7 +8448,13 @@
           [x + s * hw * 0.08, 0.10 * hgt, zF + wid * 0.26], [x + s * hw * 0.32, 0.10 * hgt, zF + wid * 0.26]
         ], '#a4adb7');
       }
-    } else if (id === 'cat320') {
+    } else if (id === 'sany-pump' || id.indexOf('-pump') > 0) {
+      // 泵车：斜向前上方的臂架
+      poly3([
+        [x - wid * 0.09, 0.90 * hgt, zc - len * 0.10], [x + wid * 0.09, 0.90 * hgt, zc - len * 0.10],
+        [x + wid * 0.06, 1.06 * hgt, zF + wid * 0.22], [x - wid * 0.06, 1.06 * hgt, zF + wid * 0.22]
+      ], body2);
+    } else if (id === 'cat320' || id.indexOf('-excavator') > 0) {
       // 大臂 + 小臂 + 前铲斗
       poly3([
         [x - wid * 0.10, 0.94 * hgt, zc + len * 0.10], [x + wid * 0.10, 0.94 * hgt, zc + len * 0.10],
@@ -9349,7 +9375,8 @@
       });
       sfxTraffic({ cat320: 'excavator', shantui: 'bulldozer', 'xcmg-roller': 'roller',
         dongfanghong: 'tractor', 'foton-water': 'water', 'yutong-school': 'school',
-        johndeere: 'harvester', 'sany-pump': 'pump', heli: 'forklift',
+        johndeere: 'harvester', 'sany-pump': 'pump', 'zoomlion-pump': 'pump',
+        'sany-excavator': 'excavator', 'xcmg-excavator': 'excavator', heli: 'forklift',
         'zoomlion-garbage': 'garbage', cimc: 'tanker', maxus: 'rv',
         'jiefang-tanker': 'tanker', 'auman-tanker': 'tanker', 'sitrak-tanker': 'tanker',
         xcmg: 'crane', 'sany-crane': 'crane', 'zoomlion-crane': 'crane',
@@ -10102,6 +10129,44 @@
     try { localStorage.setItem('car-race-recent', JSON.stringify(recentCars)); } catch (err) { /* ignore */ }
   }
 
+  let brandFilterId = '';
+
+  function garageBaseList() {
+    return garageCat === 'recent'
+      ? recentCars.map((id) => brandById[id]).filter(Boolean)
+      : BRANDS.filter((b) => garageCat === 'all' || CAT_OF[b.id] === garageCat);
+  }
+
+  function garageList() {
+    const base = garageBaseList();
+    return brandFilterId ? base.filter((b) => b.brand === brandFilterId) : base;
+  }
+
+  // 今日推荐：按日期从还没收集的车里固定挑一辆
+  function renderDailyCar() {
+    const el = document.getElementById('dailyCar');
+    if (!el) return;
+    const left = BRANDS.filter((b) => drivenIds.indexOf(b.id) < 0);
+    const pool = left.length ? left : BRANDS;
+    const d = new Date();
+    const seed = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+    const b = pool[seed % pool.length];
+    if (!b) { el.hidden = true; return; }
+    el.hidden = false;
+    el.dataset.id = b.id;
+    el.innerHTML = '🚗 今日推荐 <b>' + b.brand + ' ' + b.model + '</b>';
+  }
+
+  function selectCar(id) {
+    if (!brandById[id] || id === state.brandId) return;
+    state.brandId = id;
+    try { localStorage.setItem('car-race-brand', id); } catch (err) { /* ignore */ }
+    renderGarage();
+    layout();
+    tone(520, 0.09, 'triangle', 0, 0.1);
+    tone(700, 0.12, 'triangle', 0.07, 0.09);
+  }
+
   function renderGarage() {
     const tabsEl = document.getElementById('garageTabs');
     if (tabsEl) {
@@ -10110,9 +10175,18 @@
           '" type="button">' + c.label + '</button>'
       )).join('');
     }
-    const list = garageCat === 'recent'
-      ? recentCars.map((id) => brandById[id]).filter(Boolean)
-      : BRANDS.filter((b) => garageCat === 'all' || CAT_OF[b.id] === garageCat);
+    const base = garageBaseList();
+    const filterEl = document.getElementById('brandFilter');
+    if (filterEl) {
+      const brands = [];
+      base.forEach((b) => { if (brands.indexOf(b.brand) < 0) brands.push(b.brand); });
+      if (brandFilterId && brands.indexOf(brandFilterId) < 0) brandFilterId = '';
+      filterEl.innerHTML = '<option value="">全部品牌</option>' +
+        brands.map((n) => '<option value="' + n + '">' + n + '</option>').join('');
+      filterEl.value = brandFilterId;
+    }
+    const list = garageList();
+    renderDailyCar();
     if (!list.length) {
       garageEl.innerHTML = '<div class="garage-empty">还没有玩过的车，随便挑一辆出发吧</div>';
       return;
@@ -10134,6 +10208,25 @@
     try { localStorage.setItem('car-race-garage-cat', garageCat); } catch (err) { /* ignore */ }
     renderGarage();
     tone(600, 0.06, 'triangle', 0, 0.06);
+  });
+
+  document.getElementById('brandFilter').addEventListener('change', (e) => {
+    brandFilterId = e.target.value;
+    renderGarage();
+    tone(600, 0.05, 'triangle', 0, 0.05);
+  });
+
+  document.getElementById('randomCar').addEventListener('click', () => {
+    const list = garageList();
+    if (!list.length) return;
+    const pick = list[Math.floor(Math.random() * list.length)];
+    selectCar(pick.id);
+    const card = garageEl.querySelector('[data-id="' + pick.id + '"]');
+    if (card && card.scrollIntoView) card.scrollIntoView({ block: 'nearest' });
+  });
+
+  document.getElementById('dailyCar').addEventListener('click', (e) => {
+    selectCar(e.currentTarget.dataset.id);
   });
 
   // 长按 600ms 或双击车卡，打开车辆图鉴
@@ -10187,13 +10280,7 @@
     }
     infoTapId = id;
     infoTapAt = now;
-    if (!brandById[id] || id === state.brandId) return;
-    state.brandId = id;
-    try { localStorage.setItem('car-race-brand', id); } catch (err) { /* ignore */ }
-    renderGarage();
-    layout();
-    tone(520, 0.09, 'triangle', 0, 0.1);
-    tone(700, 0.12, 'triangle', 0.07, 0.09);
+    selectCar(id);
   });
 
   // ---------- 选关 ----------
