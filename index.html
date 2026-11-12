@@ -1304,6 +1304,7 @@
   let W = 0, H = 0, DPR = 1;
   let qualityCap = 2;
   let fpsAt = 0, fpsFrames = 0;
+  let fpsWarmupUntil = 0, lowFpsStreak = 0;
   let roadLeft = 0, roadRight = 0, roadWidth = 0, laneW = 0;
   let carY = 0;
   let view3d = false;   // 立体（真 3D）视角开关
@@ -1515,7 +1516,7 @@
   function setView(is3d) {
     view3d = is3d;
     try { localStorage.setItem('car-race-view3d', is3d ? '1' : '0'); } catch (e) { /* ignore */ }
-    if (W > 0 && H > 0) buildDecor();
+    if (W > 0 && H > 0) { buildDecor(); canvas.width = 1; resize(); }
     viewSwitchEl.querySelectorAll('.mode-btn').forEach(b => {
       b.classList.toggle('on', (b.dataset.view === '3d') === is3d);
     });
@@ -1872,7 +1873,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.12';
+  const APP_VERSION = '2026-11-12.13';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2170,7 +2171,8 @@
       return;
     }
     if (W === Math.round(size.w) && H === Math.round(size.h) && canvas.width > 1) return;
-    DPR = Math.min(window.devicePixelRatio || 1, qualityCap);
+    // 立体视角像素成本更高，限制到 1.6 倍；低端机降档后仍可继续降到 1
+    DPR = Math.min(window.devicePixelRatio || 1, view3d ? Math.min(qualityCap, 1.6) : qualityCap);
     W = size.w;
     H = size.h;
     canvas.width = Math.round(W * DPR);
@@ -10161,7 +10163,13 @@
     if (!brandById[id] || id === state.brandId) return;
     state.brandId = id;
     try { localStorage.setItem('car-race-brand', id); } catch (err) { /* ignore */ }
-    renderGarage();
+    // 只切换高亮，避免每次选车都重建整格车卡（最多 80 个节点）
+    const cards = garageEl.querySelectorAll('.car-card');
+    for (let i = 0; i < cards.length; i++) {
+      const on = cards[i].dataset.id === id;
+      cards[i].classList.toggle('on', on);
+      cards[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
     layout();
     tone(520, 0.09, 'triangle', 0, 0.1);
     tone(700, 0.12, 'triangle', 0.07, 0.09);
@@ -10194,7 +10202,7 @@
     garageEl.innerHTML = list.map(b => (
       '<button class="car-card' + (b.id === state.brandId ? ' on' : '') + '" data-id="' + b.id +
         '" type="button" aria-pressed="' + (b.id === state.brandId) + '">' +
-        '<img class="car-logo" src="' + b.logo + '" alt="">' +
+        '<img class="car-logo" src="' + b.logo + '" alt="" loading="lazy" decoding="async">' +
         '<span class="car-brand">' + b.brand + '</span>' +
         '<span class="car-model">' + b.model + '</span>' +
       '</button>'
@@ -11013,12 +11021,17 @@
     }
     // 低端机连续掉帧时降一档分辨率，保证流畅
     fpsFrames++;
+    if (!fpsWarmupUntil) fpsWarmupUntil = now + 6000;
     if (fpsAt && now - fpsAt > 2500) {
       const fps = fpsFrames / ((now - fpsAt) / 1000);
-      if (fps < 45 && qualityCap > 1.2) {
-        qualityCap = 1;
-        canvas.width = 1;
-        resize();
+      // 启动阶段要解码车标、建车库，帧率天然偏低，先跳过；连续两次低帧才降档
+      if (now > fpsWarmupUntil) {
+        lowFpsStreak = fps < 45 ? lowFpsStreak + 1 : 0;
+        if (lowFpsStreak >= 2 && qualityCap > 1.2) {
+          qualityCap = 1;
+          canvas.width = 1;
+          resize();
+        }
       }
       fpsAt = now;
       fpsFrames = 0;
@@ -11076,6 +11089,14 @@
   // 给浏览器返回/左滑手势多加一层同页状态，退回时先弹确认
   guardHistory();
 
+  // 有新版本时统一弹提示条
+  function showUpdateBar() {
+    const bar = document.getElementById('updateBar');
+    if (!bar || !bar.classList.contains('hidden')) return;
+    bar.classList.remove('hidden');
+    bar.addEventListener('click', () => location.reload(), { once: true });
+  }
+
   // 注册 Service Worker，支持离线与添加到主屏幕
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', () => {
@@ -11083,10 +11104,11 @@
       let hadController = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!hadController) { hadController = true; return; }
-        const bar = document.getElementById('updateBar');
-        if (!bar) return;
-        bar.classList.remove('hidden');
-        bar.addEventListener('click', () => location.reload(), { once: true });
+        showUpdateBar();
+      });
+      // SW 秒开缓存页后，后台发现内容有更新时提醒
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'content-updated') showUpdateBar();
       });
     });
   }
