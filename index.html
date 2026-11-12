@@ -84,6 +84,23 @@
   .car-brand{font-size:clamp(12px,2.4vmin,15px);font-weight:900;color:#3a3d5c;line-height:1.3;}
   .car-model{font-size:clamp(10px,2vmin,12px);font-weight:600;color:#8a8fa8;line-height:1.2;}
 
+  .garage-tabs{display:flex;gap:6px;margin-top:clamp(10px,2.2vh,16px);overflow-x:auto;
+    padding:2px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .garage-tabs::-webkit-scrollbar{display:none;}
+  .garage-tab{flex:0 0 auto;border:2px solid #eee4cf;background:#fff;border-radius:999px;
+    padding:5px 12px;font-family:inherit;font-size:clamp(11px,2.2vmin,14px);font-weight:800;
+    color:#8a8fa8;cursor:pointer;}
+  .garage-tab.on{border-color:#ffb43d;background:#fff6e2;color:#8a5a10;box-shadow:0 2px 0 #e59b2a;}
+  .garage-empty{grid-column:1 / -1;padding:14px 0;font-size:clamp(12px,2.4vmin,14px);
+    color:#a3a8bb;font-weight:700;}
+  #updateBar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);z-index:40;border:none;border-radius:999px;
+    padding:10px 20px;font-family:inherit;font-size:clamp(13px,2.8vmin,16px);font-weight:800;
+    color:#fff;background:linear-gradient(180deg,#5fc2ff,#2f8fe0);
+    box-shadow:0 6px 0 #1f6aa8,0 10px 22px rgba(31,106,168,.35);cursor:pointer;}
+  #updateBar.hidden{display:none;}
+  #updateBar:active{transform:translateX(-50%) translateY(3px);box-shadow:0 3px 0 #1f6aa8;}
+
   .big-btn{margin-top:clamp(12px,2.4vh,20px);width:100%;padding:clamp(13px,2.6vh,18px) 0;
     border:none;border-radius:999px;font-family:inherit;font-size:clamp(22px,5vmin,30px);
     font-weight:900;letter-spacing:3px;color:#fff;
@@ -298,6 +315,7 @@
       <p class="mute-tip" id="wxTip" hidden>💬 微信里朗读使用内置录音；想用系统语音，可点右上角 ··· → 在浏览器打开</p>
       <div class="level-chip" id="levelChip">第 1 关 · 城市</div>
       <div class="daily-chip" id="dailyChip"></div>
+      <div class="garage-tabs" id="garageTabs"></div>
       <div class="garage" id="garage"></div>
       <div class="mode-switch" id="modeSwitch">
         <button class="mode-btn on" data-mode="collect">收集汉字</button>
@@ -1533,6 +1551,42 @@
       tone(660, 0.11, 'triangle', 0, 0.045);
       tone(880, 0.13, 'triangle', 0.14, 0.045);
       tone(330, 0.16, 'sawtooth', 0.30, 0.03);
+    } else if (kind === 'harvester') {
+      // 收割机：柴油机 + 割台往复的唰唰声
+      tone(58, 0.50, 'sawtooth', 0, 0.055);
+      noiseHit(0.02, 0.62, 'highpass', 2600, 0.045);
+      tone(120, 0.14, 'triangle', 0.18, 0.022);
+    } else if (kind === 'pump') {
+      // 泵车：液压泵嘶声 + 布料杆的金属声
+      noiseHit(0.02, 0.55, 'highpass', 2400, 0.05);
+      tone(420, 0.30, 'triangle', 0.02, 0.026);
+      tone(98, 0.44, 'sawtooth', 0.10, 0.05);
+    } else if (kind === 'forklift') {
+      // 叉车：电机高频 + 倒车嘀嘀
+      tone(1180, 0.26, 'triangle', 0, 0.030);
+      tone(880, 0.09, 'square', 0.30, 0.035);
+      tone(880, 0.09, 'square', 0.44, 0.035);
+    } else if (kind === 'garbage') {
+      // 垃圾车：压缩箱液压声 + 倒车提示
+      tone(86, 0.40, 'sawtooth', 0, 0.05);
+      noiseHit(0.06, 0.36, 'lowpass', 520, 0.05);
+      tone(720, 0.08, 'square', 0.40, 0.032);
+    } else if (kind === 'tanker') {
+      // 油罐车：柴油机 + 液体晃动的低频
+      tone(62, 0.52, 'sawtooth', 0, 0.055);
+      tone(140, 0.40, 'sine', 0.10, 0.03);
+      tone(96, 0.30, 'triangle', 0.24, 0.028);
+    } else if (kind === 'rv') {
+      // 房车：柴油怠速 + 一声柔和喇叭
+      tone(74, 0.46, 'triangle', 0, 0.045);
+      tone(392, 0.16, 'triangle', 0.16, 0.032);
+      tone(523, 0.18, 'triangle', 0.30, 0.030);
+    } else if (kind === 'sightbus') {
+      // 观光巴士：轻快三音提示 + 引擎
+      tone(660, 0.10, 'triangle', 0, 0.04);
+      tone(784, 0.10, 'triangle', 0.12, 0.04);
+      tone(988, 0.14, 'triangle', 0.24, 0.038);
+      tone(70, 0.34, 'sawtooth', 0.02, 0.03);
     }
   }
   function sfxStart() {
@@ -1598,7 +1652,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.6';
+  const APP_VERSION = '2026-11-12.7';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2787,6 +2841,68 @@
     ctx.restore();
   }
 
+  // 车标绘制（抽出来供平面绘制和离屏缓存复用）
+  function paintBrandBadge(b, img, w, h) {
+    const spec = badgeSpec(b.id);
+    const dw = w * spec.w;
+    const dh = dw * img.naturalHeight / img.naturalWidth;
+    if (spec.glow) {
+      // 深色车漆上给银色车标垫一层柔光，避免看不清
+      const gr = ctx.createRadialGradient(0, h * spec.y, 0, 0, h * spec.y, dw * 0.85);
+      gr.addColorStop(0, 'rgba(255,255,255,.26)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.arc(0, h * spec.y, dw * 0.85, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.drawImage(img, -dw / 2, h * spec.y - dh / 2, dw, dh);
+  }
+
+  // ---------- 品牌车离屏缓存：同一款车只画一次，之后直接贴图 ----------
+  const CAR_SPRITES = new Map();
+  const SPRITE_BASE = 220;
+  const SPRITE_LIMIT = 20;
+
+  function brandSprite(b) {
+    const hit = CAR_SPRITES.get(b.id);
+    if (hit) {
+      // 命中后移到队尾，实现简单的 LRU
+      CAR_SPRITES.delete(b.id);
+      CAR_SPRITES.set(b.id, hit);
+      return hit;
+    }
+    const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+    if (!img || !img.naturalWidth) return null;
+
+    const w = SPRITE_BASE;
+    const h = Math.round(SPRITE_BASE * (b.ratio || 2.0));
+    // 留出边距，避免铲斗、吊臂、轮眉这些超出车身的部件被裁掉
+    const dw = w * 1.24;
+    const dh = h * 1.24;
+    const dpr = 1;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(dw * dpr));
+    c.height = Math.max(1, Math.round(dh * dpr));
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    g.translate(dw / 2, dh / 2);
+
+    // 画笔统一使用全局 ctx，这里临时切到离屏画布
+    const prev = ctx;
+    ctx = g;
+    (PAINTERS[b.id] || paintFerrari)(b, w, h);
+    paintBrandBadge(b, img, w, h);
+    ctx = prev;
+
+    const sprite = { img: c, dw, dh };
+    CAR_SPRITES.set(b.id, sprite);
+    while (CAR_SPRITES.size > SPRITE_LIMIT) {
+      CAR_SPRITES.delete(CAR_SPRITES.keys().next().value);
+    }
+    return sprite;
+  }
+
   function drawTraffic(o, forSprite) {
     const x = o.x, y = o.y, w = o.w, h = o.h, kind = o.kind;
     const spec = TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car;
@@ -2801,13 +2917,13 @@
     // 品牌车：直接复用车库里的专属车身轮廓
     if (kind === 'brand') {
       const b = brandById[o.brandId] || BRANDS[0];
-      (PAINTERS[b.id] || paintFerrari)(b, w, h);
-      const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
-      if (img && img.naturalWidth) {
-        const spec = badgeSpec(b.id);
-        const dw = w * spec.w;
-        const dh = dw * img.naturalHeight / img.naturalWidth;
-        ctx.drawImage(img, -dw / 2, h * spec.y - dh / 2, dw, dh);
+      const sprite = brandSprite(b);
+      if (sprite) {
+        ctx.drawImage(sprite.img, -w * 0.62, -h * 0.62, w * 1.24, h * 1.24);
+      } else {
+        (PAINTERS[b.id] || paintFerrari)(b, w, h);
+        const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+        if (img && img.naturalWidth) paintBrandBadge(b, img, w, h);
       }
       ctx.restore();
       return;
@@ -7625,25 +7741,15 @@
     ctx.rotate(state.tilt * 0.12);
     if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.5;
 
-    (PAINTERS[b.id] || paintFerrari)(b, w, h);
-
-    // 引擎盖上的真实车标（深色车漆优先用银白描边版）
-    const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
-    if (img && img.naturalWidth) {
-      const spec = badgeSpec(b.id);
-      const dw = w * spec.w;
-      const dh = dw * img.naturalHeight / img.naturalWidth;
-      if (spec.glow) {
-        // 深色车漆上给银色车标垫一层柔光，避免看不清
-        const gr = ctx.createRadialGradient(0, h * spec.y, 0, 0, h * spec.y, dw * 0.85);
-        gr.addColorStop(0, 'rgba(255,255,255,.26)');
-        gr.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = gr;
-        ctx.beginPath();
-        ctx.arc(0, h * spec.y, dw * 0.85, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.drawImage(img, -dw / 2, h * spec.y - dh / 2, dw, dh);
+    // 车身（优先用离屏缓存，避免每帧重画上百条路径）
+    const sprite = brandSprite(b);
+    if (sprite) {
+      ctx.drawImage(sprite.img, -w * 0.62, -h * 0.62, w * 1.24, h * 1.24);
+    } else {
+      (PAINTERS[b.id] || paintFerrari)(b, w, h);
+      // 引擎盖上的真实车标（深色车漆优先用银白描边版）
+      const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+      if (img && img.naturalWidth) paintBrandBadge(b, img, w, h);
     }
 
     ctx.restore();
@@ -8710,7 +8816,10 @@
         dead: false
       });
       sfxTraffic({ cat320: 'excavator', shantui: 'bulldozer', 'xcmg-roller': 'roller',
-        dongfanghong: 'tractor', 'foton-water': 'water', 'yutong-school': 'school' }[b.id] || 'car');
+        dongfanghong: 'tractor', 'foton-water': 'water', 'yutong-school': 'school',
+        johndeere: 'harvester', 'sany-pump': 'pump', heli: 'forklift',
+        'zoomlion-garbage': 'garbage', cimc: 'tanker', maxus: 'rv',
+        'kinglong-open': 'sightbus', 'yutong-double': 'sightbus' }[b.id] || 'car');
       return;
     }
 
@@ -9330,8 +9439,62 @@
   }
 
   // ---------- 车库 ----------
+  const GARAGE_CATS = [
+    { id: 'all', label: '全部' },
+    { id: 'recent', label: '最近' },
+    { id: 'auto', label: '家用车' },
+    { id: 'sport', label: '跑车' },
+    { id: 'truck', label: '卡车' },
+    { id: 'works', label: '工程车' },
+    { id: 'bus', label: '客车' },
+    { id: 'farm', label: '农机' }
+  ];
+  const CAT_IDS = {
+    auto: ['byd', 'nio', 'xpeng', 'lixiang', 'xiaomi', 'wuling', 'hongqi', 'aito-m9', 'aito-m7',
+      'luxeed-s7', 'stelato-s9', 'maextro-s800', 'zeekr-001', 'lynk-08', 'haval-h6', 'exeed-lanyue',
+      'leapmotor-c11', 'arcfox-alpha-s', 'changan', 'chery', 'geely', 'roewe', 'wey', 'nissan',
+      'honda', 'mazda', 'volvo', 'tank300', 'mega', 'iveco', 'vw', 'mercedes'],
+    sport: ['ferrari', 'lamborghini', 'bmw', 'audi', 'porsche', 'toyota', 'mg'],
+    truck: ['auman', 'jiefang', 'dongfeng', 'sitrak', 'shacman', 'scania', 'daf', 'sany', 'howo',
+      'cannon', 'f150', 'cimc', 'tesla'],
+    works: ['xcmg', 'cat320', 'shantui', 'xcmg-roller', 'xcmg-loader', 'sany-pump', 'heli',
+      'zoomlion-garbage', 'foton-water'],
+    bus: ['yutong', 'yutong-double', 'yutong-school', 'kinglong-open', 'maxus'],
+    farm: ['johndeere', 'dongfanghong']
+  };
+  const CAT_OF = {};
+  Object.keys(CAT_IDS).forEach((k) => CAT_IDS[k].forEach((id) => { CAT_OF[id] = k; }));
+  let garageCat = 'all';
+  let recentCars = [];
+  try {
+    garageCat = localStorage.getItem('car-race-garage-cat') || 'all';
+    recentCars = JSON.parse(localStorage.getItem('car-race-recent') || '[]') || [];
+    if (!Array.isArray(recentCars)) recentCars = [];
+  } catch (err) { /* ignore */ }
+  if (!GARAGE_CATS.some((c) => c.id === garageCat)) garageCat = 'all';
+
+  function pushRecent(id) {
+    if (!id || !brandById[id]) return;
+    recentCars = [id].concat(recentCars.filter((x) => x !== id)).slice(0, 6);
+    try { localStorage.setItem('car-race-recent', JSON.stringify(recentCars)); } catch (err) { /* ignore */ }
+  }
+
   function renderGarage() {
-    garageEl.innerHTML = BRANDS.map(b => (
+    const tabsEl = document.getElementById('garageTabs');
+    if (tabsEl) {
+      tabsEl.innerHTML = GARAGE_CATS.map((c) => (
+        '<button class="garage-tab' + (c.id === garageCat ? ' on' : '') + '" data-cat="' + c.id +
+          '" type="button">' + c.label + '</button>'
+      )).join('');
+    }
+    const list = garageCat === 'recent'
+      ? recentCars.map((id) => brandById[id]).filter(Boolean)
+      : BRANDS.filter((b) => garageCat === 'all' || CAT_OF[b.id] === garageCat);
+    if (!list.length) {
+      garageEl.innerHTML = '<div class="garage-empty">还没有玩过的车，随便挑一辆出发吧</div>';
+      return;
+    }
+    garageEl.innerHTML = list.map(b => (
       '<button class="car-card' + (b.id === state.brandId ? ' on' : '') + '" data-id="' + b.id +
         '" type="button" aria-pressed="' + (b.id === state.brandId) + '">' +
         '<img class="car-logo" src="' + b.logo + '" alt="">' +
@@ -9340,6 +9503,15 @@
       '</button>'
     )).join('');
   }
+
+  document.getElementById('garageTabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.garage-tab');
+    if (!tab) return;
+    garageCat = tab.dataset.cat;
+    try { localStorage.setItem('car-race-garage-cat', garageCat); } catch (err) { /* ignore */ }
+    renderGarage();
+    tone(600, 0.06, 'triangle', 0, 0.06);
+  });
 
   garageEl.addEventListener('click', (e) => {
     const card = e.target.closest('.car-card');
@@ -9793,7 +9965,10 @@
     }
   });
 
-  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('startBtn').addEventListener('click', () => {
+    pushRecent(state.brandId);
+    startGame();
+  });
 
   // 开始页「测试语音」：直接同步朗读，用来判断是设备问题还是游戏链路问题
   document.getElementById('voiceTest').addEventListener('click', () => {
@@ -10116,9 +10291,18 @@
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).catch(() => { /* 隐私模式等场景忽略 */ });
+      let hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController) { hadController = true; return; }
+        const bar = document.getElementById('updateBar');
+        if (!bar) return;
+        bar.classList.remove('hidden');
+        bar.addEventListener('click', () => location.reload(), { once: true });
+      });
     });
   }
 })();
 </script>
+<button class="hidden" id="updateBar" type="button">有新版本啦，点这里更新</button>
 </body>
 </html>
