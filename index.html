@@ -1512,6 +1512,27 @@
       noiseHit(0.05, 0.46, 'lowpass', 380, 0.075);
       tone(940, 0.04, 'square', 0.16, 0.04);
       tone(760, 0.04, 'square', 0.27, 0.04);
+    } else if (kind === 'roller') {
+      // 压路机：低频震动 + 钢轮压地的闷响
+      tone(70, 0.50, 'triangle', 0, 0.05);
+      tone(105, 0.24, 'sine', 0.06, 0.03);
+      noiseHit(0.02, 0.44, 'lowpass', 240, 0.06);
+    } else if (kind === 'tractor') {
+      // 拖拉机：单缸柴油机的「突突突」+ 轻微金属抖动
+      tone(95, 0.10, 'square', 0, 0.04);
+      tone(88, 0.10, 'square', 0.13, 0.04);
+      tone(95, 0.12, 'square', 0.26, 0.035);
+      noiseHit(0.04, 0.30, 'highpass', 1700, 0.022);
+    } else if (kind === 'water') {
+      // 洒水车：喷水声 + 一小段提示音
+      noiseHit(0.02, 0.52, 'highpass', 1500, 0.055);
+      tone(880, 0.10, 'triangle', 0.04, 0.03);
+      tone(1174, 0.12, 'triangle', 0.18, 0.028);
+    } else if (kind === 'school') {
+      // 校车：两声柔和提示音 + 低沉喇叭
+      tone(660, 0.11, 'triangle', 0, 0.045);
+      tone(880, 0.13, 'triangle', 0.14, 0.045);
+      tone(330, 0.16, 'sawtooth', 0.30, 0.03);
     }
   }
   function sfxStart() {
@@ -1577,7 +1598,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-12.5';
+  const APP_VERSION = '2026-11-12.6';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -7851,7 +7872,8 @@
         accent: b.accent || '#e23b33',
         logo: logoImgs[b.id + ':badge'] || logoImgs[b.id] || null,
         hgtK: (b.ratio || 2) > 2.8 ? 1.04 : 0.62,
-        longRoof: (b.ratio || 2) > 2.8
+        longRoof: (b.ratio || 2) > 2.8,
+        brandId: b.id
       };
     }
     const spec = TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car;
@@ -7885,6 +7907,98 @@
     ctx.arc(0, 0, rxs, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  // 工程机械的 3D 专属附件：让铲刀、铲斗、货叉、大臂、割台在立体视角里也出现
+  function machineParts3d(st, x, zc, len, wid, hgt) {
+    const id = st.brandId;
+    const body2 = st.body2 || shadeHex(st.body, -0.28);
+    const dark = shadeHex(body2, -0.34);
+    const zF = zc + len * 0.5;
+    const hw = wid * 0.5;
+
+    if (id === 'shantui') {
+      // 宽推铲 + 两侧连接臂
+      const zB = zF + wid * 0.05;
+      poly3([
+        [x - hw * 1.22, 0.03 * hgt, zB], [x + hw * 1.22, 0.03 * hgt, zB],
+        [x + hw * 1.22, 0.62 * hgt, zB], [x - hw * 1.22, 0.62 * hgt, zB]
+      ], body2);
+      poly3([
+        [x - hw * 1.22, 0.62 * hgt, zB], [x + hw * 1.22, 0.62 * hgt, zB],
+        [x + hw * 1.16, 0.60 * hgt, zB + wid * 0.07], [x - hw * 1.16, 0.60 * hgt, zB + wid * 0.07]
+      ], shadeHex(body2, 0.30));
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.52, 0.26 * hgt, zF - wid * 0.03], [x + s * hw * 0.52, 0.44 * hgt, zF - wid * 0.03],
+          [x + s * hw * 0.98, 0.42 * hgt, zB], [x + s * hw * 0.98, 0.24 * hgt, zB]
+        ], dark);
+      }
+    } else if (id === 'xcmg-loader') {
+      // 前铲斗 + 双举升臂
+      const z0 = zF + wid * 0.04;
+      poly3([
+        [x - hw * 1.10, 0.05 * hgt, z0], [x + hw * 1.10, 0.05 * hgt, z0],
+        [x + hw * 1.10, 0.34 * hgt, z0], [x - hw * 1.10, 0.34 * hgt, z0]
+      ], '#6b747f');
+      poly3([
+        [x - hw * 1.10, 0.34 * hgt, z0], [x + hw * 1.10, 0.34 * hgt, z0],
+        [x + hw * 1.02, 0.28 * hgt, z0 + wid * 0.20], [x - hw * 1.02, 0.28 * hgt, z0 + wid * 0.20]
+      ], '#8d959f');
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.58, 0.54 * hgt, zc + len * 0.06], [x + s * hw * 0.58, 0.68 * hgt, zc + len * 0.06],
+          [x + s * hw * 0.92, 0.44 * hgt, z0], [x + s * hw * 0.92, 0.30 * hgt, z0]
+        ], body2);
+      }
+    } else if (id === 'heli') {
+      // 门架 + 前伸货叉
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.36, 0.02 * hgt, zF + wid * 0.03], [x + s * hw * 0.20, 0.02 * hgt, zF + wid * 0.03],
+          [x + s * hw * 0.20, 1.02 * hgt, zF + wid * 0.03], [x + s * hw * 0.36, 1.02 * hgt, zF + wid * 0.03]
+        ], '#4a515a');
+      }
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.32, 0.10 * hgt, zF + wid * 0.02], [x + s * hw * 0.08, 0.10 * hgt, zF + wid * 0.02],
+          [x + s * hw * 0.08, 0.10 * hgt, zF + wid * 0.26], [x + s * hw * 0.32, 0.10 * hgt, zF + wid * 0.26]
+        ], '#a4adb7');
+      }
+    } else if (id === 'cat320') {
+      // 大臂 + 小臂 + 前铲斗
+      poly3([
+        [x - wid * 0.10, 0.94 * hgt, zc + len * 0.10], [x + wid * 0.10, 0.94 * hgt, zc + len * 0.10],
+        [x + wid * 0.07, 0.48 * hgt, zF + wid * 0.02], [x - wid * 0.07, 0.48 * hgt, zF + wid * 0.02]
+      ], body2);
+      poly3([
+        [x - wid * 0.07, 0.48 * hgt, zF + wid * 0.02], [x + wid * 0.07, 0.48 * hgt, zF + wid * 0.02],
+        [x + wid * 0.05, 0.20 * hgt, zF + wid * 0.16], [x - wid * 0.05, 0.20 * hgt, zF + wid * 0.16]
+      ], dark);
+      poly3([
+        [x - wid * 0.14, 0.02 * hgt, zF + wid * 0.15], [x + wid * 0.14, 0.02 * hgt, zF + wid * 0.15],
+        [x + wid * 0.14, 0.24 * hgt, zF + wid * 0.15], [x - wid * 0.14, 0.24 * hgt, zF + wid * 0.15]
+      ], '#5c636e');
+    } else if (id === 'johndeere') {
+      // 宽割台 + 拨禾轮
+      const z0 = zF + wid * 0.03;
+      poly3([
+        [x - hw * 1.16, 0.02 * hgt, z0], [x + hw * 1.16, 0.02 * hgt, z0],
+        [x + hw * 1.16, 0.26 * hgt, z0], [x - hw * 1.16, 0.26 * hgt, z0]
+      ], '#8d959f');
+      poly3([
+        [x - hw * 1.16, 0.26 * hgt, z0], [x + hw * 1.16, 0.26 * hgt, z0],
+        [x + hw * 1.06, 0.42 * hgt, z0 + wid * 0.10], [x - hw * 1.06, 0.42 * hgt, z0 + wid * 0.10]
+      ], '#a6aeb8');
+    } else if (id === 'dongfanghong') {
+      // 大后轮轮廓，强化拖拉机剪影
+      for (const s of [-1, 1]) {
+        poly3([
+          [x + s * hw * 0.72, 0.04 * hgt, zc + len * 0.20], [x + s * hw * 0.98, 0.04 * hgt, zc + len * 0.20],
+          [x + s * hw * 0.98, 0.52 * hgt, zc + len * 0.10], [x + s * hw * 0.72, 0.52 * hgt, zc + len * 0.10]
+        ], dark);
+      }
+    }
   }
 
   // 车辆 3D：按真实车身曲面分层绘制
@@ -8210,6 +8324,8 @@
     ctx.fillStyle = shd;
     ctx.fillRect(tL.x, topP.y + fh2 * 0.62, fw, fh2 * 0.38);
     ctx.restore();
+    // 工程机械 3D 专属附件：铲刀、铲斗、货叉、大臂、割台
+    if (st.brandId && fw > 14) machineParts3d(st, x, zc, len, wid, hgt);
   }
 
   function drawBrandCar3d(b, x, zRear, len, wid) {
@@ -8593,7 +8709,8 @@
         phase: rand(0, Math.PI * 2),
         dead: false
       });
-      sfxTraffic(b.id === 'cat320' ? 'excavator' : b.id === 'shantui' ? 'bulldozer' : 'car');
+      sfxTraffic({ cat320: 'excavator', shantui: 'bulldozer', 'xcmg-roller': 'roller',
+        dongfanghong: 'tractor', 'foton-water': 'water', 'yutong-school': 'school' }[b.id] || 'car');
       return;
     }
 
@@ -8946,7 +9063,13 @@
         let rx, ry;
         if (o.type === 'power') { rx = ry = o.s * 0.46; }
         else if (o.type === 'star') { rx = ry = o.r * 0.95; }
-        else if (o.type === 'traffic') { rx = o.w * 0.42; ry = o.h * 0.42; }
+        else if (o.type === 'traffic') {
+          // 按车型调整判定：车身越长/越大，碰撞盒占比越高（大车更“占地方”，小车更灵巧）
+          const long = o.h / Math.max(1, o.w);
+          const f = clamp(0.385 + (long - 1.9) * 0.045, 0.370, 0.470);
+          rx = o.w * f;
+          ry = o.h * f;
+        }
         else { rx = ry = o.s * 0.36; }
         if (Math.abs(o.x - state.carX) < halfW + rx &&
             Math.abs(o.y - carY) < halfH + ry) {
