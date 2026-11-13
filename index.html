@@ -1240,7 +1240,12 @@
       { id: 'zoomlion-flood-pump', brand: '中联', model: '移动泵车', ratio: 3.05,
         body: '#f4f7fa', body2: '#c9d3de', accent: '#1f6fd0', logo: logoOf('zoomlion-garbage') },
       { id: 'xcmg-platform', brand: '徐工', model: '登高平台消防车', ratio: 3.08,
-        body: '#d92b1f', body2: '#a81c14', accent: '#f2b71d', logo: logoOf('xcmg') }
+        body: '#d92b1f', body2: '#a81c14', accent: '#f2b71d', logo: logoOf('xcmg') },
+      // 第五批：导弹发射车 + 快递运输车
+      { id: 'dongfeng-missile', brand: '东风', model: '导弹发射车', ratio: 3.10,
+        body: '#6d7a45', body2: '#55603a', accent: '#c8b45a', logo: logoOf('dongfeng') },
+      { id: 'foton-express', brand: '福田', model: '快递运输车', ratio: 3.00,
+        body: '#f4f6f9', body2: '#cfd6df', accent: '#e23b30', logo: logoOf('foton-water') }
     ].forEach((x) => BRANDS.push(x));
   })();
 
@@ -1343,7 +1348,9 @@
     'dongfeng-kitchen': { c: '中国', ch: '厨', d: '厨余车收走菜叶果皮，做成肥料。' },
     'jiefang-hazard': { c: '中国', ch: '害', d: '有害垃圾车专门收电池和废灯管。' },
     'zoomlion-flood-pump': { c: '中国', ch: '抽', d: '移动泵车把街道积水抽走排涝。' },
-    'xcmg-platform': { c: '中国', ch: '举', d: '登高平台车把消防员举到高处救人。' }
+    'xcmg-platform': { c: '中国', ch: '举', d: '登高平台车把消防员举到高处救人。' },
+    'dongfeng-missile': { c: '中国', ch: '弹', d: '导弹发射车背着一个大大的发射箱。' },
+    'foton-express': { c: '中国', ch: '递', d: '快递车把包裹送到每个人的家门口。' }
   };
 
   const brandById = {};
@@ -1950,7 +1957,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.11';
+  const APP_VERSION = '2026-11-13.12';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4146,7 +4153,9 @@
       'dongfeng-kitchen': { y: -0.300, w: 0.24 },
       'jiefang-hazard': { y: -0.300, w: 0.24 },
       'zoomlion-flood-pump': { y: -0.300, w: 0.24 },
-      'xcmg-platform': { y: -0.300, w: 0.24 }
+      'xcmg-platform': { y: -0.300, w: 0.24 },
+      'dongfeng-missile': { y: -0.300, w: 0.24 },
+      'foton-express': { y: -0.300, w: 0.24 }
     };
     return S[id] || { y: -0.394, w: 0.20 };
   }
@@ -8845,6 +8854,123 @@
     lamp(w * 0.110, -h * 0.400, w * 0.120, h * 0.016, '#2f6fdc');
   }
 
+  // 导弹发射车：军绿底盘 + 发射箱 + 尾部三根发射管
+  function paintMissileLauncher(b, w, h) {
+    truckBase(w, h, [0.150, 0.300, 0.400]);
+
+    // 发射车底盘
+    ctx.fillStyle = '#3c4335';
+    rr(-w * 0.450, -h * 0.120, w * 0.900, h * 0.580, w * 0.018);
+    ctx.fill();
+
+    // 发射箱
+    ctx.fillStyle = bodyGrad(b, w);
+    rr(-w * 0.350, -h * 0.110, w * 0.700, h * 0.540, w * 0.022);
+    ctx.fill();
+    outline(w, 0.28);
+
+    // 箱体加强筋
+    ctx.strokeStyle = 'rgba(0,0,0,.20)';
+    ctx.lineWidth = Math.max(0.8, w * 0.009);
+    for (let i = 1; i < 4; i++) {
+      const yy = -h * 0.110 + i * h * 0.108;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.335, yy);
+      ctx.lineTo(w * 0.335, yy);
+      ctx.stroke();
+    }
+
+    // 尾部三根发射管口
+    for (const s of [-1, 0, 1]) {
+      const cx = s * w * 0.215;
+      ctx.fillStyle = '#2f352a';
+      ctx.beginPath();
+      ctx.arc(cx, h * 0.320, w * 0.096, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#59684a';
+      ctx.beginPath();
+      ctx.arc(cx, h * 0.320, w * 0.068, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c8b45a';
+      ctx.beginPath();
+      ctx.arc(cx, h * 0.320, w * 0.022, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 尾部黄黑警示条
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = i % 2 ? '#2b2f26' : b.accent;
+      ctx.fillRect(-w * 0.330 + i * w * 0.110, h * 0.424, w * 0.110, h * 0.024);
+    }
+
+    // 液压支撑腿
+    ctx.fillStyle = '#4a5240';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.430 : -w * 0.520, -h * 0.060, w * 0.090, h * 0.046, w * 0.010);
+      ctx.fill();
+      rr(s > 0 ? w * 0.430 : -w * 0.520, h * 0.330, w * 0.090, h * 0.046, w * 0.010);
+      ctx.fill();
+    }
+
+    truckCab(b, w, h);
+  }
+
+  // 快递运输车：白色厢体 + 红色腰带 + 纸箱标识
+  function paintExpressTruck(b, w, h) {
+    truckBase(w, h, [0.150, 0.320]);
+
+    // 厢体
+    ctx.fillStyle = bodyGrad(b, w);
+    rr(-w * 0.430, -h * 0.160, w * 0.860, h * 0.600, w * 0.024);
+    ctx.fill();
+    outline(w, 0.26);
+
+    // 瓦楞板横纹
+    ctx.strokeStyle = 'rgba(0,0,0,.10)';
+    ctx.lineWidth = Math.max(0.8, w * 0.008);
+    for (let i = 1; i < 6; i++) {
+      const yy = -h * 0.150 + i * h * 0.100;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.418, yy);
+      ctx.lineTo(w * 0.418, yy);
+      ctx.stroke();
+    }
+
+    // 红色腰带
+    ctx.fillStyle = b.accent;
+    rr(-w * 0.430, h * 0.120, w * 0.860, h * 0.054, 0);
+    ctx.fill();
+
+    // 纸箱标识
+    for (const s of [-1, 1]) {
+      const cx = s * w * 0.225;
+      ctx.fillStyle = '#c8945a';
+      rr(cx - w * 0.094, h * 0.212, w * 0.188, h * 0.132, w * 0.010);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.24)';
+      ctx.lineWidth = Math.max(0.8, w * 0.007);
+      ctx.beginPath();
+      ctx.moveTo(cx, h * 0.212);
+      ctx.lineTo(cx, h * 0.344);
+      ctx.moveTo(cx - w * 0.094, h * 0.258);
+      ctx.lineTo(cx + w * 0.094, h * 0.258);
+      ctx.stroke();
+    }
+
+    // 尾部双开门缝 + 尾灯
+    ctx.strokeStyle = 'rgba(0,0,0,.20)';
+    ctx.lineWidth = Math.max(1, w * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.436);
+    ctx.lineTo(0, h * 0.472);
+    ctx.stroke();
+    for (const s of [-1, 1]) {
+      lamp(s > 0 ? w * 0.300 : -w * 0.400, h * 0.472, w * 0.100, h * 0.018, '#d4342c');
+    }
+
+    truckCab(b, w, h);
+  }
+
   // 救护车：白色厢式车身 + 红十字 + 警灯
   function paintAmbulance(b, w, h) {
     for (const s of [-1, 1]) {
@@ -9437,7 +9563,9 @@
     'dongfeng-kitchen': paintSortedGarbage,
     'jiefang-hazard': paintSortedGarbage,
     'zoomlion-flood-pump': paintPumpTruck,
-    'xcmg-platform': paintPlatformFire
+    'xcmg-platform': paintPlatformFire,
+    'dongfeng-missile': paintMissileLauncher,
+    'foton-express': paintExpressTruck
   };
 
   function drawCar() {
@@ -9752,6 +9880,7 @@
         'sitrak-reefer': 'tanker', 'dongfeng-power': 'crane',
         'foton-recycle': 'garbage', 'dongfeng-kitchen': 'garbage', 'jiefang-hazard': 'garbage',
         'zoomlion-flood-pump': 'pump', 'xcmg-platform': 'fire',
+        'dongfeng-missile': 'crane', 'foton-express': 'tanker',
         'kinglong-open': 'sightbus', 'yutong-double': 'sightbus' }[b.id] || 'car');
       return;
     }
@@ -10398,7 +10527,7 @@
     sport: ['ferrari', 'lamborghini', 'bmw', 'audi', 'porsche', 'toyota', 'mg'],
     truck: ['auman', 'jiefang', 'dongfeng', 'sitrak', 'shacman', 'scania', 'daf', 'sany', 'howo',
       'cannon', 'f150', 'cimc', 'tesla', 'jiefang-tanker', 'auman-tanker', 'sitrak-tanker', 'cimc-carrier',
-      'sitrak-reefer'],
+      'sitrak-reefer', 'foton-express'],
     works: ['xcmg', 'cat320', 'shantui', 'xcmg-roller', 'xcmg-loader', 'sany-pump', 'heli',
       'zoomlion-garbage', 'foton-water', 'sany-crane', 'zoomlion-crane', 'liebherr-crane',
       'sany-excavator', 'xcmg-excavator', 'zoomlion-pump',
@@ -10407,7 +10536,7 @@
       'jiefang-snowplow', 'xcmg-paver',
       'foton-recycle', 'dongfeng-kitchen', 'jiefang-hazard'],
     emergency: ['sitrak-fire', 'byd-police', 'ford-ambulance', 'zoomlion-ladder', 'dongfeng-power',
-      'zoomlion-flood-pump', 'xcmg-platform'],
+      'zoomlion-flood-pump', 'xcmg-platform', 'dongfeng-missile'],
     bus: ['yutong', 'yutong-double', 'yutong-school', 'kinglong-open', 'maxus'],
     farm: ['johndeere', 'dongfanghong']
   };
