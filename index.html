@@ -1211,7 +1211,16 @@
       { id: 'xcmg-aerial', brand: '徐工', model: 'GKS28 高空作业车', ratio: 3.05,
         body: '#f4f6f8', body2: '#d0d7df', accent: '#e0571f', logo: logoOf('xcmg') },
       { id: 'zoomlion-ladder', brand: '中联', model: '云梯消防车', ratio: 3.12,
-        body: '#d92b1f', body2: '#a81c14', accent: '#f2f4f7', logo: logoOf('zoomlion-garbage') }
+        body: '#d92b1f', body2: '#a81c14', accent: '#f2f4f7', logo: logoOf('zoomlion-garbage') },
+      // 第二批特种车
+      { id: 'howo-truckcrane', brand: '豪沃', model: '随车吊', ratio: 3.10,
+        body: '#f2f5f8', body2: '#c6d2df', accent: '#c8102e', logo: logoOf('howo') },
+      { id: 'foton-sweeper', brand: '福田', model: '欧马可清扫车', ratio: 2.95,
+        body: '#eef4f9', body2: '#c6d6e4', accent: '#2fa36b', logo: logoOf('foton-water') },
+      { id: 'cimc-carrier', brand: '中集', model: '轿运车', ratio: 3.38,
+        body: '#e9eef4', body2: '#c0cad6', accent: '#1f6fd0', logo: logoOf('cimc') },
+      { id: 'sany-rotary', brand: '三一', model: 'SR285 旋挖钻机', ratio: 2.60,
+        body: '#e04a2f', body2: '#b03420', accent: '#f2f4f7', logo: logoOf('sany') }
     ].forEach((x) => BRANDS.push(x));
   })();
 
@@ -1301,7 +1310,11 @@
     'zoomlion-mixer': { c: '中国', ch: '搅', d: '搅拌车边走边转，混凝土才不会凝固。' },
     'xcmg-dozer': { c: '中国', ch: '土', d: '推土机用大铲刀把土推走推平。' },
     'xcmg-aerial': { c: '中国', ch: '升', d: '高空作业车把人升到路灯那么高。' },
-    'zoomlion-ladder': { c: '中国', ch: '梯', d: '云梯消防车的长梯能伸到高楼窗口。' }
+    'zoomlion-ladder': { c: '中国', ch: '梯', d: '云梯消防车的长梯能伸到高楼窗口。' },
+    'howo-truckcrane': { c: '中国', ch: '钩', d: '随车吊用吊钩把货物吊上自己的货厢。' },
+    'foton-sweeper': { c: '中国', ch: '扫', d: '清扫车转着圆扫刷把路面扫干净。' },
+    'cimc-carrier': { c: '中国', ch: '载', d: '轿运车上下两层，一次能载好多小汽车。' },
+    'sany-rotary': { c: '中国', ch: '钻', d: '旋挖钻机用大钻头在地上钻深孔。' }
   };
 
   const brandById = {};
@@ -1908,7 +1921,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.8';
+  const APP_VERSION = '2026-11-13.9';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4091,7 +4104,11 @@
       'zoomlion-mixer': { y: -0.300, w: 0.24 },
       'xcmg-dozer': { y: -0.040, w: 0.18 },
       'xcmg-aerial': { y: 0.380, w: 0.20 },
-      'zoomlion-ladder': { y: -0.300, w: 0.24 }
+      'zoomlion-ladder': { y: -0.300, w: 0.24 },
+      'howo-truckcrane': { y: -0.300, w: 0.24 },
+      'foton-sweeper': { y: -0.300, w: 0.24 },
+      'cimc-carrier': { y: -0.300, w: 0.24 },
+      'sany-rotary': { y: 0.150, w: 0.20 }
     };
     return S[id] || { y: -0.394, w: 0.20 };
   }
@@ -7945,6 +7962,298 @@
     lamp(w * 0.110, -h * 0.500, w * 0.110, h * 0.016, '#2f6fdc');
   }
 
+  // 随车吊：卡车底盘 + 平板货厢 + 折叠小吊臂
+  function paintTruckCrane(b, w, h) {
+    truckBase(w, h, [0.150, 0.300, 0.402]);
+
+    // 平板货厢
+    const bx = -w * 0.432, by = -h * 0.150, bw = w * 0.864, bh = h * 0.600;
+    const pg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    pg.addColorStop(0, '#8b95a1');
+    pg.addColorStop(0.28, '#cfd8e2');
+    pg.addColorStop(0.54, '#e9eff6');
+    pg.addColorStop(1, '#87919d');
+    ctx.fillStyle = pg;
+    rr(bx, by, bw, bh, w * 0.026);
+    ctx.fill();
+    outline(w, 0.28);
+
+    // 瓦楞压筋
+    ctx.save();
+    ctx.beginPath();
+    rr(bx, by, bw, bh, w * 0.026);
+    ctx.clip();
+    for (let i = 1; i < 10; i++) {
+      ctx.fillStyle = 'rgba(0,0,0,.06)';
+      ctx.fillRect(bx, by + bh * (i / 10), bw, Math.max(0.8, h * 0.006));
+    }
+    ctx.restore();
+
+    // 侧护栏
+    ctx.fillStyle = b.accent;
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? bx + bw - w * 0.026 : bx, by + h * 0.010, w * 0.026, bh - h * 0.020, w * 0.010);
+      ctx.fill();
+    }
+
+    // 支腿
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#4a525c';
+      rr(s > 0 ? w * 0.380 : -w * 0.560, h * 0.060, w * 0.180, h * 0.044, w * 0.014);
+      ctx.fill();
+      rr(s > 0 ? w * 0.380 : -w * 0.560, h * 0.320, w * 0.180, h * 0.044, w * 0.014);
+      ctx.fill();
+    }
+
+    for (const s of [-1, 1]) {
+      lamp(s > 0 ? w * 0.280 : -w * 0.380, h * 0.452, w * 0.100, h * 0.018, '#d4342c');
+    }
+
+    truckCab(b, w, h);
+
+    // 转台（驾驶室后方）
+    ctx.fillStyle = '#3f4650';
+    rr(-w * 0.230, h * 0.010, w * 0.460, h * 0.190, w * 0.022);
+    ctx.fill();
+    outline(w, 0.26);
+
+    // 折叠吊臂：一段朝前，一段折向右侧
+    const armGrad = ctx.createLinearGradient(-w * 0.130, 0, w * 0.180, 0);
+    armGrad.addColorStop(0, shadeHex(b.accent, -0.16));
+    armGrad.addColorStop(0.5, b.accent);
+    armGrad.addColorStop(1, shadeHex(b.accent, -0.32));
+    ctx.fillStyle = armGrad;
+    rr(-w * 0.130, -h * 0.300, w * 0.150, h * 0.330, w * 0.030);
+    ctx.fill();
+    rr(w * 0.010, -h * 0.430, w * 0.170, h * 0.170, w * 0.030);
+    ctx.fill();
+    outline(w, 0.28);
+
+    // 铰点 + 液压缸
+    ctx.fillStyle = '#2b3138';
+    ctx.beginPath();
+    ctx.arc(-w * 0.055, -h * 0.290, w * 0.046, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b6c0cc';
+    rr(w * 0.095, -h * 0.380, w * 0.052, h * 0.100, w * 0.022);
+    ctx.fill();
+
+    // 吊钩
+    ctx.strokeStyle = '#2b3138';
+    ctx.lineWidth = Math.max(1, w * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(w * 0.095, -h * 0.430);
+    ctx.lineTo(w * 0.095, -h * 0.492);
+    ctx.stroke();
+    ctx.fillStyle = '#2b3138';
+    ctx.beginPath();
+    ctx.arc(w * 0.095, -h * 0.510, w * 0.030, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 排气管
+    ctx.fillStyle = '#c3ccd6';
+    rr(w * 0.446, -h * 0.186, w * 0.030, h * 0.070, w * 0.015);
+    ctx.fill();
+  }
+
+  // 道路清扫车：箱体 + 两侧旋转扫刷 + 尾部吸口
+  function paintSweeper(b, w, h) {
+    truckBase(w, h, [0.168, 0.320]);
+
+    // 箱体
+    const bx = -w * 0.432, by = -h * 0.150, bw = w * 0.864, bh = h * 0.580;
+    ctx.fillStyle = bodyGrad(b, w);
+    rr(bx, by, bw, bh, w * 0.026);
+    ctx.fill();
+    outline(w, 0.26);
+
+    // 顶部吸风管 + 检修盖
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    rr(-w * 0.055, by + h * 0.030, w * 0.110, bh - h * 0.120, w * 0.020);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.10)';
+    rr(-w * 0.330, by + h * 0.060, w * 0.220, h * 0.150, w * 0.020);
+    ctx.fill();
+    rr(w * 0.110, by + h * 0.060, w * 0.220, h * 0.150, w * 0.020);
+    ctx.fill();
+
+    // 品牌色腰带
+    ctx.fillStyle = b.accent;
+    rr(bx, h * 0.300, bw, h * 0.036, 0);
+    ctx.fill();
+
+    // 尾部吸口 + 尾灯
+    ctx.fillStyle = '#3a4149';
+    rr(-w * 0.360, h * 0.408, w * 0.720, h * 0.070, w * 0.014);
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      lamp(s > 0 ? w * 0.280 : -w * 0.380, h * 0.452, w * 0.100, h * 0.018, '#d4342c');
+    }
+
+    truckCab(b, w, h);
+
+    // 两侧旋转扫刷（圆盘 + 放射刷毛）
+    for (const s of [-1, 1]) {
+      const cx = s * w * 0.470, cy = -h * 0.286;
+      ctx.fillStyle = '#2b3138';
+      ctx.beginPath();
+      ctx.arc(cx, cy, w * 0.082, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(226,232,240,.85)';
+      ctx.lineWidth = Math.max(1, w * 0.010);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * w * 0.070, cy + Math.sin(a) * w * 0.070);
+        ctx.lineTo(cx + Math.cos(a) * w * 0.120, cy + Math.sin(a) * w * 0.120);
+        ctx.stroke();
+      }
+      ctx.fillStyle = b.accent;
+      ctx.beginPath();
+      ctx.arc(cx, cy, w * 0.030, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 车顶警示灯
+    lamp(-w * 0.120, -h * 0.478, w * 0.240, h * 0.018, '#ffb03a');
+  }
+
+  // 轿运车：双层装载架 + 上层载三辆小车
+  function paintCarCarrier(b, w, h) {
+    truckBase(w, h, [0.150, 0.300, 0.400]);
+
+    // 装载架
+    const bx = -w * 0.440, by = -h * 0.150, bw = w * 0.880, bh = h * 0.620;
+    ctx.fillStyle = '#414951';
+    rr(bx, by, bw, bh, w * 0.028);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.30)';
+    ctx.lineWidth = Math.max(1, w * 0.012);
+    ctx.stroke();
+
+    // 甲板
+    const dx = bx + w * 0.036, dy = by + h * 0.024, dw = bw - w * 0.072, dh = bh - h * 0.048;
+    const dg = ctx.createLinearGradient(dx, 0, dx + dw, 0);
+    dg.addColorStop(0, '#7e8894');
+    dg.addColorStop(0.35, '#b7c1cd');
+    dg.addColorStop(0.62, '#cfd8e2');
+    dg.addColorStop(1, '#76808c');
+    ctx.fillStyle = dg;
+    rr(dx, dy, dw, dh, w * 0.018);
+    ctx.fill();
+
+    // 上层载三辆小车
+    const colors = ['#ffd34d', '#7aa6d4', '#e4553f'];
+    for (let i = 0; i < 3; i++) {
+      const cw = w * 0.560, ch = h * 0.168;
+      const cy = dy + h * 0.100 + i * h * 0.170;
+      ctx.fillStyle = colors[i];
+      rr(-cw / 2, cy - ch / 2, cw, ch, w * 0.060);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.26)';
+      ctx.lineWidth = Math.max(0.8, w * 0.009);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(44,60,74,.80)';
+      rr(-cw * 0.36, cy - ch * 0.38, cw * 0.72, ch * 0.140, w * 0.016);
+      ctx.fill();
+      rr(-cw * 0.36, cy + ch * 0.240, cw * 0.72, ch * 0.120, w * 0.014);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.50)';
+      rr(-cw * 0.32, cy - ch * 0.160, cw * 0.64, ch * 0.340, w * 0.020);
+      ctx.fill();
+    }
+
+    // 侧护栏立柱
+    ctx.fillStyle = b.accent;
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 6; i++) {
+        rr(s > 0 ? bx + bw - w * 0.034 : bx + w * 0.008, by + h * 0.040 + i * h * 0.100,
+          w * 0.026, h * 0.056, w * 0.010);
+        ctx.fill();
+      }
+    }
+
+    // 尾部坡道 + 反光条 + 尾灯
+    ctx.fillStyle = '#6f7985';
+    rr(-w * 0.300, by + bh - h * 0.004, w * 0.600, h * 0.062, w * 0.012);
+    ctx.fill();
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = i % 2 ? '#f2f4f7' : '#d4342c';
+      ctx.fillRect(-w * 0.280 + i * w * 0.112, by + bh + h * 0.008, w * 0.112, h * 0.028);
+    }
+    for (const s of [-1, 1]) {
+      lamp(s > 0 ? w * 0.300 : -w * 0.400, h * 0.462, w * 0.100, h * 0.018, '#d4342c');
+    }
+
+    truckCab(b, w, h);
+  }
+
+  // 旋挖钻机：履带底盘 + 回转平台 + 立式钻桅
+  function paintRotary(b, w, h) {
+    trackBase(w, h, 0.442, 0.090, w * 0.050);
+
+    // 回转平台
+    ctx.fillStyle = bodyGrad(b, w);
+    rr(-w * 0.330, -h * 0.140, w * 0.660, h * 0.540, w * 0.060);
+    ctx.fill();
+    outline(w);
+
+    // 配重
+    ctx.fillStyle = b.body2;
+    rr(-w * 0.300, h * 0.300, w * 0.600, h * 0.090, w * 0.026);
+    ctx.fill();
+
+    // 驾驶室
+    glassPanel(w * 0.040, -h * 0.120, w * 0.230, h * 0.200, w * 0.030);
+
+    // 卷扬机 + 警示灯
+    ctx.fillStyle = '#3f4650';
+    rr(-w * 0.280, h * 0.180, w * 0.180, h * 0.110, w * 0.020);
+    ctx.fill();
+    lamp(-w * 0.180, -h * 0.170, w * 0.140, h * 0.020, '#ffb03a');
+
+    // 钻桅（伸到车头之外）
+    const mg = ctx.createLinearGradient(-w * 0.080, 0, w * 0.080, 0);
+    mg.addColorStop(0, shadeHex(b.body2, -0.10));
+    mg.addColorStop(0.42, b.body);
+    mg.addColorStop(1, b.body2);
+    ctx.fillStyle = mg;
+    rr(-w * 0.080, -h * 0.560, w * 0.160, h * 0.720, w * 0.026);
+    ctx.fill();
+    outline(w, 0.28);
+
+    // 桅杆滑轨
+    ctx.fillStyle = 'rgba(0,0,0,.20)';
+    for (let i = 0; i < 12; i++) {
+      ctx.fillRect(-w * 0.060, -h * 0.530 + i * h * 0.058, w * 0.120, Math.max(1, h * 0.010));
+    }
+
+    // 动力头 + 钻杆 + 钻头
+    ctx.fillStyle = '#39414a';
+    rr(-w * 0.115, -h * 0.360, w * 0.230, h * 0.100, w * 0.018);
+    ctx.fill();
+    ctx.fillStyle = '#8d97a2';
+    rr(-w * 0.038, -h * 0.560, w * 0.076, h * 0.220, w * 0.016);
+    ctx.fill();
+    ctx.fillStyle = '#2b3138';
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.052, -h * 0.560);
+    ctx.lineTo(w * 0.052, -h * 0.560);
+    ctx.lineTo(0, -h * 0.592);
+    ctx.closePath();
+    ctx.fill();
+
+    // 变幅液压缸
+    ctx.strokeStyle = '#b6c0cc';
+    ctx.lineWidth = Math.max(1.4, w * 0.028);
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(s * w * 0.220, h * 0.120);
+      ctx.lineTo(s * w * 0.070, -h * 0.240);
+      ctx.stroke();
+    }
+  }
+
   // 救护车：白色厢式车身 + 红十字 + 警灯
   function paintAmbulance(b, w, h) {
     for (const s of [-1, 1]) {
@@ -8524,7 +8833,11 @@
     'zoomlion-mixer': paintMixerPro,
     'xcmg-dozer': paintDozerPro,
     'xcmg-aerial': paintAerial,
-    'zoomlion-ladder': paintLadderFire
+    'zoomlion-ladder': paintLadderFire,
+    'howo-truckcrane': paintTruckCrane,
+    'foton-sweeper': paintSweeper,
+    'cimc-carrier': paintCarCarrier,
+    'sany-rotary': paintRotary
   };
 
   function drawCar() {
@@ -8833,6 +9146,8 @@
         'ford-ambulance': 'ambulance',
         'df-wrecker': 'crane', 'zoomlion-mixer': 'pump', 'xcmg-dozer': 'bulldozer',
         'xcmg-aerial': 'crane', 'zoomlion-ladder': 'fire',
+        'howo-truckcrane': 'crane', 'foton-sweeper': 'water',
+        'cimc-carrier': 'tanker', 'sany-rotary': 'excavator',
         'kinglong-open': 'sightbus', 'yutong-double': 'sightbus' }[b.id] || 'car');
       return;
     }
@@ -9478,11 +9793,12 @@
       'honda', 'mazda', 'volvo', 'tank300', 'mega', 'iveco', 'vw', 'mercedes'],
     sport: ['ferrari', 'lamborghini', 'bmw', 'audi', 'porsche', 'toyota', 'mg'],
     truck: ['auman', 'jiefang', 'dongfeng', 'sitrak', 'shacman', 'scania', 'daf', 'sany', 'howo',
-      'cannon', 'f150', 'cimc', 'tesla', 'jiefang-tanker', 'auman-tanker', 'sitrak-tanker'],
+      'cannon', 'f150', 'cimc', 'tesla', 'jiefang-tanker', 'auman-tanker', 'sitrak-tanker', 'cimc-carrier'],
     works: ['xcmg', 'cat320', 'shantui', 'xcmg-roller', 'xcmg-loader', 'sany-pump', 'heli',
       'zoomlion-garbage', 'foton-water', 'sany-crane', 'zoomlion-crane', 'liebherr-crane',
       'sany-excavator', 'xcmg-excavator', 'zoomlion-pump',
-      'df-wrecker', 'zoomlion-mixer', 'xcmg-dozer', 'xcmg-aerial'],
+      'df-wrecker', 'zoomlion-mixer', 'xcmg-dozer', 'xcmg-aerial',
+      'howo-truckcrane', 'foton-sweeper', 'sany-rotary'],
     emergency: ['sitrak-fire', 'byd-police', 'ford-ambulance', 'zoomlion-ladder'],
     bus: ['yutong', 'yutong-double', 'yutong-school', 'kinglong-open', 'maxus'],
     farm: ['johndeere', 'dongfanghong']
