@@ -1886,7 +1886,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.5';
+  const APP_VERSION = '2026-11-13.6';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -10075,16 +10075,31 @@
   (function checkVersionParam() {
     try {
       const cur = new URLSearchParams(location.search).get('v');
-      const url = new URL(location.href);
       if (cur === APP_VERSION) return;
+      const url = new URL(location.href);
+      url.searchParams.set('v', APP_VERSION);
+      // 已被 Service Worker 接管：SW 会在后台用 ETag 比对并弹更新条，不需要整页强刷。
+      // 强刷会让每次新会话都再解析一遍整页脚本，首次访问还要多下一次，首屏白白慢一倍。
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        history.replaceState(null, '', url.toString());
+        return;
+      }
       const key = 'car-race-bust-' + APP_VERSION;
       if (sessionStorage.getItem(key)) {
-        url.searchParams.set('v', APP_VERSION);
+        history.replaceState(null, '', url.toString());
+        return;
+      }
+      // 这次页面本来就是从网络取的（transferSize > 0），不可能是 WebView 旧缓存，无需再强刷
+      let netBytes = 0;
+      try {
+        const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        netBytes = nav ? (nav.transferSize || 0) : 0;
+      } catch (e2) { /* 老 WebView 不支持，退回强刷 */ }
+      if (netBytes > 0) {
         history.replaceState(null, '', url.toString());
         return;
       }
       sessionStorage.setItem(key, '1');
-      url.searchParams.set('v', APP_VERSION);
       location.replace(url.toString());
     } catch (e) { /* 隐私模式等场景忽略 */ }
   })();
