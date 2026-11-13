@@ -118,6 +118,10 @@
   .garage-tab.on{border-color:#ffb43d;background:#fff6e2;color:#8a5a10;box-shadow:0 2px 0 #e59b2a;}
   .garage-empty{grid-column:1 / -1;padding:14px 0;font-size:clamp(12px,2.4vmin,14px);
     color:#a3a8bb;font-weight:700;}
+  .garage-more{grid-column:1 / -1;margin:2px 0 2px;border:2px dashed #ffc26a;border-radius:999px;
+    background:#fff8e6;color:#8a5a10;padding:8px 0;font-family:inherit;font-size:clamp(12px,2.4vmin,15px);
+    font-weight:800;cursor:pointer;}
+  .garage-more:active{transform:translateY(1px);}
   .garage-tools{display:flex;gap:8px;margin-top:8px;align-items:center;justify-content:center;}
   .brand-filter{flex:0 1 auto;max-width:190px;border:2px solid #eee4cf;border-radius:999px;
     padding:5px 10px;font-family:inherit;font-size:clamp(11px,2.2vmin,14px);font-weight:800;
@@ -1285,17 +1289,45 @@
 
   const brandById = {};
   BRANDS.forEach(b => { brandById[b.id] = b; });
+  // 车标按需解码：用到哪辆才加载哪辆，避免启动时一次解码 80+ 张图
   const logoImgs = {};
-  BRANDS.forEach(b => {
-    const img = new Image();
-    img.onload = () => { logoImgs[b.id] = img; };
-    img.src = b.logo;
-    if (b.badge) {
-      const bi = new Image();
-      bi.onload = () => { logoImgs[b.id + ':badge'] = bi; };
-      bi.src = b.badge;
+  const logoPending = {};
+
+  // 极老 WebView 不支持 WebP 时，用车牌首字生成 SVG 占位，避免破图
+  function brandPlaceholder(b) {
+    if (b.__ph) return b.__ph;
+    const ch = (b.brand || '?').slice(0, 1);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
+      '<rect width="64" height="64" rx="14" fill="' + (b.accent || '#ffb43d') + '"/>' +
+      '<text x="32" y="43" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="34" ' +
+      'font-weight="700" fill="#fff" text-anchor="middle">' + ch + '</text></svg>';
+    b.__ph = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    return b.__ph;
+  }
+  window.__brandLogoFallback = function (id) {
+    const b = brandById[id];
+    return b ? brandPlaceholder(b) : '';
+  };
+
+  function logoImage(id, useBadge) {
+    const b = brandById[id];
+    if (!b) return null;
+    const key = useBadge && b.badge ? id + ':badge' : id;
+    if (logoImgs[key]) return logoImgs[key];
+    if (!logoPending[key]) {
+      logoPending[key] = true;
+      const img = new Image();
+      img.onload = () => { logoImgs[key] = img; delete logoPending[key]; };
+      img.onerror = () => {
+        delete logoPending[key];
+        const ph = new Image();
+        ph.onload = () => { logoImgs[key] = ph; };
+        ph.src = brandPlaceholder(b);
+      };
+      img.src = key === id ? b.logo : b.badge;
     }
-  });
+    return null;
+  }
 
   function getBrand() {
     return brandById[state.brandId] || BRANDS[0];
@@ -1304,7 +1336,7 @@
   let W = 0, H = 0, DPR = 1;
   let qualityCap = 2;
   let fpsAt = 0, fpsFrames = 0;
-  let fpsWarmupUntil = 0, lowFpsStreak = 0;
+  let fpsWarmupUntil = 0, lowFpsStreak = 0, highFpsStreak = 0;
   let roadLeft = 0, roadRight = 0, roadWidth = 0, laneW = 0;
   let carY = 0;
   let view3d = false;   // 立体（真 3D）视角开关
@@ -1873,7 +1905,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.1';
+  const APP_VERSION = '2026-11-13.2';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3094,7 +3126,7 @@
       CAR_SPRITES.set(b.id, hit);
       return hit;
     }
-    const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+    const img = logoImage(b.id, true) || logoImage(b.id, false);
     if (!img || !img.naturalWidth) return null;
 
     const w = SPRITE_BASE;
@@ -3144,7 +3176,7 @@
         ctx.drawImage(sprite.img, -w * 0.62, -h * 0.62, w * 1.24, h * 1.24);
       } else {
         (PAINTERS[b.id] || paintFerrari)(b, w, h);
-        const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+        const img = logoImage(b.id, true) || logoImage(b.id, false);
         if (img && img.naturalWidth) paintBrandBadge(b, img, w, h);
       }
       ctx.restore();
@@ -8105,7 +8137,7 @@
     } else {
       (PAINTERS[b.id] || paintFerrari)(b, w, h);
       // 引擎盖上的真实车标（深色车漆优先用银白描边版）
-      const img = logoImgs[b.id + ':badge'] || logoImgs[b.id];
+      const img = logoImage(b.id, true) || logoImage(b.id, false);
       if (img && img.naturalWidth) paintBrandBadge(b, img, w, h);
     }
 
@@ -8340,7 +8372,7 @@
         body: b.body || '#d8dee6',
         body2: b.body2 || shadeHex(b.body || '#d8dee6', -0.28),
         accent: b.accent || '#e23b33',
-        logo: logoImgs[b.id + ':badge'] || logoImgs[b.id] || null,
+        logo: logoImage(b.id, true) || logoImage(b.id, false) || null,
         hgtK: b.id === 'ford-ambulance' ? 0.88 : ((b.ratio || 2) > 2.8 ? 1.04 : 0.62),
         longRoof: b.id === 'ford-ambulance' ? true : (b.ratio || 2) > 2.8,
         brandId: b.id,
@@ -8919,7 +8951,8 @@
     rr(tlA - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
     rr(tlB - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
     const brake = clamp((opts && opts.brake) || 0, 0, 1);
-    if (brake > 0.02) {
+    if (brake > 0.02 && qualityCap > 1) {
+      // 低端机降档后关闭尾灯泛光，省下最贵的 shadowBlur
       ctx.save();
       ctx.shadowColor = 'rgba(255,52,34,' + (0.9 * brake).toFixed(2) + ')';
       ctx.shadowBlur = fw * (0.03 + 0.11 * brake);
@@ -8931,7 +8964,7 @@
     ctx.fillStyle = rg;
     rr(tlA, tlY, tlW, tlH, tlR); ctx.fill();
     rr(tlB, tlY, tlW, tlH, tlR); ctx.fill();
-    if (brake > 0.02) ctx.restore();
+    if (brake > 0.02 && qualityCap > 1) ctx.restore();
 
     // 车标（品牌车）或车牌（其他车）
     if (st.logo && fw > 24 && st.logo.naturalWidth) {
@@ -10132,6 +10165,7 @@
   }
 
   let brandFilterId = '';
+  let garageLimit = 24;
 
   function garageBaseList() {
     return garageCat === 'recent'
@@ -10163,7 +10197,22 @@
     if (!brandById[id] || id === state.brandId) return;
     state.brandId = id;
     try { localStorage.setItem('car-race-brand', id); } catch (err) { /* ignore */ }
-    // 只切换高亮，避免每次选车都重建整格车卡（最多 80 个节点）
+    // 选中的车不在当前筛选/分页里（随机、今日推荐）时，切回全部并展开到它
+    let list = garageList();
+    let idx = list.findIndex((b) => b.id === id);
+    if (idx < 0) {
+      brandFilterId = '';
+      garageCat = 'all';
+      try { localStorage.setItem('car-race-garage-cat', 'all'); } catch (err) { /* ignore */ }
+      list = garageList();
+      idx = list.findIndex((b) => b.id === id);
+      garageLimit = Math.max(24, idx + 1);
+      renderGarage();
+    } else if (idx >= garageLimit) {
+      garageLimit = idx + 1;
+      renderGarage();
+    }
+    // 只切换高亮，避免每次选车都重建整格车卡
     const cards = garageEl.querySelectorAll('.car-card');
     for (let i = 0; i < cards.length; i++) {
       const on = cards[i].dataset.id === id;
@@ -10194,25 +10243,33 @@
       filterEl.value = brandFilterId;
     }
     const list = garageList();
+    // 当前选中的车如果排在分页之后，保证它可见
+    const selIdx = list.findIndex((b) => b.id === state.brandId);
+    if (selIdx >= garageLimit) garageLimit = selIdx + 1;
     renderDailyCar();
     if (!list.length) {
       garageEl.innerHTML = '<div class="garage-empty">还没有玩过的车，随便挑一辆出发吧</div>';
       return;
     }
-    garageEl.innerHTML = list.map(b => (
+    const shown = list.slice(0, garageLimit);
+    garageEl.innerHTML = shown.map(b => (
       '<button class="car-card' + (b.id === state.brandId ? ' on' : '') + '" data-id="' + b.id +
         '" type="button" aria-pressed="' + (b.id === state.brandId) + '">' +
-        '<img class="car-logo" src="' + b.logo + '" alt="" loading="lazy" decoding="async">' +
+        '<img class="car-logo" src="' + b.logo + '" alt="" loading="lazy" decoding="async"' +
+          ' onerror="this.onerror=null;this.src=window.__brandLogoFallback(\'' + b.id + '\')">' +
         '<span class="car-brand">' + b.brand + '</span>' +
         '<span class="car-model">' + b.model + '</span>' +
       '</button>'
-    )).join('');
+    )).join('') + (list.length > shown.length
+      ? '<button class="garage-more" type="button" data-more="1">显示更多（还有 ' + (list.length - shown.length) + ' 辆）</button>'
+      : '');
   }
 
   document.getElementById('garageTabs').addEventListener('click', (e) => {
     const tab = e.target.closest('.garage-tab');
     if (!tab) return;
     garageCat = tab.dataset.cat;
+    garageLimit = 24;
     try { localStorage.setItem('car-race-garage-cat', garageCat); } catch (err) { /* ignore */ }
     renderGarage();
     tone(600, 0.06, 'triangle', 0, 0.06);
@@ -10220,6 +10277,7 @@
 
   document.getElementById('brandFilter').addEventListener('change', (e) => {
     brandFilterId = e.target.value;
+    garageLimit = 24;
     renderGarage();
     tone(600, 0.05, 'triangle', 0, 0.05);
   });
@@ -10235,6 +10293,13 @@
 
   document.getElementById('dailyCar').addEventListener('click', (e) => {
     selectCar(e.currentTarget.dataset.id);
+  });
+
+  garageEl.addEventListener('click', (e) => {
+    if (!e.target.closest('.garage-more')) return;
+    garageLimit += 24;
+    renderGarage();
+    tone(600, 0.05, 'triangle', 0, 0.05);
   });
 
   // 长按 600ms 或双击车卡，打开车辆图鉴
@@ -10443,7 +10508,7 @@
     g.font = '700 22px system-ui, -apple-system, "PingFang SC", sans-serif';
     g.fillText('个汉字 · 学会 ' + (state.uniqueChars ? state.uniqueChars.size : 0) + ' 个', bw / 2, 424);
 
-    const img = logoImgs[b.id];
+    const img = logoImage(b.id, false);
     if (img && img.naturalWidth) {
       const mw = 140, k = Math.min(mw / img.naturalWidth, 140 / img.naturalHeight);
       const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
@@ -11027,8 +11092,16 @@
       // 启动阶段要解码车标、建车库，帧率天然偏低，先跳过；连续两次低帧才降档
       if (now > fpsWarmupUntil) {
         lowFpsStreak = fps < 45 ? lowFpsStreak + 1 : 0;
+        highFpsStreak = fps > 56 ? highFpsStreak + 1 : 0;
         if (lowFpsStreak >= 2 && qualityCap > 1.2) {
           qualityCap = 1;
+          highFpsStreak = 0;
+          canvas.width = 1;
+          resize();
+        } else if (highFpsStreak >= 4 && qualityCap < 2) {
+          // 连续 10 秒稳定高帧，恢复清晰度
+          qualityCap = 2;
+          highFpsStreak = 0;
           canvas.width = 1;
           resize();
         }
