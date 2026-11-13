@@ -510,6 +510,12 @@
   const hudEl = document.getElementById('hud');
   const progressEl = document.getElementById('progress');
   const barEl = document.getElementById('progressFill');
+  let barPct = '';   // 上次写入的进度值：只在变化时才改 DOM，避免每帧触发样式重算
+  function setBarPct(pct) {
+    if (pct === barPct) return;
+    barPct = pct;
+    barEl.style.width = pct;
+  }
   const startScreen = document.getElementById('startScreen');
   const finishScreen = document.getElementById('finishScreen');
   const finishStarsEl = document.getElementById('finishStars');
@@ -1886,7 +1892,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.6';
+  const APP_VERSION = '2026-11-13.7';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -8200,12 +8206,22 @@
     return base * (b.id === 'f150' || b.id === 'cannon' ? 1.12 : 1);
   }
 
+  // 背景/路面渐变按「主题+尺寸」缓存，避免每帧都新建
+  const bgGrads = {};
+  function bgGrad(key, make) {
+    let g = bgGrads[key];
+    if (!g) { g = make(); bgGrads[key] = g; }
+    return g;
+  }
+
   function drawGrass() {
     const th = curTheme();
-    const gg = ctx.createLinearGradient(0, 0, 0, H);
-    gg.addColorStop(0, th.grass[0]);
-    gg.addColorStop(1, th.grass[1]);
-    ctx.fillStyle = gg;
+    ctx.fillStyle = bgGrad('grass|' + th.id + '|' + W + 'x' + H, () => {
+      const gg = ctx.createLinearGradient(0, 0, 0, H);
+      gg.addColorStop(0, th.grass[0]);
+      gg.addColorStop(1, th.grass[1]);
+      return gg;
+    });
     ctx.fillRect(0, 0, W, H);
 
     const period = 140;
@@ -8240,11 +8256,14 @@
     // 路面本体每帧直接绘制，避免依赖离屏缓存导致整块路面消失
     ctx.fillStyle = th.road;
     ctx.fillRect(roadLeft, 0, roadWidth, H);
-    const eg = ctx.createLinearGradient(roadLeft, 0, roadRight, 0);
-    eg.addColorStop(0, th.edge);
-    eg.addColorStop(0.16, 'rgba(0,0,0,0)');
-    eg.addColorStop(0.84, 'rgba(0,0,0,0)');
-    eg.addColorStop(1, th.edge);
+    const eg = bgGrad('edge|' + th.id + '|' + roadLeft + 'x' + roadRight + 'x' + H, () => {
+      const g2 = ctx.createLinearGradient(roadLeft, 0, roadRight, 0);
+      g2.addColorStop(0, th.edge);
+      g2.addColorStop(0.16, 'rgba(0,0,0,0)');
+      g2.addColorStop(0.84, 'rgba(0,0,0,0)');
+      g2.addColorStop(1, th.edge);
+      return g2;
+    });
     ctx.fillStyle = eg;
     ctx.fillRect(roadLeft, 0, roadWidth, H);
     ctx.fillStyle = 'rgba(255,255,255,.55)';
@@ -8758,12 +8777,15 @@
           else bump(o);
         }
       }
-      objects = objects.filter(o => !o.dead);
+      // 原地压缩，避免每帧 filter 新建数组（60fps 下的 GC 压力主要来自这里）
+      let oAlive = 0;
+      for (let i = 0; i < objects.length; i++) if (!objects[i].dead) objects[oAlive++] = objects[i];
+      if (oAlive !== objects.length) objects.length = oAlive;
       state.invuln = Math.max(0, state.invuln - dt);
       state.shake = Math.max(0, state.shake - dt * 45);
 
       const prog = Math.min(1, state.stars / state.goalChars);
-      barEl.style.width = (prog * 100).toFixed(1) + '%';
+      setBarPct((prog * 100).toFixed(1) + '%');
       if (state.stars >= state.goalChars) finishGame();
     } else {
       state.tilt = lerp(state.tilt, 0, Math.min(1, dt * 4));
@@ -8786,22 +8808,28 @@
     }
 
     // 粒子
-    for (const p of particles) {
+    let pAlive = 0;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
       p.life -= dt;
       p.vy += p.g * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.vx *= 0.99;
       p.rot += p.vr * dt;
+      if (p.life > 0 && p.y < H + 80) particles[pAlive++] = p;
     }
-    particles = particles.filter(p => p.life > 0 && p.y < H + 80);
+    if (pAlive !== particles.length) particles.length = pAlive;
 
     // 提示文字
-    for (const t of toasts) {
+    let tAlive = 0;
+    for (let i = 0; i < toasts.length; i++) {
+      const t = toasts[i];
       t.life -= dt;
       t.y -= dt * 42;
+      if (t.life > 0) toasts[tAlive++] = t;
     }
-    toasts = toasts.filter(t => t.life > 0);
+    if (tAlive !== toasts.length) toasts.length = tAlive;
   }
 
   // 雨雪天路面水洼（只做视觉）
@@ -8910,6 +8938,8 @@
     }
   }
 
+  let nightGrad = null, nightGradKey = '';
+
   function draw() {
     ctx.save();
     if (state.shake > 0.5 && !reduceMotion) {
@@ -8923,10 +8953,15 @@
     // 夜晚 / 雨天氛围（画在车辆之下，不影响看清路况）
     const theme = curTheme();
     if (theme.id === 'night') {
-      const ng = ctx.createLinearGradient(0, 0, 0, H);
-      ng.addColorStop(0, 'rgba(10,16,38,.70)');
-      ng.addColorStop(1, 'rgba(18,26,50,.50)');
-      ctx.fillStyle = ng;
+      // 渐变对象按尺寸缓存，避免每帧 new 一个
+      const gk = W + 'x' + H;
+      if (!nightGrad || nightGradKey !== gk) {
+        nightGrad = ctx.createLinearGradient(0, 0, 0, H);
+        nightGrad.addColorStop(0, 'rgba(10,16,38,.70)');
+        nightGrad.addColorStop(1, 'rgba(18,26,50,.50)');
+        nightGradKey = gk;
+      }
+      ctx.fillStyle = nightGrad;
       ctx.fillRect(0, 0, W, H);
     }
 
@@ -9187,7 +9222,7 @@
     garageEl.innerHTML = shown.map(b => (
       '<button class="car-card' + (b.id === state.brandId ? ' on' : '') + '" data-id="' + b.id +
         '" type="button" aria-pressed="' + (b.id === state.brandId) + '">' +
-        '<img class="car-logo" src="' + b.logo + '" alt="" loading="lazy" decoding="async"' +
+        '<img class="car-logo" data-src="' + b.logo + '" alt="" decoding="async"' +
           ' onerror="this.onerror=null;this.src=window.__brandLogoFallback(\'' + b.id + '\')">' +
         '<span class="car-brand">' + b.brand + '</span>' +
         '<span class="car-model">' + b.model + '</span>' +
@@ -9195,6 +9230,25 @@
     )).join('') + (list.length > shown.length
       ? '<button class="garage-more" type="button" data-more="1">显示更多（还有 ' + (list.length - shown.length) + ' 辆）</button>'
       : '');
+    hydrateLogos(firstGarageRender);
+    firstGarageRender = false;
+  }
+
+  // 车标统一在这里挂 src：首屏那次等第一帧画完再解，避免 24 张图抢在首帧前解码；
+  // 之后切分类/筛选是用户主动操作，直接同步挂上，避免出现空白格子。
+  let firstGarageRender = true;
+  function hydrateLogos(deferToAfterPaint) {
+    const fill = () => {
+      const imgs = garageEl.querySelectorAll('img.car-logo[data-src]');
+      for (let i = 0; i < imgs.length; i++) {
+        const src = imgs[i].getAttribute('data-src');
+        if (!src) continue;
+        imgs[i].removeAttribute('data-src');
+        imgs[i].src = src;
+      }
+    };
+    if (!deferToAfterPaint) { fill(); return; }
+    requestAnimationFrame(() => { setTimeout(fill, 0); });
   }
 
   document.getElementById('garageTabs').addEventListener('click', (e) => {
@@ -9525,7 +9579,7 @@
     bgmTimer = 0;
     bgmStep = 0;
     starsEl.textContent = '0';
-    barEl.style.width = '0%';
+    setBarPct('0%');
     effectsEl.innerHTML = '';
     ratingEl.querySelectorAll('span').forEach(s => s.classList.remove('on'));
     cardWrapEl.classList.remove('on');
@@ -9577,7 +9631,7 @@
 
     sfxWin();
     burst(W / 2, H * 0.42, 90, CONFETTI_COLORS, 700);
-    barEl.style.width = '100%';
+    setBarPct('100%');
     const b = getBrand();
     finishStarsEl.textContent = String(state.stars);
     finishModelEl.textContent = b.brand + ' ' + b.model;
@@ -9645,7 +9699,7 @@
     lastCharEl.textContent = '字';
     lastWordEl.textContent = '';
     quizBarEl.classList.remove('on');
-    barEl.style.width = '0%';
+    setBarPct('0%');
     effectsEl.innerHTML = '';
     finishScreen.classList.add('hidden');
     pauseScreen.classList.add('hidden');
