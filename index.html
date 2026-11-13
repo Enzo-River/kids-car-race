@@ -371,10 +371,6 @@
         <button class="mode-btn on" data-mode="collect">收集汉字</button>
         <button class="mode-btn" data-mode="quiz">听音选字</button>
       </div>
-      <div class="mode-switch" id="viewSwitch">
-        <button class="mode-btn on" data-view="2d">平面视角</button>
-        <button class="mode-btn" data-view="3d">立体视角</button>
-      </div>
       <button class="big-btn" id="startBtn">开始 ▶</button>
       <button class="ghost-btn" id="levelBtn">选关 · 可重玩已通过的关卡</button>
       <button class="ghost-btn" id="learnedBtn">我认识的字 · 0</button>
@@ -545,7 +541,6 @@
   const dailyEl = document.getElementById('dailyChip');
   const parentReportEl = document.getElementById('parentReport');
   const modeSwitchEl = document.getElementById('modeSwitch');
-  const viewSwitchEl = document.getElementById('viewSwitch');
   const runCharsEl = document.getElementById('runChars');
   const runNoteEl = document.getElementById('runNote');
   const settingsBtnEl = document.getElementById('settingsBtn');
@@ -1340,7 +1335,6 @@
   let lastIdleDraw = 0;
   let roadLeft = 0, roadRight = 0, roadWidth = 0, laneW = 0;
   let carY = 0;
-  let view3d = false;   // 立体（真 3D）视角开关
   let prevLeft = 0, prevWidth = 0;
   let initialized = false;
 
@@ -1353,9 +1347,6 @@
     carX: 0,
     carVX: 0,
     tilt: 0,
-    wheelAng: 0,      // 3D 车轮转动角
-    steerVis: 0,      // 3D 前轮可见转角
-    brake: 0,         // 刹车尾灯亮度 0~1
     heavy: 1,         // 当前车辆重量系数
     invuln: 0,
     shake: 0,
@@ -1397,7 +1388,6 @@
   try {
     const savedBrand = localStorage.getItem('car-race-brand');
     if (savedBrand && brandById[savedBrand]) state.brandId = savedBrand;
-    setView(localStorage.getItem('car-race-view3d') === '1');
     const lv = parseInt(localStorage.getItem('car-race-level') || '1', 10);
     if (lv >= 1 && lv <= 99) state.level = lv;
     const bj = JSON.parse(localStorage.getItem('car-race-best') || '{}');
@@ -1543,16 +1533,6 @@
       b.classList.toggle('on', (b.dataset.mode === 'quiz') === quiz);
     });
     startSubEl.textContent = quiz ? '听读音，找出正确的字！' : '选一辆喜欢的车，收集汉字学读音！';
-  }
-
-  // ---------- 立体视角 ----------
-  function setView(is3d) {
-    view3d = is3d;
-    try { localStorage.setItem('car-race-view3d', is3d ? '1' : '0'); } catch (e) { /* ignore */ }
-    if (W > 0 && H > 0) { buildDecor(); canvas.width = 1; resize(); }
-    viewSwitchEl.querySelectorAll('.mode-btn').forEach(b => {
-      b.classList.toggle('on', (b.dataset.view === '3d') === is3d);
-    });
   }
 
   // ---------- 家长设置 ----------
@@ -1906,7 +1886,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.4';
+  const APP_VERSION = '2026-11-13.5';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2204,8 +2184,8 @@
       return;
     }
     if (W === Math.round(size.w) && H === Math.round(size.h) && canvas.width > 1) return;
-    // 立体视角像素成本更高，限制到 1.6 倍；低端机降档后仍可继续降到 1
-    DPR = Math.min(window.devicePixelRatio || 1, view3d ? Math.min(qualityCap, 1.6) : qualityCap);
+    // 低端机降档后仍可继续降到 1
+    DPR = Math.min(window.devicePixelRatio || 1, qualityCap);
     W = size.w;
     H = size.h;
     canvas.width = Math.round(W * DPR);
@@ -2227,7 +2207,6 @@
     car.w = clamp(roadWidth * 0.17, 46, 78);
     car.h = car.w * (brand.ratio || 2.0);
     carY = Math.max(H * 0.40, Math.min(H * 0.68, H - ctrl - 44 - car.h * 0.55));
-    camSync();
 
     // 屏幕越大，速度越快，单局时长保持一致
     state.scale = clamp(H / 800, 0.72, 1.18);
@@ -2259,12 +2238,9 @@
   function buildDecor() {
     decor = [];
     const th = curTheme();
-    // 3D 视角下 y 是屏幕行，地平线附近压缩了整段远路，
-    // 所以需要更多装饰，并让它们从地平线一路分布到屏幕下缘之外，
-    // 这样路两侧的景观会连续地由远及近滑过。
-    const count = view3d ? 52 : 12;
-    const yStart = view3d ? camHorizon + 4 : -H;
-    const yEnd = view3d ? H + 40 : H;
+    const count = 12;
+    const yStart = -H;
+    const yEnd = H;
     for (let i = 0; i < count; i++) {
       const side = i % 2 === 0 ? -1 : 1;
       decor.push({
@@ -2994,15 +2970,6 @@
   }
 
   function drawDecor() {
-    if (view3d) {
-      // 真 3D：远的先画，近的后画（y 越大 = 离镜头越近）
-      const list = decor.slice().sort(function (a, b) { return a.y - b.y; });
-      for (const d of list) {
-        if (d.y < camHorizon - 10) continue;
-        drawProp3d(d);
-      }
-      return;
-    }
     for (const d of decor) {
       paintDecor2d(d, d.x, d.y, d.s);
     }
@@ -8118,7 +8085,6 @@
   };
 
   function drawCar() {
-    if (view3d) { drawCar3d(); return; }
     const b = getBrand();
     const w = car.w, h = car.h;
     const bob = Math.sin(state.time * 7) * 0.9 + (state.mode === 'ready' ? Math.sin(state.time * 2) * 1.6 : 0);
@@ -8218,53 +8184,7 @@
     }
   }
 
-  // ---------- 真 3D：透视相机 + 立体几何 ----------
-  // 世界单位 = 车所在行的像素；相机固定在车后方，做真透视投影
-  const CAM_PITCH = 0.26;
-  let camF = 1, camSt = 0, camCt = 1, camHc = 0, camZC = 0, camHorizon = 0;
-
-  function camSync() {
-    camSt = Math.sin(CAM_PITCH);
-    camCt = Math.cos(CAM_PITCH);
-    camF = Math.max(200, H * 0.86);
-    const A = H / 2 - carY;
-    camZC = camF * camCt + A * camSt;
-    camHc = camF * camSt - A * camCt;
-    camHorizon = H / 2 - camF * camSt / camCt;
-  }
-
-  function horizonY() { return camHorizon; }
-
-  // 立体视角地平线配色：[天顶, 地平线]
-  const SKY = {
-    city: ['#79c6ee', '#dcf2ff'],
-    desert: ['#f4b96a', '#ffe4bd'],
-    snow: ['#9fc4e8', '#eef8ff'],
-    beach: ['#7ecfee', '#ffe8c8'],
-    night: ['#0b1330', '#273759'],
-    rain: ['#5c7180', '#a9bac1'],
-    forest: ['#7bc0e6', '#d9f2e0'],
-    mountain: ['#8fb6d8', '#e2eef5'],
-    countryside: ['#8eccef', '#e9f6da'],
-    harbor: ['#66c1e2', '#d2eff8'],
-    tunnel: ['#23262d', '#3c414b'],
-    construction: ['#c4d9e2', '#ece2cb'],
-    park: ['#88cfee', '#e6f7dd'],
-    grassland: ['#86d2f0', '#f2fce0'],
-    space: ['#07071a', '#231d44'],
-    volcano: ['#331716', '#7c2b1f'],
-    bamboo: ['#94d2cd', '#e4f7d9'],
-    amusement: ['#ffc9e3', '#fff0f8'],
-    glacier: ['#86bee8', '#eaf8ff'],
-    lavender: ['#b2c4f0', '#f1e9ff'],
-    candy: ['#ffc9e4', '#fff4fb'],
-    neon: ['#0b0820', '#2a1440'],
-    sakura: ['#ffc9e1', '#fff2f9'],
-    aurora: ['#0a1332', '#26406e'],
-    ocean: ['#0b4268', '#207fa8'],
-    festival: ['#241520', '#5b2b23']
-  };
-
+  // 通用：按比例调亮/调暗颜色（2D 车漆与阴影也用）
   function shadeHex(hex, amt) {
     const n = parseInt(hex.slice(1), 16);
     let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
@@ -8273,93 +8193,6 @@
     return 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ')';
   }
 
-  // 地平线上的远山剪影
-  function drawHills(hz, color, amp, freq, phase, g) {
-    const c = g || ctx;
-    c.fillStyle = color;
-    c.beginPath();
-    c.moveTo(-8, hz + 2);
-    for (let x = -8; x <= W + 8; x += 12) {
-      const h = amp * (0.52 + 0.48 * Math.sin(x * freq + phase));
-      c.lineTo(x, hz - h);
-    }
-    c.lineTo(W + 8, hz + 2);
-    c.closePath();
-    c.fill();
-  }
-
-  // 屏幕行 → 世界深度
-  function depthOf(sy) {
-    const m = (H / 2 - sy) / camF;
-    const den = m * camCt - camSt;
-    if (den > -1e-3) return 1e6;
-    return -camHc * (camCt + m * camSt) / den;
-  }
-
-  // 该深度处 1 世界单位对应的屏幕像素
-  function pxAt(z) {
-    const zt = z * camCt + camHc * camSt;
-    return zt > 8 ? camF / zt : 0;
-  }
-
-  function pr(x, y, z) {
-    const zt = z * camCt + camHc * camSt;
-    if (zt < 8) return null;
-    const yt = (y - camHc) * camCt + z * camSt;
-    return { x: W / 2 + x * camF / zt, y: H / 2 - yt * camF / zt, k: camF / zt };
-  }
-
-  function poly3(pts, fill, edge, lw) {
-    ctx.beginPath();
-    let first = true;
-    for (let i = 0; i < pts.length; i++) {
-      const p = pr(pts[i][0], pts[i][1], pts[i][2]);
-      if (!p) return;
-      if (first) { ctx.moveTo(p.x, p.y); first = false; }
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.closePath();
-    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = lw || 1; ctx.stroke(); }
-  }
-
-  // 立方体：后脸 + 顶面 + 朝相机的侧面
-  function box3(x0, x1, y0, y1, z0, z1, top, side, back) {
-    poly3([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], back);
-    poly3([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], top);
-    if ((x0 + x1) * 0.5 >= 0) {
-      poly3([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], side);
-    } else {
-      poly3([[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]], side);
-    }
-  }
-
-  // 地面椭圆（阴影 / 水洼）
-  function groundEllipse(cx, cz, rx, rz, fill) {
-    const pts = [];
-    for (let i = 0; i < 16; i++) {
-      const a = i / 16 * Math.PI * 2;
-      pts.push([cx + Math.cos(a) * rx, 0.5, cz + Math.sin(a) * rz]);
-    }
-    poly3(pts, fill);
-  }
-
-  // 立体圆锥（树冠 / 雪糕筒 / 石头）
-  function cone3(cx, cz, r, y0, y1, colA, colB, seg) {
-    seg = seg || 12;
-    for (let i = 0; i < seg; i++) {
-      const a0 = i / seg * Math.PI * 2;
-      const a1 = (i + 1) / seg * Math.PI * 2;
-      poly3([
-        [cx + Math.cos(a0) * r, y0, cz + Math.sin(a0) * r],
-        [cx + Math.cos(a1) * r, y0, cz + Math.sin(a1) * r],
-        [cx, y1, cz]
-      ], i % 2 ? colA : colB);
-    }
-  }
-
-  // 车辆 3D 配色与车高：车高按车宽换算，跑车低矮、卡车公交更高。
-  // 车高/车宽比参考真车（约 0.62），之前 0.31 会把车压成“煎饼”。
   // 车型重量系数：影响加速和碰撞后的速度损失
   function weightOf(b) {
     const cat = CAT_OF[b.id] || 'auto';
@@ -8367,902 +8200,7 @@
     return base * (b.id === 'f150' || b.id === 'cannon' ? 1.12 : 1);
   }
 
-  function vehicleStyle(kind, brandId) {
-    if (kind === 'brand') {
-      const b = brandById[brandId] || BRANDS[0];
-      return {
-        body: b.body || '#d8dee6',
-        body2: b.body2 || shadeHex(b.body || '#d8dee6', -0.28),
-        accent: b.accent || '#e23b33',
-        logo: logoImage(b.id, true) || logoImage(b.id, false) || null,
-        hgtK: b.id === 'ford-ambulance' ? 0.88 : ((b.ratio || 2) > 2.8 ? 1.04 : 0.62),
-        longRoof: b.id === 'ford-ambulance' ? true : (b.ratio || 2) > 2.8,
-        brandId: b.id,
-        cat: CAT_OF[b.id] || 'auto',
-        heavy: weightOf(b)
-      };
-    }
-    const spec = TRAFFIC_SPECS[kind] || TRAFFIC_SPECS.car;
-    return {
-      body: spec.body[0], body2: spec.body[1], accent: '#e23b33', logo: null,
-      hgtK: clamp(0.56 + (spec.h - 1.9) * 0.22, 0.52, 0.86),
-      longRoof: spec.h > 2.2
-    };
-  }
-
-  // 车底柔和投影：屏幕空间径向渐变，避免硬边黑椭圆像一块灰板
-  function vehicleShadow(x, zc, wid, len) {
-    const p = pr(x, 0, zc);
-    const pn = pr(x, 0, zc - len * 0.5);
-    const pf = pr(x, 0, zc + len * 0.5);
-    const pl = pr(x - wid * 0.5, 0, zc);
-    const prt = pr(x + wid * 0.5, 0, zc);
-    if (!p || !pn || !pf || !pl || !prt) return;
-    const rxs = Math.abs(prt.x - pl.x) / 2 + 0.5;
-    const rys = Math.abs(pf.y - pn.y) / 2 + 0.5;
-    if (rxs < 0.5 || rys < 0.5) return;
-    ctx.save();
-    ctx.translate(p.x, (pn.y + pf.y) / 2);
-    ctx.scale(1, rys / rxs);
-    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rxs);
-    gr.addColorStop(0, 'rgba(0,0,0,.26)');
-    gr.addColorStop(0.62, 'rgba(0,0,0,.17)');
-    gr.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = gr;
-    ctx.beginPath();
-    ctx.arc(0, 0, rxs, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // 工程机械的 3D 专属附件：让铲刀、铲斗、货叉、大臂、割台在立体视角里也出现
-  function machineParts3d(st, x, zc, len, wid, hgt) {
-    const id = st.brandId;
-    const body2 = st.body2 || shadeHex(st.body, -0.28);
-    const dark = shadeHex(body2, -0.34);
-    const zF = zc + len * 0.5;
-    const hw = wid * 0.5;
-
-    if (id === 'xcmg' || id.indexOf('-crane') > 0) {
-      // 汽车吊：斜向前上方伸出的吊臂 + 尾部支腿
-      const boom = (brandById[id] && brandById[id].boom) || '#e6b31c';
-      const z0 = zc - len * 0.16;
-      const z1 = zc + len * 0.58;
-      poly3([
-        [x - hw * 0.17, hgt * 0.74, z0], [x + hw * 0.17, hgt * 0.74, z0],
-        [x + hw * 0.10, hgt * 1.52, z1], [x - hw * 0.10, hgt * 1.52, z1]
-      ], boom);
-      poly3([
-        [x - hw * 1.08, 0.02 * hgt, z0 + len * 0.12], [x + hw * 1.08, 0.02 * hgt, z0 + len * 0.12],
-        [x + hw * 1.08, 0.09 * hgt, z0 + len * 0.12], [x - hw * 1.08, 0.09 * hgt, z0 + len * 0.12]
-      ], dark);
-    } else if (id === 'shantui') {
-      // 宽推铲 + 两侧连接臂
-      const zB = zF + wid * 0.05;
-      poly3([
-        [x - hw * 1.22, 0.03 * hgt, zB], [x + hw * 1.22, 0.03 * hgt, zB],
-        [x + hw * 1.22, 0.62 * hgt, zB], [x - hw * 1.22, 0.62 * hgt, zB]
-      ], body2);
-      poly3([
-        [x - hw * 1.22, 0.62 * hgt, zB], [x + hw * 1.22, 0.62 * hgt, zB],
-        [x + hw * 1.16, 0.60 * hgt, zB + wid * 0.07], [x - hw * 1.16, 0.60 * hgt, zB + wid * 0.07]
-      ], shadeHex(body2, 0.30));
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.52, 0.26 * hgt, zF - wid * 0.03], [x + s * hw * 0.52, 0.44 * hgt, zF - wid * 0.03],
-          [x + s * hw * 0.98, 0.42 * hgt, zB], [x + s * hw * 0.98, 0.24 * hgt, zB]
-        ], dark);
-      }
-    } else if (id === 'xcmg-loader') {
-      // 前铲斗 + 双举升臂
-      const z0 = zF + wid * 0.04;
-      poly3([
-        [x - hw * 1.10, 0.05 * hgt, z0], [x + hw * 1.10, 0.05 * hgt, z0],
-        [x + hw * 1.10, 0.34 * hgt, z0], [x - hw * 1.10, 0.34 * hgt, z0]
-      ], '#6b747f');
-      poly3([
-        [x - hw * 1.10, 0.34 * hgt, z0], [x + hw * 1.10, 0.34 * hgt, z0],
-        [x + hw * 1.02, 0.28 * hgt, z0 + wid * 0.20], [x - hw * 1.02, 0.28 * hgt, z0 + wid * 0.20]
-      ], '#8d959f');
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.58, 0.54 * hgt, zc + len * 0.06], [x + s * hw * 0.58, 0.68 * hgt, zc + len * 0.06],
-          [x + s * hw * 0.92, 0.44 * hgt, z0], [x + s * hw * 0.92, 0.30 * hgt, z0]
-        ], body2);
-      }
-    } else if (id === 'heli') {
-      // 门架 + 前伸货叉
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.36, 0.02 * hgt, zF + wid * 0.03], [x + s * hw * 0.20, 0.02 * hgt, zF + wid * 0.03],
-          [x + s * hw * 0.20, 1.02 * hgt, zF + wid * 0.03], [x + s * hw * 0.36, 1.02 * hgt, zF + wid * 0.03]
-        ], '#4a515a');
-      }
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.32, 0.10 * hgt, zF + wid * 0.02], [x + s * hw * 0.08, 0.10 * hgt, zF + wid * 0.02],
-          [x + s * hw * 0.08, 0.10 * hgt, zF + wid * 0.26], [x + s * hw * 0.32, 0.10 * hgt, zF + wid * 0.26]
-        ], '#a4adb7');
-      }
-    } else if (id === 'sany-pump' || id.indexOf('-pump') > 0) {
-      // 泵车：斜向前上方的臂架
-      poly3([
-        [x - wid * 0.09, 0.90 * hgt, zc - len * 0.10], [x + wid * 0.09, 0.90 * hgt, zc - len * 0.10],
-        [x + wid * 0.06, 1.06 * hgt, zF + wid * 0.22], [x - wid * 0.06, 1.06 * hgt, zF + wid * 0.22]
-      ], body2);
-    } else if (id === 'cat320' || id.indexOf('-excavator') > 0) {
-      // 大臂 + 小臂 + 前铲斗
-      poly3([
-        [x - wid * 0.10, 0.94 * hgt, zc + len * 0.10], [x + wid * 0.10, 0.94 * hgt, zc + len * 0.10],
-        [x + wid * 0.07, 0.48 * hgt, zF + wid * 0.02], [x - wid * 0.07, 0.48 * hgt, zF + wid * 0.02]
-      ], body2);
-      poly3([
-        [x - wid * 0.07, 0.48 * hgt, zF + wid * 0.02], [x + wid * 0.07, 0.48 * hgt, zF + wid * 0.02],
-        [x + wid * 0.05, 0.20 * hgt, zF + wid * 0.16], [x - wid * 0.05, 0.20 * hgt, zF + wid * 0.16]
-      ], dark);
-      poly3([
-        [x - wid * 0.14, 0.02 * hgt, zF + wid * 0.15], [x + wid * 0.14, 0.02 * hgt, zF + wid * 0.15],
-        [x + wid * 0.14, 0.24 * hgt, zF + wid * 0.15], [x - wid * 0.14, 0.24 * hgt, zF + wid * 0.15]
-      ], '#5c636e');
-    } else if (id === 'johndeere') {
-      // 宽割台 + 拨禾轮
-      const z0 = zF + wid * 0.03;
-      poly3([
-        [x - hw * 1.16, 0.02 * hgt, z0], [x + hw * 1.16, 0.02 * hgt, z0],
-        [x + hw * 1.16, 0.26 * hgt, z0], [x - hw * 1.16, 0.26 * hgt, z0]
-      ], '#8d959f');
-      poly3([
-        [x - hw * 1.16, 0.26 * hgt, z0], [x + hw * 1.16, 0.26 * hgt, z0],
-        [x + hw * 1.06, 0.42 * hgt, z0 + wid * 0.10], [x - hw * 1.06, 0.42 * hgt, z0 + wid * 0.10]
-      ], '#a6aeb8');
-    } else if (id === 'dongfanghong') {
-      // 大后轮轮廓，强化拖拉机剪影
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.72, 0.04 * hgt, zc + len * 0.20], [x + s * hw * 0.98, 0.04 * hgt, zc + len * 0.20],
-          [x + s * hw * 0.98, 0.52 * hgt, zc + len * 0.10], [x + s * hw * 0.72, 0.52 * hgt, zc + len * 0.10]
-        ], dark);
-      }
-    }
-  }
-
-  // 普通车型的 3D 专属部件：尾翼、货斗护栏、罐体、双层车厢、车顶空调
-  function bodyParts3d(st, x, zc, len, wid, hgt) {
-    const id = st.brandId;
-    const cat = st.cat;
-    const dark = shadeHex(st.body2 || st.body, -0.30);
-    const zR = zc - len * 0.5;
-    const hw = wid * 0.5;
-
-    if (cat === 'emergency') {
-      // 应急车：车顶红蓝警灯
-      const zL = zc + len * 0.10;
-      poly3([
-        [x - hw * 0.56, hgt * 1.03, zL], [x + hw * 0.56, hgt * 1.03, zL],
-        [x + hw * 0.56, hgt * 1.10, zL], [x - hw * 0.56, hgt * 1.10, zL]
-      ], id === 'byd-police' ? '#2f6fdc' : '#e5342c');
-    } else if (cat === 'sport') {
-      // 固定尾翼
-      const zW = zR + len * 0.16;
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.72, hgt * 0.92, zW], [x + s * hw * 0.84, hgt * 0.92, zW],
-          [x + s * hw * 0.84, hgt * 1.16, zW], [x + s * hw * 0.72, hgt * 1.16, zW]
-        ], dark);
-      }
-      poly3([
-        [x - hw * 0.94, hgt * 1.14, zW - wid * 0.02], [x + hw * 0.94, hgt * 1.14, zW - wid * 0.02],
-        [x + hw * 0.94, hgt * 1.20, zW + wid * 0.10], [x - hw * 0.94, hgt * 1.20, zW + wid * 0.10]
-      ], st.accent || '#e23b33');
-    } else if (id === 'cannon' || id === 'f150') {
-      // 皮卡货斗护栏
-      const zB = zR + len * 0.30;
-      for (const s of [-1, 1]) {
-        poly3([
-          [x + s * hw * 0.86, hgt * 0.94, zB], [x + s * hw * 0.98, hgt * 0.94, zB],
-          [x + s * hw * 0.98, hgt * 1.18, zB], [x + s * hw * 0.86, hgt * 1.18, zB]
-        ], dark);
-      }
-      poly3([
-        [x - hw * 0.98, hgt * 1.14, zB - wid * 0.02], [x + hw * 0.98, hgt * 1.14, zB - wid * 0.02],
-        [x + hw * 0.98, hgt * 1.20, zB + wid * 0.06], [x - hw * 0.98, hgt * 1.20, zB + wid * 0.06]
-      ], '#8d959f');
-    } else if (cat === 'bus') {
-      if (id === 'yutong-double') {
-        // 第二层车厢 + 上层车窗
-        poly3([
-          [x - hw * 0.94, hgt * 0.96, zR], [x + hw * 0.94, hgt * 0.96, zR],
-          [x + hw * 0.94, hgt * 1.62, zR], [x - hw * 0.94, hgt * 1.62, zR]
-        ], st.body);
-        poly3([
-          [x - hw * 0.86, hgt * 1.26, zR - 0.2], [x + hw * 0.86, hgt * 1.26, zR - 0.2],
-          [x + hw * 0.86, hgt * 1.48, zR - 0.2], [x - hw * 0.86, hgt * 1.48, zR - 0.2]
-        ], 'rgba(64,88,116,.55)');
-      } else if (id === 'kinglong-open') {
-        // 敞篷观光：护栏
-        for (const s of [-1, 1]) {
-          poly3([
-            [x + s * hw * 0.90, hgt * 0.98, zR], [x + s * hw * 0.98, hgt * 0.98, zR],
-            [x + s * hw * 0.98, hgt * 1.22, zR], [x + s * hw * 0.90, hgt * 1.22, zR]
-          ], '#d7dde6');
-        }
-        poly3([
-          [x - hw * 0.98, hgt * 1.18, zR], [x + hw * 0.98, hgt * 1.18, zR],
-          [x + hw * 0.98, hgt * 1.24, zR], [x - hw * 0.98, hgt * 1.24, zR]
-        ], '#d7dde6');
-      } else {
-        // 车顶空调
-        poly3([
-          [x - hw * 0.42, hgt * 0.98, zc + len * 0.10], [x + hw * 0.42, hgt * 0.98, zc + len * 0.10],
-          [x + hw * 0.42, hgt * 1.12, zc + len * 0.10], [x - hw * 0.42, hgt * 1.12, zc + len * 0.10]
-        ], '#c9d0d9');
-      }
-    } else if (cat === 'truck') {
-      if (id === 'cimc' || id.indexOf('-tanker') > 0) {
-        // 油罐车：罐体端面只画上半圈，避免挡住尾灯
-        const p = pr(x, hgt * 0.52, zR);
-        if (p) {
-          ctx.strokeStyle = 'rgba(88,98,114,.55)';
-          ctx.lineWidth = Math.max(1, wid * p.k * 0.014);
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y, hw * p.k * 0.92, hgt * p.k * 0.38, 0, Math.PI, Math.PI * 2);
-          ctx.stroke();
-          ctx.fillStyle = 'rgba(70,80,96,.55)';
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y - hgt * p.k * 0.38, hw * p.k * 0.20, hgt * p.k * 0.08, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      } else if (id === 'sany') {
-        // 搅拌车：斜置的搅拌罐
-        poly3([
-          [x - hw * 0.62, hgt * 0.72, zR + len * 0.06], [x + hw * 0.62, hgt * 0.72, zR + len * 0.06],
-          [x + hw * 0.50, hgt * 1.26, zR + len * 0.40], [x - hw * 0.50, hgt * 1.26, zR + len * 0.40]
-        ], '#c3ccd6');
-      } else {
-        // 货箱尾门横梁
-        poly3([
-          [x - hw * 0.90, hgt * 0.34, zR - 0.2], [x + hw * 0.90, hgt * 0.34, zR - 0.2],
-          [x + hw * 0.90, hgt * 0.40, zR - 0.2], [x - hw * 0.90, hgt * 0.40, zR - 0.2]
-        ], dark);
-      }
-    } else if (id === 'mega') {
-      // 子弹头 MPV：尾部小尾翼
-      poly3([
-        [x - hw * 0.88, hgt * 1.00, zR + len * 0.10], [x + hw * 0.88, hgt * 1.00, zR + len * 0.10],
-        [x + hw * 0.88, hgt * 1.08, zR + len * 0.22], [x - hw * 0.88, hgt * 1.08, zR + len * 0.22]
-      ], st.body2);
-    }
-  }
-
-  // 车辆 3D：按真实车身曲面分层绘制
-  // 车尾立面、后箱盖、倾斜后风挡、收窄的车顶和车身侧面都用渐变 / 圆角过渡，
-  // 不再是一摞硬边方块，避免低机位下的塑料模型感。
-  function drawVehicle3d(st, x, zRear, len, wid, opts) {
-    const hgt = wid * st.hgtK;
-    const zc = zRear + len * 0.5;
-    const hw = wid / 2;
-    const isLong = !!st.longRoof;                         // 厢式 / 卡车 / 公交：车尾近乎垂直
-    const tailH = hgt * (isLong ? 0.95 : 0.78);           // 尾门顶边 / 后箱盖高度
-    const zDeck = zRear + len * (isLong ? 0.02 : 0.18);   // 后箱盖前缘
-    const zRoof0 = zRear + len * (isLong ? 0.04 : 0.44);  // 车顶后缘
-    const zRoof1 = zRear + len * (isLong ? 0.92 : 0.74);  // 车顶前缘
-    const rw0 = hw * (isLong ? 0.93 : 0.80);              // 车顶后缘半宽（厢式车侧壁近乎垂直）
-    const rf0 = hw * (isLong ? 0.88 : 0.66);              // 车顶前缘半宽
-
-    const tL = pr(x - hw, hgt, zRear), tR = pr(x + hw, hgt, zRear);
-    const bL = pr(x - hw, 0, zRear);
-    if (!tL || !tR || !bL) return;
-    const fw = tR.x - tL.x, fh = bL.y - tL.y;
-    if (fw < 1.6 || fh < 1.2) return;
-    if (bL.y < -30 || tL.y > H + 30) return;
-    const fine = fw >= 18;
-
-    const cBody = st.body;
-    const cLight = shadeHex(st.body, 0.20);
-    const cShade = shadeHex(st.body, -0.16);
-    const cDark = shadeHex(st.body, -0.38);
-    const cDeep = shadeHex(st.body, -0.62);
-
-    // 投影后的多边形填充：渐变按屏幕高度取，曲面过渡更自然
-    const gradPoly = (pts, c0, c1, c2) => {
-      const sp = [];
-      for (let i = 0; i < pts.length; i++) {
-        const p = pr(pts[i][0], pts[i][1], pts[i][2]);
-        if (!p) return;
-        sp.push(p);
-      }
-      let y0 = Infinity, y1 = -Infinity;
-      for (let i = 0; i < sp.length; i++) {
-        if (sp[i].y < y0) y0 = sp[i].y;
-        if (sp[i].y > y1) y1 = sp[i].y;
-      }
-      const g = ctx.createLinearGradient(0, y0, 0, Math.max(y1, y0 + 0.6));
-      g.addColorStop(0, c0);
-      g.addColorStop(c2 ? 0.55 : 1, c1);
-      if (c2) g.addColorStop(1, c2);
-      ctx.beginPath();
-      for (let i = 0; i < sp.length; i++) {
-        if (i) ctx.lineTo(sp[i].x, sp[i].y); else ctx.moveTo(sp[i].x, sp[i].y);
-      }
-      ctx.closePath();
-      ctx.fillStyle = g;
-      ctx.fill();
-    };
-
-    // 车底投影
-    vehicleShadow(x, zc, wid * 1.06, len);
-
-    // 车轮：略微外露，胎壁带一点高光；胎纹随车速滚动
-    const wW = fw * (isLong ? 0.15 : 0.17);
-    const wH = Math.max(1.6, fh * 0.24);
-    const wY = bL.y - wH * 0.55;
-    const wR = Math.max(1, wW * 0.32);
-    const spin = (opts && opts.spin) || 0;
-    const paintTire = (wx) => {
-      ctx.fillStyle = '#171a21';
-      rr(wx, wY, wW, wH, wR); ctx.fill();
-      if (!fine) return;
-      ctx.save();
-      rr(wx, wY, wW, wH, wR); ctx.clip();
-      ctx.fillStyle = 'rgba(255,255,255,.10)';
-      rr(wx + wW * 0.30, wY + wH * 0.24, wW * 0.34, wH * 0.42, wW * 0.14); ctx.fill();
-      // 滚动胎纹：按转动角平移，轮子转动肉眼可见
-      const seg = wW / 4;
-      const off = (spin / (Math.PI * 2)) * seg;
-      ctx.fillStyle = 'rgba(214,224,238,.24)';
-      for (let i = 0; i < 4; i++) {
-        let tx = wx + ((i * seg + off) % wW);
-        if (tx + seg * 0.20 > wx + wW) tx -= wW;
-        ctx.fillRect(tx, wY + wH * 0.58, Math.max(0.8, seg * 0.18), wH * 0.34);
-      }
-      ctx.restore();
-    };
-    paintTire(tL.x - fw * 0.012);
-    paintTire(tR.x - wW + fw * 0.012);
-
-    // 前轮：只画朝向镜头的一侧，转向时从车头侧面探出一点
-    const steer = (opts && opts.steer) || 0;
-    if (fine && Math.abs(steer) > 0.08) {
-      const sgn = x >= 0 ? -1 : 1;
-      const zF = zRear + len * 0.80;
-      const ang = steer * 0.55;
-      const fx = x + sgn * (hw + wid * (0.02 + Math.abs(Math.sin(ang)) * 0.10));
-      const rw3 = wid * 0.11;
-      const gc = pr(fx, rw3, zF);
-      if (gc) {
-        const rx3 = Math.max(1.2, rw3 * gc.k * (0.30 + Math.abs(Math.sin(ang)) * 0.85));
-        const ry3 = Math.max(1.6, rw3 * gc.k * 0.95);
-        const a3 = clamp((Math.abs(steer) - 0.08) / 0.28, 0, 1);
-        ctx.save();
-        ctx.globalAlpha *= a3;
-        ctx.fillStyle = '#1b1e26';
-        ctx.beginPath();
-        ctx.ellipse(gc.x, gc.y, rx3, ry3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        if (gc.k > 0.5) {
-          ctx.fillStyle = 'rgba(205,215,230,.32)';
-          ctx.beginPath();
-          ctx.ellipse(gc.x, gc.y, rx3 * 0.34, ry3 * 0.34, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      }
-    }
-
-    // 车身侧面：从地面经腰线一直收到车顶边，剪影连续，不再外翘成“翅膀”
-    // 只画朝向镜头中心的一侧，另一侧被车身挡住，画出来会“透”成一块斜板
-    if (Math.abs(x) > wid * 0.10 && fw > 4) {
-      const s = x >= 0 ? -1 : 1;
-      const sx = x + s * hw;
-      const pts = [
-        [sx, 0, zRear], [sx, hgt * 0.80, zRear],
-        [x + s * rw0, hgt, zRoof0], [x + s * rf0, hgt, zRoof1],
-        [sx, hgt * 0.80, zRoof1], [sx, 0, zRoof1]
-      ];
-      const sp = [];
-      let bad = false;
-      for (let i = 0; i < pts.length; i++) {
-        const p = pr(pts[i][0], pts[i][1], pts[i][2]);
-        if (!p) { bad = true; break; }
-        sp.push(p);
-      }
-      if (!bad) {
-        ctx.beginPath();
-        for (let i = 0; i < sp.length; i++) {
-          if (i) ctx.lineTo(sp[i].x, sp[i].y); else ctx.moveTo(sp[i].x, sp[i].y);
-        }
-        ctx.closePath();
-        let sy0 = Infinity, sy1 = -Infinity;
-        for (let i = 0; i < sp.length; i++) {
-          if (sp[i].y < sy0) sy0 = sp[i].y;
-          if (sp[i].y > sy1) sy1 = sp[i].y;
-        }
-        const sg = ctx.createLinearGradient(0, sy0, 0, Math.max(sy1, sy0 + 0.6));
-        sg.addColorStop(0, cShade);
-        sg.addColorStop(0.45, shadeHex(st.body, -0.30));
-        sg.addColorStop(1, cDeep);
-        ctx.fillStyle = sg;
-        ctx.fill();
-        if (fine) {
-          // 后侧窗：C 柱后面的一块暗玻璃
-          const q0 = pr(sx, hgt * 0.80, zRear), q1 = pr(x + s * rw0, hgt * 0.97, zRoof0);
-          const q2 = pr(x + s * rw0 * 0.86, hgt * 0.97, zRoof0);
-          const q3 = pr(sx, hgt * 0.80, zRear + len * 0.30);
-          if (q0 && q1 && q2 && q3) {
-            ctx.beginPath();
-            ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y);
-            ctx.lineTo(q2.x, q2.y); ctx.lineTo(q3.x, q3.y);
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(16,24,34,.62)';
-            ctx.fill();
-          }
-          // 腰线高光
-          const h1 = pr(sx, hgt * 0.64, zRear), h2 = pr(sx, hgt * 0.64, zRoof1);
-          if (h1 && h2) {
-            ctx.beginPath();
-            ctx.moveTo(h1.x, h1.y); ctx.lineTo(h2.x, h2.y);
-            ctx.strokeStyle = 'rgba(255,255,255,.20)';
-            ctx.lineWidth = Math.max(0.8, fw * 0.012);
-            ctx.stroke();
-          }
-        }
-      }
-    }
-
-    // 后箱盖：车身向后收的顶面，把车尾和座舱连起来
-    if (!isLong) {
-      gradPoly([[x - hw * 0.99, tailH, zRear], [x + hw * 0.99, tailH, zRear],
-        [x + hw * 0.90, tailH, zDeck], [x - hw * 0.90, tailH, zDeck]],
-        shadeHex(st.body, 0.14), shadeHex(st.body, 0.01));
-    }
-
-    // 后风挡：C 柱包边 + 倾斜玻璃（轿车）/ 垂直后窗（厢式车，画在尾门内）
-    const winPts = isLong ? null : [
-      [x - hw * 0.78, tailH + hgt * 0.03, zDeck], [x + hw * 0.78, tailH + hgt * 0.03, zDeck],
-      [x + hw * 0.66, hgt * 0.985, zRoof0], [x - hw * 0.66, hgt * 0.985, zRoof0]
-    ];
-    if (winPts) {
-      poly3([[x - hw * 0.97, tailH, zDeck], [x + hw * 0.97, tailH, zDeck],
-        [x + hw * 0.80, hgt * 0.995, zRoof0], [x - hw * 0.80, hgt * 0.995, zRoof0]], cShade);
-      gradPoly(winPts, '#3f566b', '#18212b', '#0f151c');
-      if (fw > 14) {
-        // 玻璃密封条
-        ctx.strokeStyle = 'rgba(14,18,24,.55)';
-        ctx.lineWidth = Math.max(0.7, fw * 0.010);
-        ctx.stroke();
-      }
-      // 玻璃天空反光
-      const a = pr(winPts[0][0], winPts[0][1], winPts[0][2]);
-      const b = pr(winPts[1][0], winPts[1][1], winPts[1][2]);
-      const c = pr(winPts[2][0], winPts[2][1], winPts[2][2]);
-      const d = pr(winPts[3][0], winPts[3][1], winPts[3][2]);
-      if (fine && a && b && c && d) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-        ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
-        ctx.closePath();
-        ctx.clip();
-        const gx0 = Math.min(a.x, d.x), gx1 = Math.max(b.x, c.x);
-        const gy0 = Math.min(c.y, d.y), gy1 = Math.max(a.y, b.y);
-        const rg = ctx.createLinearGradient(gx0, gy1, gx1, gy0);
-        rg.addColorStop(0, 'rgba(255,255,255,0)');
-        rg.addColorStop(0.38, 'rgba(255,255,255,.06)');
-        rg.addColorStop(0.5, 'rgba(255,255,255,.22)');
-        rg.addColorStop(0.62, 'rgba(255,255,255,.05)');
-        rg.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(gx0, gy0, gx1 - gx0, gy1 - gy0);
-        ctx.restore();
-      }
-    }
-
-    // 车顶顶面：比车身窄，用渐变压出弧面
-    if (rw0 > 0.3) {
-      gradPoly([[x - rw0, hgt, zRoof0], [x + rw0, hgt, zRoof0],
-        [x + rf0, hgt, zRoof1], [x - rf0, hgt, zRoof1]],
-        shadeHex(st.body, 0.04), shadeHex(st.body, 0.19), shadeHex(st.body, 0.11));
-      if (fine) {
-        // 车顶中央的柔和反光
-        poly3([[x - rw0 * 0.62, hgt, zRoof0 + len * 0.05], [x + rw0 * 0.62, hgt, zRoof0 + len * 0.05],
-          [x + rf0 * 0.56, hgt, zRoof1 - len * 0.08], [x - rf0 * 0.56, hgt, zRoof1 - len * 0.08]],
-          'rgba(255,255,255,.12)');
-        // 车顶两侧暗边
-        poly3([[x - rw0, hgt, zRoof0], [x - rw0 * 0.84, hgt, zRoof0],
-          [x - rf0 * 0.84, hgt, zRoof1], [x - rf0, hgt, zRoof1]], 'rgba(0,0,0,.12)');
-        poly3([[x + rw0 * 0.84, hgt, zRoof0], [x + rw0, hgt, zRoof0],
-          [x + rf0, hgt, zRoof1], [x + rf0 * 0.84, hgt, zRoof1]], 'rgba(0,0,0,.12)');
-      }
-    }
-
-    // 车尾立面（尾门）
-    const topP = pr(x, tailH, zRear);
-    if (!topP) return;
-    const fh2 = bL.y - topP.y;
-    if (fh2 < 1) return;
-    const rad = Math.min(fw * 0.15, fh2 * 0.28, 16);
-
-    ctx.save();
-    rr(tL.x, topP.y, fw, fh2, rad);
-    const bg = ctx.createLinearGradient(0, topP.y, 0, bL.y);
-    bg.addColorStop(0, cLight);
-    bg.addColorStop(0.42, cBody);
-    bg.addColorStop(0.82, cDark);
-    bg.addColorStop(1, cDeep);
-    ctx.fillStyle = bg;
-    ctx.fill();
-    if (fw > 20) {
-      ctx.lineWidth = Math.max(0.7, fw * 0.012);
-      ctx.strokeStyle = 'rgba(22,28,38,.22)';
-      ctx.stroke();
-    }
-    ctx.clip();
-
-    // 横向中间提亮，做出车尾的鼓形弧面
-    if (fine) {
-      const cg = ctx.createLinearGradient(tL.x, 0, tR.x, 0);
-      cg.addColorStop(0, 'rgba(0,0,0,.16)');
-      cg.addColorStop(0.18, 'rgba(0,0,0,.02)');
-      cg.addColorStop(0.5, 'rgba(255,255,255,.13)');
-      cg.addColorStop(0.82, 'rgba(0,0,0,.02)');
-      cg.addColorStop(1, 'rgba(0,0,0,.16)');
-      ctx.fillStyle = cg;
-      ctx.fillRect(tL.x, topP.y, fw, fh2);
-    }
-
-    // 尾门缝
-    if (fine) {
-      ctx.fillStyle = 'rgba(24,30,40,.28)';
-      ctx.fillRect(tL.x + fw * 0.10, topP.y + fh2 * (isLong ? 0.30 : 0.24), fw * 0.80, Math.max(0.6, fh2 * 0.013));
-    }
-
-    // 后窗（厢式车 / 公交）：尾门上的大玻璃
-    if (isLong) {
-      const ww2 = fw * 0.72, wh2 = fh2 * 0.30;
-      const wx2 = tL.x + fw * 0.14, wy2 = topP.y + fh2 * 0.08;
-      const wr2 = Math.min(ww2 * 0.07, wh2 * 0.26);
-      const wg = ctx.createLinearGradient(0, wy2, 0, wy2 + wh2);
-      wg.addColorStop(0, '#4a6378');
-      wg.addColorStop(1, '#151d26');
-      ctx.fillStyle = wg;
-      rr(wx2, wy2, ww2, wh2, wr2);
-      ctx.fill();
-      if (fine) {
-        ctx.save();
-        rr(wx2, wy2, ww2, wh2, wr2);
-        ctx.clip();
-        const rg2 = ctx.createLinearGradient(wx2 + ww2 * 0.05, wy2 + wh2, wx2 + ww2 * 0.72, wy2);
-        rg2.addColorStop(0, 'rgba(255,255,255,0)');
-        rg2.addColorStop(0.44, 'rgba(255,255,255,.05)');
-        rg2.addColorStop(0.54, 'rgba(255,255,255,.20)');
-        rg2.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = rg2;
-        ctx.fillRect(wx2, wy2, ww2, wh2);
-        ctx.restore();
-      }
-    }
-
-    // 尾灯：深色灯壳 + 红色灯带，横向薄条形更接近真车
-    const tlY = topP.y + fh2 * (isLong ? 0.52 : 0.47);
-    const tlH = Math.max(1.2, fh2 * 0.115);
-    const tlW = fw * 0.23;
-    const tlR = Math.min(tlH * 0.55, fw * 0.03);
-    const tlA = tL.x + fw * 0.065;
-    const tlB = tR.x - fw * 0.065 - tlW;
-    ctx.fillStyle = 'rgba(26,14,16,.5)';
-    rr(tlA - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
-    rr(tlB - fw * 0.016, tlY - tlH * 0.24, tlW + fw * 0.032, tlH * 1.5, tlR * 1.4); ctx.fill();
-    const brake = clamp((opts && opts.brake) || 0, 0, 1);
-    if (brake > 0.02 && qualityCap > 1) {
-      // 低端机降档后关闭尾灯泛光，省下最贵的 shadowBlur
-      ctx.save();
-      ctx.shadowColor = 'rgba(255,52,34,' + (0.9 * brake).toFixed(2) + ')';
-      ctx.shadowBlur = fw * (0.03 + 0.11 * brake);
-    }
-    const rg = ctx.createLinearGradient(0, tlY, 0, tlY + tlH);
-    rg.addColorStop(0, brake > 0.35 ? '#ffe0cc' : '#ff7a68');
-    rg.addColorStop(0.48, brake > 0.35 ? '#ff5a40' : '#e2362b');
-    rg.addColorStop(1, brake > 0.35 ? '#b8210f' : '#8d1a14');
-    ctx.fillStyle = rg;
-    rr(tlA, tlY, tlW, tlH, tlR); ctx.fill();
-    rr(tlB, tlY, tlW, tlH, tlR); ctx.fill();
-    if (brake > 0.02 && qualityCap > 1) ctx.restore();
-
-    // 车标（品牌车）或车牌（其他车）
-    if (st.logo && fw > 24 && st.logo.naturalWidth) {
-      const lw = fw * 0.15, lh = lw * st.logo.naturalHeight / st.logo.naturalWidth;
-      ctx.globalAlpha = 0.95;
-      ctx.drawImage(st.logo, tL.x + fw * 0.5 - lw / 2, topP.y + fh2 * 0.30 - lh / 2, lw, lh);
-      ctx.globalAlpha = 1;
-    } else if (fw > 34) {
-      const pw = fw * 0.19, ph = fh2 * 0.10;
-      rr(tL.x + fw * 0.5 - pw / 2, topP.y + fh2 * 0.63, pw, ph, ph * 0.25);
-      ctx.fillStyle = 'rgba(238,243,248,.94)';
-      ctx.fill();
-      ctx.fillStyle = 'rgba(60,72,90,.5)';
-      ctx.fillRect(tL.x + fw * 0.5 - pw * 0.30, topP.y + fh2 * 0.665, pw * 0.60, Math.max(0.6, ph * 0.10));
-    }
-
-    // 保险杠：深色下唇 + 两侧反光条
-    if (fw > 12) {
-      ctx.fillStyle = 'rgba(24,28,36,.70)';
-      rr(tL.x + fw * 0.02, topP.y + fh2 * 0.85, fw * 0.96, fh2 * 0.16, fh2 * 0.045);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.13)';
-      const rh = Math.max(0.7, fh2 * 0.024);
-      ctx.fillRect(tL.x + fw * 0.09, topP.y + fh2 * 0.862, fw * 0.15, rh);
-      ctx.fillRect(tR.x - fw * 0.24, topP.y + fh2 * 0.862, fw * 0.15, rh);
-      // 排气
-      if (fine && !isLong) {
-        ctx.fillStyle = 'rgba(18,20,26,.85)';
-        const eh = Math.max(1.2, fh2 * 0.05);
-        rr(tL.x + fw * 0.33, topP.y + fh2 * 0.90, fw * 0.09, eh, eh * 0.5); ctx.fill();
-        rr(tR.x - fw * 0.42, topP.y + fh2 * 0.90, fw * 0.09, eh, eh * 0.5); ctx.fill();
-      }
-    }
-
-    // 底部环境光遮蔽
-    const shd = ctx.createLinearGradient(0, topP.y + fh2 * 0.66, 0, bL.y);
-    shd.addColorStop(0, 'rgba(0,0,0,0)');
-    shd.addColorStop(1, 'rgba(0,0,0,.32)');
-    ctx.fillStyle = shd;
-    ctx.fillRect(tL.x, topP.y + fh2 * 0.62, fw, fh2 * 0.38);
-    ctx.restore();
-    // 工程机械 3D 专属附件：铲刀、铲斗、货叉、大臂、割台
-    if (st.brandId && fw > 14) {
-      machineParts3d(st, x, zc, len, wid, hgt);
-      if (st.cat !== 'works') bodyParts3d(st, x, zc, len, wid, hgt);
-    }
-  }
-
-  function drawBrandCar3d(b, x, zRear, len, wid, opts) {
-    drawVehicle3d(vehicleStyle('brand', b.id), x, zRear, len, wid, opts);
-  }
-
-  function drawCar3d() {
-    const b = getBrand();
-    const len = car.h, wid = car.w;
-    const zRear = camZC - len * 0.5;
-    const x = state.carX - W / 2;
-
-    ctx.save();
-    if (state.invuln > 0 && Math.floor(state.time * 20) % 2 === 0) ctx.globalAlpha = 0.55;
-    // 转向时车身轻微侧倾，配合前轮偏转，让打方向更有重量感
-    const lean = state.mode === 'playing' ? state.steerVis : 0;
-    if (Math.abs(lean) > 0.05) {
-      const pv = pr(x, 0, zRear);
-      if (pv) {
-        ctx.translate(pv.x, pv.y);
-        ctx.rotate(-lean * 0.045);
-        ctx.translate(-pv.x, -pv.y);
-      }
-    }
-    drawBrandCar3d(b, x, zRear, len, wid, {
-      spin: state.wheelAng,
-      steer: lean,
-      brake: state.brake
-    });
-    ctx.restore();
-  }
-
-  // 路边景物 3D：锚在投影后的地面点，按透视缩放成立牌，
-  // 复用 2D 的精细画法（层叠树冠、花瓣、棕榈叶），不再是低多边形圆锥。
-  function drawProp3d(d) {
-    const z = depthOf(d.y);
-    if (!(z > 0) || z > 14000) return;
-    const x = d.x - W / 2;
-    const base = pr(x, 0, z);
-    if (!base) return;
-    // 已经滑出画面两侧 / 底部（更靠近镜头）才跳过，交给滚动回收。
-    if (base.x < -W * 0.9 || base.x > W * 1.9) return;
-    if (base.y > H + 240) return;
-    const sc = d.s * base.k;
-    if (sc < 0.03) return;
-    // 远端淡入：配合地平线雾带自然浮现，而不是从屏幕中间"长出来"
-    const alpha = clamp((14000 - z) / 3400, 0, 1);
-    if (alpha < 0.02) return;
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    paintDecor2d(d, base.x, base.y, sc);
-    ctx.restore();
-  }
-
-  // 关卡物件：星星 / 道具 / 交通车 / 雪糕筒 / 石头
-  function drawObject3d(o) {
-    const z = depthOf(o.y);
-    if (!(z > 0) || z > 8000) return;
-    const k = pxAt(z);
-    if (k <= 0.02) return;
-    const x = o.x - W / 2;
-
-    if (o.type === 'star') {
-      const g = pr(x, 0, z);
-      if (!g) return;
-      groundEllipse(x, z, o.r * 0.60, o.r * 0.34, 'rgba(0,0,0,.16)');
-      drawChar(o.x, g.y - o.r * k * 0.95, o.r * k, o.ch, state.time * 2.2 + o.phase);
-      return;
-    }
-
-    if (o.type === 'power') {
-      const g = pr(x, 0, z);
-      if (!g) return;
-      groundEllipse(x, z, o.s * 0.52, o.s * 0.30, 'rgba(0,0,0,.16)');
-      drawPower(o.x, g.y - o.s * k * 0.92, o.s * k, o.kind, state.time + o.phase);
-      return;
-    }
-
-    if (o.type === 'traffic') {
-      drawVehicle3d(vehicleStyle(o.kind, o.brandId), x, z - o.h * 0.5, o.h, o.w);
-      return;
-    }
-
-    if (o.type === 'cone') {
-      // o.s 是屏幕像素尺寸（车所在行 1 世界单位 = 1 像素），换算成世界尺寸
-      const r = o.s * 0.30, hh = o.s * 0.70;
-      groundEllipse(x, z, r * 1.4, r * 0.7, 'rgba(0,0,0,.20)');
-      cone3(x, z, r, 0, hh, '#ff8a2b', '#e06e12', 10);
-      poly3([
-        [x - r * 0.62, hh * 0.52, z + r * 0.62], [x + r * 0.62, hh * 0.52, z + r * 0.62],
-        [x + r * 0.40, hh * 0.70, z + r * 0.40], [x - r * 0.40, hh * 0.70, z + r * 0.40]
-      ], 'rgba(255,255,255,.85)');
-      return;
-    }
-
-    const r = o.s * 0.46;
-    groundEllipse(x, z, r * 1.2, r * 0.7, 'rgba(0,0,0,.20)');
-    cone3(x, z, r, 0, o.s * 0.56, '#9aa3ad', '#7d8791', 8);
-  }
-
-  // 3D 静态背景（天空/远山/草地底色）缓存，尺寸、主题或清晰度变化时重建
-  let bg3dCanvas = null, bg3dKey = '';
-
-  function buildBg3d(th, hz) {
-    const key = W + 'x' + H + 'x' + Math.round(hz) + 'x' + th.id + 'x' + DPR;
-    if (bg3dCanvas && bg3dKey === key) return bg3dCanvas;
-    const cv = document.createElement('canvas');
-    cv.width = Math.max(1, Math.round(W * DPR));
-    cv.height = Math.max(1, Math.round(H * DPR));
-    const g = cv.getContext('2d');
-    g.setTransform(DPR, 0, 0, DPR, 0, 0);
-    const sky = SKY[th.id] || ['#8fc8ea', '#e6f5ff'];
-
-    const sg = g.createLinearGradient(0, Math.max(0, hz - H * 0.5), 0, hz);
-    sg.addColorStop(0, sky[0]);
-    sg.addColorStop(1, sky[1]);
-    g.fillStyle = sg;
-    g.fillRect(0, 0, W, hz + 1);
-
-    drawHills(hz, shadeHex(th.grass[1], -0.30), Math.max(10, H * 0.09), 0.013, 0.9, g);
-    drawHills(hz, shadeHex(th.grass[1], -0.14), Math.max(6, H * 0.045), 0.021, 2.6, g);
-
-    const gg = g.createLinearGradient(0, hz, 0, H);
-    gg.addColorStop(0, shadeHex(th.grass[0], 0.42));
-    gg.addColorStop(0.28, th.grass[0]);
-    gg.addColorStop(1, th.grass[1]);
-    g.fillStyle = gg;
-    g.fillRect(0, hz, W, H - hz);
-
-    bg3dCanvas = cv;
-    bg3dKey = key;
-    return cv;
-  }
-
-  function drawGrass3d() {
-    const th = curTheme();
-    const hz = camHorizon;
-
-    ctx.drawImage(buildBg3d(th, hz), 0, 0, W, H);
-
-    // 草地条纹：按世界深度铺，向地平线自然收敛（屏幕等距会造成"平贴纸"感）
-    const bandLen = 130;
-    const phase = grassOffset % (bandLen * 2);
-    const hw = roadWidth / 2 + 16;
-    for (let z0 = 160 - phase; z0 < 7000; z0 += bandLen * 2) {
-      const zA = Math.max(160, z0 + bandLen);
-      const zB = z0 + bandLen * 2;
-      if (zB <= zA) continue;
-      poly3([[-4200, 0.2, zB], [-hw, 0.2, zB], [-hw, 0.2, zA], [-4200, 0.2, zA]], th.stripe);
-      poly3([[hw, 0.2, zB], [4200, 0.2, zB], [4200, 0.2, zA], [hw, 0.2, zA]], th.stripe);
-    }
-
-    // 路肩接地暗部：让路面和草地之间有过渡，不再是一条硬边
-    poly3([[-hw, 0.25, 200], [-hw + 11, 0.25, 200], [-hw + 11, 0.25, 9000], [-hw, 0.25, 9000]], 'rgba(0,0,0,.10)');
-    poly3([[hw - 11, 0.25, 200], [hw, 0.25, 200], [hw, 0.25, 9000], [hw - 11, 0.25, 9000]], 'rgba(0,0,0,.10)');
-
-    const fogH = Math.min(120, H * 0.18);
-    const hg = ctx.createLinearGradient(0, hz - fogH, 0, hz + fogH * 0.6);
-    hg.addColorStop(0, 'rgba(255,255,255,0)');
-    hg.addColorStop(0.55, 'rgba(255,255,255,.20)');
-    hg.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = hg;
-    ctx.fillRect(0, hz - fogH, W, fogH * 1.6);
-  }
-
-  function drawRoad3d() {
-    const th = curTheme();
-    const hz = camHorizon;
-    const HW = roadWidth / 2;
-    const zN = 200, zF = 60000;
-
-    const rg = ctx.createLinearGradient(0, hz, 0, H);
-    rg.addColorStop(0, shadeHex(th.road, 0.46));
-    rg.addColorStop(0.22, th.road);
-    rg.addColorStop(1, shadeHex(th.road, -0.12));
-    poly3([[-HW, 0.6, zN], [HW, 0.6, zN], [HW, 0.6, zF], [-HW, 0.6, zF]], rg);
-
-    poly3([[-HW + 3, 0.7, zN], [-HW + 8, 0.7, zN], [-HW + 8, 0.7, zF], [-HW + 3, 0.7, zF]], 'rgba(255,255,255,.55)');
-    poly3([[HW - 8, 0.7, zN], [HW - 3, 0.7, zN], [HW - 3, 0.7, zF], [HW - 8, 0.7, zF]], 'rgba(255,255,255,.55)');
-
-    // 车道虚线：按世界长度分段，近处拉长、远处缩短，不再等长等距“梯子”
-    const dashLen = 58, period = 176;
-    const dOff = dashOffset % period;
-    for (let i = 1; i < LANES; i++) {
-      const x = -HW + i * laneW;
-      for (let z0 = 120 - dOff; z0 < 24000; z0 += period) {
-        const zA = Math.max(120, z0), zB = z0 + dashLen;
-        if (zB <= zA) continue;
-        poly3([[x - 3, 0.8, zB], [x + 3, 0.8, zB], [x + 3, 0.8, zA], [x - 3, 0.8, zA]], 'rgba(255,255,255,.72)');
-      }
-    }
-
-    // 路缘石：按世界长度分段，红白块随透视收敛，不再是等高的平面带
-    const segLen = 38;
-    const cOff = curbOffset % (segLen * 2);
-    const curbH = 9;
-    for (const side of [-1, 1]) {
-      const x0 = side < 0 ? -HW - 14 : HW;
-      const x1 = x0 + 14;
-      const inX = side < 0 ? x1 : x0;
-      for (let z0 = 120 - cOff; z0 < 2600; z0 += segLen * 2) {
-        for (let s2 = 0; s2 < 2; s2++) {
-          const zA = Math.max(120, z0 + s2 * segLen);
-          const zB = z0 + (s2 + 1) * segLen;
-          if (zB <= zA) continue;
-          const col = th.curb[s2 % th.curb.length];
-          poly3([[x0, curbH, zB], [x1, curbH, zB], [x1, curbH, zA], [x0, curbH, zA]], shadeHex(col, 0.16));
-          poly3([[inX, 0, zB], [inX, 0, zA], [inX, curbH, zA], [inX, curbH, zB]], shadeHex(col, -0.28));
-        }
-      }
-    }
-
-    // 路侧反光柱：按世界间距排布，带接地阴影，不再像悬空的白棍
-    const postGap = 110;
-    const pOff = postOffset % postGap;
-    for (let z0 = 200 - pOff; z0 < 2800; z0 += postGap) {
-      const z = Math.max(200, z0);
-      const k = pxAt(z);
-      if (k < 0.05) continue;
-      for (const side of [-1, 1]) {
-        const bp = pr(side * (HW + 30), 0, z);
-        if (!bp) continue;
-        const hh = 34 * k, ww = Math.max(1.4, 5 * k);
-        ctx.fillStyle = 'rgba(0,0,0,.16)';
-        ctx.beginPath();
-        ctx.ellipse(bp.x, bp.y, ww * 1.4, ww * 0.55, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#eef3f8';
-        rr(bp.x - ww / 2, bp.y - hh, ww, hh, ww / 2);
-        ctx.fill();
-        ctx.fillStyle = '#c6d0da';
-        ctx.fillRect(bp.x - ww / 2, bp.y - hh * 0.5, ww, hh * 0.08);
-        ctx.fillStyle = side < 0 ? '#ff6b6b' : '#ffd166';
-        ctx.fillRect(bp.x - ww / 2, bp.y - hh * 0.84, ww, hh * 0.18);
-        ctx.fillStyle = 'rgba(255,255,255,.7)';
-        ctx.fillRect(bp.x - ww * 0.34, bp.y - hh * 0.96, ww * 0.22, hh * 0.72);
-      }
-    }
-
-    // 远端雾
-    const fogH = Math.min(150, H * 0.24);
-    const fg = ctx.createLinearGradient(0, hz, 0, hz + fogH);
-    fg.addColorStop(0, 'rgba(255,255,255,.50)');
-    fg.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = fg;
-    ctx.fillRect(0, hz, W, fogH);
-  }
-
   function drawGrass() {
-    if (view3d) { drawGrass3d(); return; }
     const th = curTheme();
     const gg = ctx.createLinearGradient(0, 0, 0, H);
     gg.addColorStop(0, th.grass[0]);
@@ -9297,7 +8235,6 @@
   }
 
   function drawRoad() {
-    if (view3d) { drawRoad3d(); return; }
     const th = curTheme();
 
     // 路面本体每帧直接绘制，避免依赖离屏缓存导致整块路面消失
@@ -9662,7 +8599,6 @@
     state.invuln = 0.95;
     state.shake = 11 * (0.75 + (state.heavy || 1) * 0.22);
     state.bumps++;
-    state.brake = 1;
     state.adapt = Math.max(0.84, state.adapt - 0.035);
     state.carVX += (state.carX < o.x ? -1 : 1) * 150;
     state.speed *= clamp(0.55 + ((state.heavy || 1) - 1) * 0.035, 0.50, 0.66);
@@ -9711,18 +8647,11 @@
       const quizK = (state.quiz && state.quizTarget) ? 0.85 : 1;
       const target = (200 + prog * 95) * state.scale * boostK * state.adapt * quizK *
         clamp(1 - (state.heavy - 1) * 0.05, 0.90, 1);
-      const prevV = state.speed;
       // 重型车起步更慢，跑车更灵敏
       state.speed = lerp(state.speed, target, Math.min(1, dt * 2.2 / Math.pow(state.heavy, 0.35)));
-      if (prevV - state.speed > 0.6) state.brake = Math.min(1, state.brake + dt * 9);
       state.distance += state.speed * dt;
-      // 车轮转动：角速度跟车速走，取模避免数值越滚越大
-      state.wheelAng += state.speed * dt * 0.045;
-      if (state.wheelAng > Math.PI * 2) state.wheelAng -= Math.PI * 2;
       bgmTick(dt);
     }
-    // 尾灯亮度回落
-    state.brake = Math.max(0, state.brake - dt * 1.6);
 
     // 滚动
     grassOffset += sp * dt * 0.35;
@@ -9751,7 +8680,6 @@
         if (state.carVX > 0) state.carVX = 0;
       }
       state.tilt = lerp(state.tilt, clamp(steer, -1, 1), Math.min(1, dt * 9));
-      state.steerVis = lerp(state.steerVis, clamp(steer, -1, 1), Math.min(1, dt * 10));
 
       // 听音选字：先读题，再出牌；收集模式按里程出物
       if (state.quiz) {
@@ -9846,8 +8774,8 @@
     // 装饰滚动
     for (const d of decor) {
       d.y += sp * dt;
-      if (d.y > (view3d ? H + 120 : H + 60)) {
-        d.y = view3d ? camHorizon + rand(4, 46) : -60;
+      if (d.y > H + 60) {
+        d.y = -60;
         d.side = Math.random() < 0.5 ? -1 : 1;
         d.x = decorX(d.side);
         d.s = rand(0.6, 1.05);
@@ -9883,13 +8811,6 @@
     for (let i = 0; i < n; i++) {
       const y = ((i * 173 + state.distance * 0.8) % (H + 160)) - 80;
       const x = roadLeft + 30 + ((i * 0.37 + 0.13) % 1) * Math.max(10, roadRight - roadLeft - 60);
-      if (view3d) {
-        const z = depthOf(y);
-        if (y > camHorizon && z > 0 && z < 8000) {
-          groundEllipse(x - W / 2, z, roadWidth * 0.14, 26, 'rgba(170,205,240,.26)');
-        }
-        continue;
-      }
       ctx.fillStyle = 'rgba(170,205,240,.20)';
       ctx.beginPath();
       ctx.ellipse(x, y, roadWidth * 0.14, 9, 0, 0, Math.PI * 2);
@@ -10009,27 +8930,17 @@
       ctx.fillRect(0, 0, W, H);
     }
 
-    if (view3d) {
-      const list = objects.slice().sort(function (a, b) { return a.y - b.y; });
-      for (const o of list) {
-        if (o.y + 20 < camHorizon) continue;
-        // 已从车旁经过（更靠近镜头）的物件会被透视放得极大，直接不画
-        if (o.y > carY + 46) continue;
-        drawObject3d(o);
-      }
-    } else {
-      for (const o of objects) {
-        if (o.type === 'star') {
-          drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
-        } else if (o.type === 'power') {
-          drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
-        } else if (o.type === 'traffic') {
-          drawTraffic(o);
-        } else if (o.type === 'cone') {
-          drawCone(o.x, o.y, o.s);
-        } else {
-          drawRock(o.x, o.y, o.s);
-        }
+    for (const o of objects) {
+      if (o.type === 'star') {
+        drawChar(o.x, o.y + Math.sin(state.time * 3 + o.phase) * 3, o.r, o.ch, state.time * 2.2 + o.phase);
+      } else if (o.type === 'power') {
+        drawPower(o.x, o.y, o.s, o.kind, state.time + o.phase);
+      } else if (o.type === 'traffic') {
+        drawTraffic(o);
+      } else if (o.type === 'cone') {
+        drawCone(o.x, o.y, o.s);
+      } else {
+        drawRock(o.x, o.y, o.s);
       }
     }
 
@@ -10920,14 +9831,6 @@
     if (!btn) return;
     setMode(btn.dataset.mode === 'quiz');
     tone(660, 0.08, 'sine', 0, 0.08);
-  });
-
-  // 视角切换
-  viewSwitchEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.mode-btn');
-    if (!btn) return;
-    setView(btn.dataset.view === '3d');
-    tone(560, 0.08, 'triangle', 0, 0.08);
   });
 
   // HUD 汉字：点一下重听
