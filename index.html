@@ -11091,8 +11091,8 @@
       requestAnimationFrame(frame);
       return;
     }
-    // 开始页/暂停/结算时限制到约 12fps：遮罩带背景模糊，满帧重算整屏非常费电
-    if (state.mode !== 'playing' && now - lastIdleDraw < 80) {
+    // 开始页/暂停/结算时限制到约 20fps：遮罩带背景模糊，满帧重算整屏非常费电
+    if (state.mode !== 'playing' && now - lastIdleDraw < 50) {
       last = now;
       fpsAt = 0;
       fpsFrames = 0;
