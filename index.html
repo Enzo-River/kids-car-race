@@ -1999,7 +1999,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.16';
+  const APP_VERSION = '2026-11-13.17';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -9667,7 +9667,7 @@
 
   function drawTruckCargo(b, w, h) {
     if (CAT_OF[b.id] !== 'truck' || !CARGO_IDS[b.id]) return;
-    const chars = [...learned];
+    const chars = state.runChars || [];
     if (!chars.length) return;
     const area = CARGO_AREA[b.id] || [-0.120, 0.420];
     const cols = 3;
@@ -9676,10 +9676,8 @@
     let rows = Math.floor((areaH + gap) / (boxH + gap));
     rows = Math.max(1, Math.min(4, rows));
     const use = chars.slice(-(cols * rows));
-    const rowsUsed = Math.ceil(use.length / cols);
-    const totalH = rowsUsed * boxH + (rowsUsed - 1) * gap;
     const startX = -(cols * boxW + (cols - 1) * gap) / 2;
-    const startY = (area[0] + area[1]) * 0.5 * h - totalH / 2;
+    const startY = area[0] * h;
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -10776,6 +10774,10 @@
       state.adapt = Math.min(1.12, state.adapt + 0.02);
     }
     if (state.uniqueChars) state.uniqueChars.add(o.ch);
+    if (state.runChars && !state.runChars.includes(o.ch)) {
+      state.runChars.push(o.ch);
+      if (state.runChars.length > 12) state.runChars.shift();
+    }
     const wasNew = !learned.has(o.ch);
     state.lastWord = info.w;
     learned.add(o.ch);
@@ -11799,6 +11801,7 @@
     state.pendingCollect = [];
     state.uniqueChars = new Set();
     state.missedChars = new Set();
+    state.runChars = [];
     // 清掉上一局可能残留的朗读，避免新一局开头听到上一局的字
     speechQueue = [];
     audioQueue = [];
