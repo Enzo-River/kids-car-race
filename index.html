@@ -1273,7 +1273,20 @@
       { id: 'daf-semi', brand: '达夫', model: 'XF 半挂', ratio: 3.80,
         body: '#b8262c', body2: '#8f1a20', accent: '#e8edf4', logo: logoOf('daf') },
       { id: 'shacman-semi', brand: '陕汽', model: '德龙 X6000 半挂', ratio: 3.85,
-        body: '#f2f4f7', body2: '#cfd5dd', accent: '#2f7d3a', logo: logoOf('shacman') }
+        body: '#f2f4f7', body2: '#cfd5dd', accent: '#2f7d3a', logo: logoOf('shacman') },
+      // 第十批：双挂 + 半挂搅拌 + 平板车 + 曼恩卡车
+      { id: 'scania-bdouble', brand: '斯堪尼亚', model: '双挂列车', ratio: 4.50,
+        body: '#1f4f8f', body2: '#163a6b', accent: '#f2b71d', logo: logoOf('scania') },
+      { id: 'zoomlion-semi-mixer', brand: '中联', model: '半挂搅拌车', ratio: 3.70,
+        body: '#f4f7fa', body2: '#c9d3de', accent: '#1f6fd0', logo: logoOf('zoomlion') },
+      { id: 'dongfeng-flatbed', brand: '东风', model: '平板载货车', ratio: 3.10,
+        body: '#2f6fd0', body2: '#21539c', accent: '#e8edf4', logo: logoOf('dongfeng') },
+      { id: 'man-semi', brand: '曼恩', model: 'TGX 半挂', ratio: 3.85,
+        body: '#3f4a58', body2: '#2b3440', accent: '#c8102e',
+        logo: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#c8102e"/><text x="50" y="64" font-family="Arial,Helvetica,sans-serif" font-size="32" font-weight="900" text-anchor="middle" fill="#ffffff">MAN</text></svg>') },
+      { id: 'man-flatbed', brand: '曼恩', model: 'TGM 平板车', ratio: 3.05,
+        body: '#c8102e', body2: '#9c0c23', accent: '#e8edf4',
+        logo: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#c8102e"/><text x="50" y="64" font-family="Arial,Helvetica,sans-serif" font-size="32" font-weight="900" text-anchor="middle" fill="#ffffff">MAN</text></svg>') }
     ].forEach((x) => BRANDS.push(x));
   })();
 
@@ -1392,7 +1405,12 @@
     'scania-semi': { c: '瑞典', ch: '牵', d: '牵引车头拉着长长的挂车跑长途。' },
     'volvo-semi': { c: '瑞典', ch: '途', d: '半挂卡车跑长途，把货物送到远方。' },
     'daf-semi': { c: '荷兰', ch: '引', d: '牵引车像小火车头，带着挂车走。' },
-    'shacman-semi': { c: '中国', ch: '货', d: '半挂车一次能拉好多好多货物。' }
+    'shacman-semi': { c: '中国', ch: '货', d: '半挂车一次能拉好多好多货物。' },
+    'scania-bdouble': { c: '瑞典', ch: '双', d: '双挂卡车后面拖着两节挂车。' },
+    'zoomlion-semi-mixer': { c: '中国', ch: '拌', d: '搅拌罐转呀转，把水泥拌得匀匀的。' },
+    'dongfeng-flatbed': { c: '中国', ch: '台', d: '平板车有一块又长又平的大货台。' },
+    'man-semi': { c: '德国', ch: '重', d: '曼恩重卡力气大，专拉重货。' },
+    'man-flatbed': { c: '德国', ch: '曼', d: '曼恩平板车能装钢管和木板。' }
   };
 
   const brandById = {};
@@ -1999,7 +2017,7 @@
   let speechBusy = false;
   let speechNextAt = 0;
   let speechToken = 0;
-  const APP_VERSION = '2026-11-13.17';
+  const APP_VERSION = '2026-11-13.18';
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4209,6 +4227,11 @@
       'volvo-semi': { y: -0.290, w: 0.20 },
       'daf-semi': { y: -0.290, w: 0.20 },
       'shacman-semi': { y: -0.290, w: 0.20 },
+      'scania-bdouble': { y: -0.290, w: 0.20 },
+      'zoomlion-semi-mixer': { y: -0.290, w: 0.20 },
+      'dongfeng-flatbed': { y: -0.300, w: 0.24 },
+      'man-semi': { y: -0.290, w: 0.20 },
+      'man-flatbed': { y: -0.300, w: 0.24 },
       'xcmg-grader': { y: 0.320, w: 0.16 },
       'xcmg-backhoe': { y: 0.150, w: 0.18 },
       'zoomlion-bridge': { y: 0.380, w: 0.18 }
@@ -9646,10 +9669,173 @@
     }
   }
 
+  // 双挂卡车：牵引车 + 两节挂车
+  function paintDoubleSemi(b, w, h) {
+    const cabY = -h * 0.500;
+    const cabLen = Math.min(w * 1.020, h * 0.260);
+    const t1Y = cabY + cabLen + w * 0.050;
+    const t1H = h * 0.320;
+    const t2Y = t1Y + t1H + w * 0.080;
+    const t2H = h * 0.470 - t2Y;
+
+    // 车轮
+    for (const s of [-1, 1]) {
+      tire(s * w * 0.420, cabY + cabLen * 0.62, w * 0.150, h * 0.045);
+      tire(s * w * 0.420, t1Y + t1H - w * 0.070, w * 0.150, h * 0.038);
+      tire(s * w * 0.420, t2Y + h * 0.110, w * 0.150, h * 0.038);
+    }
+
+    // 两节挂车
+    for (const t of [[t1Y, t1H], [t2Y, t2H]]) {
+      ctx.fillStyle = bodyGrad(b, w);
+      rr(-w * 0.435, t[0], w * 0.870, t[1], w * 0.018);
+      ctx.fill();
+      outline(w, 0.24);
+
+      ctx.strokeStyle = 'rgba(0,0,0,.14)';
+      ctx.lineWidth = Math.max(0.8, w * 0.008);
+      for (let i = 1; i < 4; i++) {
+        const yy = t[0] + t[1] * (i / 4);
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.425, yy);
+        ctx.lineTo(w * 0.425, yy);
+        ctx.stroke();
+      }
+
+      // 尾部双开门
+      ctx.strokeStyle = 'rgba(0,0,0,.26)';
+      ctx.lineWidth = Math.max(1, w * 0.012);
+      ctx.beginPath();
+      ctx.moveTo(0, t[0] + t[1] - w * 0.070);
+      ctx.lineTo(0, t[0] + t[1]);
+      ctx.stroke();
+    }
+
+    // 连接杆
+    ctx.strokeStyle = '#2b2f36';
+    ctx.lineWidth = Math.max(2, w * 0.030);
+    ctx.beginPath();
+    ctx.moveTo(0, t1Y + t1H);
+    ctx.lineTo(0, t2Y);
+    ctx.stroke();
+
+    // 尾灯
+    for (const s of [-1, 1]) {
+      lamp(s > 0 ? w * 0.320 : -w * 0.420, h * 0.474, w * 0.100, h * 0.016, '#d4342c');
+    }
+
+    // 牵引车头
+    ctx.fillStyle = bodyGrad(b, w);
+    rr(-w * 0.420, cabY, w * 0.840, cabLen, w * 0.050);
+    ctx.fill();
+    outline(w, 0.28);
+    glassPanel(-w * 0.360, cabY + w * 0.060, w * 0.720, w * 0.150, w * 0.024);
+    for (const s of [-1, 1]) {
+      glassPanel(s > 0 ? w * 0.300 : -w * 0.410, cabY + w * 0.250, w * 0.110, w * 0.230, w * 0.020);
+    }
+    ctx.fillStyle = '#1d2229';
+    rr(-w * 0.330, cabY + w * 0.014, w * 0.660, w * 0.030, w * 0.008);
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#eaf4ff';
+      rr(s > 0 ? w * 0.300 : -w * 0.390, cabY + w * 0.042, w * 0.090, w * 0.020, w * 0.006);
+      ctx.fill();
+    }
+    sideMirror(-1, w, h, cabY + w * 0.240);
+    sideMirror(1, w, h, cabY + w * 0.240);
+  }
+
+  // 半挂搅拌车：牵引车 + 搅拌罐挂车
+  function paintSemiMixer(b, w, h) {
+    paintSemi(b, w, h);
+
+    const cy = h * 0.110;
+    const rx = w * 0.295, ry = h * 0.255;
+
+    // 罐体
+    const g = ctx.createLinearGradient(-rx, 0, rx, 0);
+    g.addColorStop(0, '#cfd6df');
+    g.addColorStop(0.30, '#ffffff');
+    g.addColorStop(0.62, '#eef2f6');
+    g.addColorStop(1, '#b9c3cf');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(0, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.22)';
+    ctx.lineWidth = Math.max(1, w * 0.010);
+    ctx.stroke();
+
+    // 罐体螺旋筋
+    ctx.strokeStyle = 'rgba(0,0,0,.14)';
+    ctx.lineWidth = Math.max(1, w * 0.012);
+    for (let i = -2; i <= 2; i++) {
+      const x = i * w * 0.100;
+      ctx.beginPath();
+      ctx.moveTo(x, cy - ry * 0.90);
+      ctx.quadraticCurveTo(x + w * 0.055, cy, x, cy + ry * 0.90);
+      ctx.stroke();
+    }
+
+    // 进料斗 + 尾部出料槽
+    ctx.fillStyle = '#5b6570';
+    ctx.beginPath();
+    ctx.arc(0, cy - ry - w * 0.020, w * 0.090, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = b.accent;
+    rr(-w * 0.130, cy + ry - w * 0.030, w * 0.260, w * 0.120, w * 0.014);
+    ctx.fill();
+  }
+
+  // 平板车：驾驶室 + 长平板货台 + 边柱
+  function paintFlatbedTruck(b, w, h) {
+    truckBase(w, h, [0.150, 0.300, 0.400]);
+
+    // 平板车架
+    ctx.fillStyle = '#5b6169';
+    rr(-w * 0.440, -h * 0.080, w * 0.880, h * 0.530, w * 0.014);
+    ctx.fill();
+    outline(w, 0.22);
+
+    // 木纹台面
+    ctx.fillStyle = '#b48a52';
+    rr(-w * 0.420, -h * 0.055, w * 0.840, h * 0.490, w * 0.008);
+    ctx.fill();
+
+    // 台面木纹
+    ctx.strokeStyle = 'rgba(0,0,0,.16)';
+    ctx.lineWidth = Math.max(0.8, w * 0.006);
+    for (let i = 1; i < 9; i++) {
+      const yy = -h * 0.055 + h * 0.490 * (i / 9);
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.410, yy);
+      ctx.lineTo(w * 0.410, yy);
+      ctx.stroke();
+    }
+
+    // 侧边立柱
+    ctx.fillStyle = '#3d434b';
+    for (const s of [-1, 1]) {
+      rr(s > 0 ? w * 0.410 : -w * 0.442, -h * 0.060, w * 0.034, h * 0.450, w * 0.008);
+      ctx.fill();
+    }
+
+    // 尾部防撞梁 + 尾灯
+    ctx.fillStyle = '#2b2f36';
+    rr(-w * 0.430, h * 0.454, w * 0.860, w * 0.030, w * 0.008);
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      lamp(s > 0 ? w * 0.310 : -w * 0.410, h * 0.470, w * 0.100, h * 0.016, '#d4342c');
+    }
+
+    truckCab(b, w, h);
+  }
+
   // 货车专属：吃掉的字卡变成箱装货物，堆在货斗上
   const CARGO_IDS = {
     'jiefang-semi': 1, 'auman-semi': 1, 'sitrak-flatbed': 1, 'cimc-container': 1,
     'scania-semi': 1, 'volvo-semi': 1, 'daf-semi': 1, 'shacman-semi': 1,
+    'scania-bdouble': 1, 'man-semi': 1, 'dongfeng-flatbed': 1, 'man-flatbed': 1,
     cannon: 1, f150: 1
   };
   const CARGO_AREA = {
@@ -9661,6 +9847,10 @@
     'volvo-semi': [-0.120, 0.420],
     'daf-semi': [-0.120, 0.420],
     'shacman-semi': [-0.120, 0.420],
+    'scania-bdouble': [0.180, 0.440],
+    'man-semi': [-0.120, 0.420],
+    'dongfeng-flatbed': [-0.040, 0.420],
+    'man-flatbed': [-0.040, 0.420],
     cannon: [0.060, 0.390],
     f150: [0.060, 0.390]
   };
@@ -10307,7 +10497,12 @@
     'scania-semi': paintSemi,
     'volvo-semi': paintCurtainSemi,
     'daf-semi': paintSemi,
-    'shacman-semi': paintSemi
+    'shacman-semi': paintSemi,
+    'scania-bdouble': paintDoubleSemi,
+    'zoomlion-semi-mixer': paintSemiMixer,
+    'dongfeng-flatbed': paintFlatbedTruck,
+    'man-semi': paintSemi,
+    'man-flatbed': paintFlatbedTruck
   };
 
   function drawCar() {
@@ -10631,6 +10826,8 @@
         'xcmg-grader': 'bulldozer', 'xcmg-backhoe': 'excavator', 'zoomlion-bridge': 'crane',
         'auman-semi': 'tanker', 'sitrak-flatbed': 'tanker', 'cimc-container': 'tanker',
         'scania-semi': 'tanker', 'volvo-semi': 'tanker', 'daf-semi': 'tanker', 'shacman-semi': 'tanker',
+        'scania-bdouble': 'tanker', 'zoomlion-semi-mixer': 'mixer', 'dongfeng-flatbed': 'tanker',
+        'man-semi': 'tanker', 'man-flatbed': 'tanker',
         'kinglong-open': 'sightbus', 'yutong-double': 'sightbus' }[b.id] || 'car');
       return;
     }
@@ -11283,7 +11480,8 @@
       'cannon', 'f150', 'cimc', 'tesla', 'jiefang-tanker', 'auman-tanker', 'sitrak-tanker', 'cimc-carrier',
       'sitrak-reefer', 'foton-express', 'jiefang-semi',
       'auman-semi', 'sitrak-flatbed', 'cimc-container',
-      'scania-semi', 'volvo-semi', 'daf-semi', 'shacman-semi'],
+      'scania-semi', 'volvo-semi', 'daf-semi', 'shacman-semi',
+      'scania-bdouble', 'zoomlion-semi-mixer', 'dongfeng-flatbed', 'man-semi', 'man-flatbed'],
     works: ['xcmg', 'cat320', 'shantui', 'xcmg-roller', 'xcmg-loader', 'sany-pump', 'heli',
       'zoomlion-garbage', 'foton-water', 'sany-crane', 'zoomlion-crane', 'liebherr-crane',
       'sany-excavator', 'xcmg-excavator', 'zoomlion-pump',
